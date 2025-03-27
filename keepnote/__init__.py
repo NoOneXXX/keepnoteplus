@@ -1,19 +1,3 @@
-# KeepNote
-# Copyright (c) 2008-2011 Matt Rasmussen
-# Author: Matt Rasmussen <rasmus@alum.mit.edu>
-#
-# This program is free software; you can redistribute it and/or modify
-# it under the terms of the GNU General Public License as published by
-# the Free Software Foundation; version 2 of the License.
-#
-# This program is distributed in the hope that it will be useful,
-# but WITHOUT ANY WARRANTY; without even the implied warranty of
-# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-# GNU General Public License for more details.
-#
-# You should have received a copy of the GNU General Public License
-# along with this program; if not, write to the Free Software
-# Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301, USA.
 
 # Python imports
 import os
@@ -26,8 +10,6 @@ import tempfile
 import traceback
 import uuid
 import zipfile
-
-from .mswin import screenshot
 
 try:
     import xml.etree.cElementTree as ET
@@ -52,14 +34,14 @@ import keepnote.trans
 from keepnote.trans import GETTEXT_DOMAIN
 import keepnote.xdg
 
-# Modules needed by builtin extensions (for py2exe discovery)
+
 import base64
 import html.entities
 from keepnote import tarfile
 import random
 import sgmllib
 import string
-import xml.dom.minidom
+
 import xml.sax.saxutils
 
 # Make pyflakes ignore these used modules
@@ -73,9 +55,25 @@ string
 tarfile
 xml
 
+# make sure py2exe finds win32com
+try:
+    import sys
+    import modulefinder
+    import win32com
+    for p in win32com.__path__[1:]:
+        modulefinder.AddPackagePath("win32com", p)
+    for extra in ["win32com.shell"]:
+        __import__(extra)
+        m = sys.modules[extra]
+        for p in m.__path__[1:]:
+            modulefinder.AddPackagePath(extra, p)
+except ImportError:
+    # no build path setup, no worries.
+    pass
 
+# 移除对 screenshot 的引用
 # try:
-#     from . import mswin.screenshot
+#     from . import screenshot  # type: ignore
 # except ImportError:
 #     pass
 
@@ -693,9 +691,8 @@ class KeepNote:
     def take_screenshot(self, filename):
         filename = ensure_unicode(filename, "utf-8")
         if get_platform() == "windows":
-            f, imgfile = tempfile.mkstemp(".bmp", prefix=os.path.basename(filename))
-            os.close(f)
-            mswin.screenshot.take_screenshot(imgfile)
+            # 禁用 Windows 上的截图功能
+            raise NotImplementedError("Screenshot functionality is not supported on Windows without pywin32.")
         else:
             screenshot = self.get_external_app("screen_shot")
             if not screenshot or not screenshot.prog:

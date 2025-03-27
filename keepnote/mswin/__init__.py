@@ -1,29 +1,9 @@
-
-# make sure py2exe finds win32com
-try:
-    import sys
-    import modulefinder
-    import win32com
-    for p in win32com.__path__[1:]:
-        modulefinder.AddPackagePath("win32com", p)
-    for extra in ["win32com.shell"]:
-        __import__(extra)
-        m = sys.modules[extra]
-        for p in m.__path__[1:]:
-            modulefinder.AddPackagePath(extra, p)
-except ImportError:
-    # no build path setup, no worries.
-    pass
-# keepnote/__init__.py
-try:
-    from . import screenshot  # type: ignore
-except ImportError:
-    pass
-# keepnote/mswin/__init__.py
 """
 MS Windows utilities for KeepNote
 """
-from .screenshot import take_screenshot
+# 移除对 screenshot 的导入
+# from .screenshot import take_screenshot
+
 try:
     import pywintypes
     import winerror
@@ -48,7 +28,6 @@ try:
 
 except:
     pass
-
 
 def get_my_documents():
     """Return the My Documents folder"""
@@ -78,7 +57,3 @@ def get_my_documents():
     #    encoding = "utf-8"
 
     return mydocs
-
-
-#def set_env(key, val):
-#    ctypes.windll.kernel32.SetEnvironmentVariableW(key, val)

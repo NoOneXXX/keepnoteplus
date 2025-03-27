@@ -1,4 +1,3 @@
-# keepnote/mswin/screenshot.py
 """
 KeepNote
 Screenshot utility for MS Windows

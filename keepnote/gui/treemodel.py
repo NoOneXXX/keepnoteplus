@@ -81,7 +81,7 @@ def iter_children(model, it):
         node = model.iter_next(node)
 
 
-class BaseTreeModel(Gtk.GenericTreeModel):
+class BaseTreeModel(GObject.Object, Gtk.TreeModel):
     """
     TreeModel that wraps a subset of a NoteBook
 
@@ -89,7 +89,7 @@ class BaseTreeModel(Gtk.GenericTreeModel):
     """
 
     def __init__(self, roots=[]):
-        super().__init__()
+        GObject.Object.__init__(self)
         self.set_property("leak-references", False)
 
         self._notebook = None

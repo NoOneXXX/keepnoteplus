@@ -266,7 +266,7 @@ class HelperAppsSection(Section):
         w.add(self.table)
 
         try:
-            self.icon = keepnote.gui.get_pixbuf(get_icon_filename(Gtk.STOCK_EXECUTE), size=(15, 15))
+            self.icon = keepnote.gui.get_pixbuf(get_icon_filename("system-run"), size=(15, 15))
         except:
             pass
 
@@ -439,13 +439,17 @@ class ExtensionsSection(Section):
 
         self.install_button = Gtk.Button(label="Install new extension")
         self.install_button.set_relief(Gtk.ReliefStyle.NONE)
-        self.install_button.modify_fg(Gtk.StateType.NORMAL, Gdk.Color(0, 0, 65535))
+        # Use CSS to set color
+        css_provider = Gtk.CssProvider()
+        css_provider.load_from_data(b"button { color: #0000ff; }")
+        context = self.install_button.get_style_context()
+        context.add_provider(css_provider, Gtk.STYLE_PROVIDER_PRIORITY_APPLICATION)
         self.install_button.connect("clicked", self._on_install)
         self.install_button.show()
         h.pack_start(self.install_button, False, True, 0)
 
         try:
-            self.icon = keepnote.gui.get_pixbuf(get_icon_filename(Gtk.STOCK_ADD), size=(15, 15))
+            self.icon = keepnote.gui.get_pixbuf(get_icon_filename("list-add"), size=(15, 15))
         except:
             pass
 
@@ -516,7 +520,11 @@ class ExtensionWidget(Gtk.EventBox):
         self.enabled = ext.is_enabled()
         self.ext = ext
 
-        self.modify_bg(Gtk.StateType.NORMAL, Gdk.Color(65535, 65535, 65535))
+        # Use CSS to set background color
+        css_provider = Gtk.CssProvider()
+        css_provider.load_from_data(b"eventbox { background-color: #ffffff; }")
+        context = self.get_style_context()
+        context.add_provider(css_provider, Gtk.STYLE_PROVIDER_PRIORITY_APPLICATION)
 
         frame = Gtk.Frame()
         frame.set_shadow_type(Gtk.ShadowType.OUT)
@@ -561,6 +569,11 @@ class ExtensionWidget(Gtk.EventBox):
         self.uninstall_button = Gtk.Button(label=_("Uninstall"))
         self.uninstall_button.set_relief(Gtk.ReliefStyle.NONE)
         self.uninstall_button.set_sensitive(app.can_uninstall(ext))
+        # Use CSS to set color
+        css_provider = Gtk.CssProvider()
+        css_provider.load_from_data(b"button { color: #0000ff; }")
+        context = self.uninstall_button.get_style_context()
+        context.add_provider(css_provider, Gtk.STYLE_PROVIDER_PRIORITY_APPLICATION)
         self.uninstall_button.show()
         h.pack_start(self.uninstall_button, False, True, 0)
 
@@ -670,7 +683,8 @@ class ApplicationOptionsDialog:
             it = None
 
         self._sections.append(section)
-        self.tabs.insert_page(section.frame, None)
+        # Corrected to use 3 arguments: child, tab_label, position
+        self.tabs.insert_page(section.frame, None, -1)
         section.frame.show()
         section.frame.queue_resize()
 
