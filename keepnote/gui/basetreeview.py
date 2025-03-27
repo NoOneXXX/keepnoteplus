@@ -3,31 +3,13 @@
     base class for treeview
 """
 
-#
-#  KeepNote
-#  Copyright (c) 2008-2011 Matt Rasmussen
-#  Author: Matt Rasmussen <rasmus@alum.mit.edu>
-#
-# This program is free software; you can redistribute it and/or modify
-# it under the terms of the GNU General Public License as published by
-# the Free Software Foundation; version 2 of the License.
-#
-# This program is distributed in the hope that it will be useful,
-# but WITHOUT ANY WARRANTY; without even the implied warranty of
-# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-# GNU General Public License for more details.
-#
-# You should have received a copy of the GNU General Public License
-# along with this program; if not, write to the Free Software
-# Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301, USA.
-#
 
 # python imports
 import urllib.parse
 import gi
 gi.require_version('Gtk', '3.0')  # Specify GTK 3.0
 # PyGObject imports for GTK 3/4
-from gi.repository import Gtk, Gdk, GLib
+from gi.repository import Gtk, Gdk, GObject, GObject
 
 # keepnote imports
 import keepnote
@@ -514,7 +496,7 @@ class KeepNoteBaseTreeView(Gtk.TreeView):
                     selection.select_path(path2)
 
         # restore scroll
-        GLib.idle_add(lambda: self.scroll_to_point(*self.__scroll))
+        GObject.idle_add(lambda: self.scroll_to_point(*self.__scroll))
 
         # resume emitting selection changes
         self.__suppress_sel = False
@@ -611,7 +593,7 @@ class KeepNoteBaseTreeView(Gtk.TreeView):
                 if len(path) > 1:
                     self.expand_to_path(path[:-1])
                 self.set_cursor(path, None)
-                GLib.idle_add(lambda: self.scroll_to_cell(path))
+                GObject.idle_add(lambda: self.scroll_to_cell(path))
         else:
             # unselect all nodes
             self.get_selection().unselect_all()
@@ -663,7 +645,7 @@ class KeepNoteBaseTreeView(Gtk.TreeView):
             except:
                 pass
 
-        GLib.idle_add(lambda: self.scroll_to_cell(path))
+        GObject.idle_add(lambda: self.scroll_to_cell(path))
 
     def on_editing_canceled(self, cellrenderer):
         """Callback for canceled of title editing"""
@@ -701,7 +683,7 @@ class KeepNoteBaseTreeView(Gtk.TreeView):
                                   self.rich_model.get_node_column_pos())
         if path is not None:
             self.set_cursor(path, None)
-            GLib.idle_add(lambda: self.scroll_to_cell(path))
+            GObject.idle_add(lambda: self.scroll_to_cell(path))
 
         self.emit("edit-node", node, attr, new_val)
 
@@ -954,7 +936,7 @@ class KeepNoteBaseTreeView(Gtk.TreeView):
 
         self._is_dragging = True
         self._drag_count = 0
-        GLib.timeout_add(200, self._on_drag_timer)
+        GObject.timeout_add(200, self._on_drag_timer)
 
     def _on_drag_motion(self, treeview, drag_context, x, y, eventtime,
                         stop_emit=True):
@@ -1183,28 +1165,28 @@ class KeepNoteBaseTreeView(Gtk.TreeView):
                  target_node.get_parent() == source_node.get_parent()))
 
 
-GLib.type_register(KeepNoteBaseTreeView)
-GLib.signal_new("goto-node", KeepNoteBaseTreeView, GLib.SIGNAL_RUN_LAST,
-                GLib.TYPE_NONE, (object,))
-GLib.signal_new("activate-node", KeepNoteBaseTreeView, GLib.SIGNAL_RUN_LAST,
-                GLib.TYPE_NONE, (object,))
-GLib.signal_new("delete-node", KeepNoteBaseTreeView, GLib.SIGNAL_RUN_LAST,
-                GLib.TYPE_NONE, (object,))
-GLib.signal_new("goto-parent-node", KeepNoteBaseTreeView,
-                GLib.SIGNAL_RUN_LAST, GLib.TYPE_NONE, ())
-GLib.signal_new("copy-clipboard", KeepNoteBaseTreeView,
-                GLib.SIGNAL_RUN_LAST, GLib.TYPE_NONE, ())
-GLib.signal_new("copy-tree-clipboard", KeepNoteBaseTreeView,
-                GLib.SIGNAL_RUN_LAST, GLib.TYPE_NONE, ())
-GLib.signal_new("cut-clipboard", KeepNoteBaseTreeView,
-                GLib.SIGNAL_RUN_LAST, GLib.TYPE_NONE, ())
-GLib.signal_new("paste-clipboard", KeepNoteBaseTreeView,
-                GLib.SIGNAL_RUN_LAST, GLib.TYPE_NONE, ())
-GLib.signal_new("select-nodes", KeepNoteBaseTreeView,
-                GLib.SIGNAL_RUN_LAST, GLib.TYPE_NONE, (object,))
-GLib.signal_new("edit-node", KeepNoteBaseTreeView,
-                GLib.SIGNAL_RUN_LAST, GLib.TYPE_NONE, (object, str, str))
-GLib.signal_new("drop-file", KeepNoteBaseTreeView,
-                GLib.SIGNAL_RUN_LAST, GLib.TYPE_NONE, (object, int, str))
-GLib.signal_new("error", KeepNoteBaseTreeView, GLib.SIGNAL_RUN_LAST,
-                GLib.TYPE_NONE, (str, object,))
+GObject.type_register(KeepNoteBaseTreeView)
+GObject.signal_new("goto-node", KeepNoteBaseTreeView, GObject.SIGNAL_RUN_LAST,
+                GObject.TYPE_NONE, (object,))
+GObject.signal_new("activate-node", KeepNoteBaseTreeView, GObject.SIGNAL_RUN_LAST,
+                GObject.TYPE_NONE, (object,))
+GObject.signal_new("delete-node", KeepNoteBaseTreeView, GObject.SIGNAL_RUN_LAST,
+                GObject.TYPE_NONE, (object,))
+GObject.signal_new("goto-parent-node", KeepNoteBaseTreeView,
+                GObject.SIGNAL_RUN_LAST, GObject.TYPE_NONE, ())
+GObject.signal_new("copy-clipboard", KeepNoteBaseTreeView,
+                GObject.SIGNAL_RUN_LAST, GObject.TYPE_NONE, ())
+GObject.signal_new("copy-tree-clipboard", KeepNoteBaseTreeView,
+                GObject.SIGNAL_RUN_LAST, GObject.TYPE_NONE, ())
+GObject.signal_new("cut-clipboard", KeepNoteBaseTreeView,
+                GObject.SIGNAL_RUN_LAST, GObject.TYPE_NONE, ())
+GObject.signal_new("paste-clipboard", KeepNoteBaseTreeView,
+                GObject.SIGNAL_RUN_LAST, GObject.TYPE_NONE, ())
+GObject.signal_new("select-nodes", KeepNoteBaseTreeView,
+                GObject.SIGNAL_RUN_LAST, GObject.TYPE_NONE, (object,))
+GObject.signal_new("edit-node", KeepNoteBaseTreeView,
+                GObject.SIGNAL_RUN_LAST, GObject.TYPE_NONE, (object, str, str))
+GObject.signal_new("drop-file", KeepNoteBaseTreeView,
+                GObject.SIGNAL_RUN_LAST, GObject.TYPE_NONE, (object, int, str))
+GObject.signal_new("error", KeepNoteBaseTreeView, GObject.SIGNAL_RUN_LAST,
+                GObject.TYPE_NONE, (str, object,))

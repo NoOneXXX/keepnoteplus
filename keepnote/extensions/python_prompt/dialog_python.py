@@ -1,50 +1,17 @@
-"""
 
-    KeepNote
-    Python Shell Dialog
-
-"""
-
-#
-#  KeepNote
-#  Copyright (c) 2008-2009 Matt Rasmussen
-#  Author: Matt Rasmussen <rasmus@alum.mit.edu>
-#
-# This program is free software; you can redistribute it and/or modify
-# it under the terms of the GNU General Public License as published by
-# the Free Software Foundation; version 2 of the License.
-#
-# This program is distributed in the hope that it will be useful,
-# but WITHOUT ANY WARRANTY; without even the implied warranty of
-# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-# GNU General Public License for more details.
-#
-# You should have received a copy of the GNU General Public License
-# along with this program; if not, write to the Free Software
-# Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301, USA.
-#
-
-# python imports
-import os
 import sys
-import io
+import gi
+gi.require_version('Gtk', '3.0')
+# PyGObject imports
+from gi.repository import Gtk, Gdk, Pango, GObject
 
-# pygtk imports
-import pygtk
-pygtk.require('2.0')
-import gtk
-import gtk.gdk
-import pango
-
-
-# keepnote imports
+# KeepNote imports
 import keepnote
 from keepnote.gui import Action
 
 
 def move_to_start_of_line(it):
-    """Move a TextIter it to the start of a paragraph"""
-    
+    """Move a TextIter to the start of a paragraph"""
     if not it.starts_line():
         if it.get_line() > 0:
             it.backward_line()
@@ -53,14 +20,14 @@ def move_to_start_of_line(it):
             it = it.get_buffer().get_start_iter()
     return it
 
+
 def move_to_end_of_line(it):
-    """Move a TextIter it to the start of a paragraph"""
+    """Move a TextIter to the start of a paragraph"""
     it.forward_line()
     return it
 
 
-class Stream (object):
-
+class Stream:
     def __init__(self, callback):
         self._callback = callback
 
@@ -71,10 +38,9 @@ class Stream (object):
         pass
 
 
+class PythonDialog:
+    """Python dialog for KeepNote using PyGObject (GTK 3)"""
 
-class PythonDialog (object):
-    """Python dialog"""
-    
     def __init__(self, main_window):
         self.main_window = main_window
         self.app = main_window.get_app()
@@ -82,160 +48,135 @@ class PythonDialog (object):
         self.outfile = Stream(self.output_text)
         self.errfile = Stream(lambda t: self.output_text(t, "error"))
 
-        self.error_tag = gtk.TextTag()
+        # Create text tags for styling
+        self.error_tag = Gtk.TextTag.new("error")
         self.error_tag.set_property("foreground", "red")
-        self.error_tag.set_property("weight", pango.WEIGHT_BOLD)
+        self.error_tag.set_property("weight", Pango.Weight.BOLD.value)
 
-        self.info_tag = gtk.TextTag()
+        self.info_tag = Gtk.TextTag.new("info")
         self.info_tag.set_property("foreground", "blue")
-        self.info_tag.set_property("weight", pango.WEIGHT_BOLD)
+        self.info_tag.set_property("weight", Pango.Weight.BOLD.value)
 
-    
     def show(self):
+        # Setup environment
+        self.env = {"app": self.app, "window": self.main_window, "info": self.print_info}
 
-        # setup environment
-        self.env = {"app": self.app,
-                    "window": self.main_window,
-                    "info": self.print_info}
-
-        # create dialog
-        self.dialog = gtk.Window(gtk.WINDOW_TOPLEVEL)
-        self.dialog.connect("delete-event", lambda d,r: self.dialog.destroy())
-        self.dialog.ptr = self
-        
+        # Create dialog
+        self.dialog = Gtk.Window(type=Gtk.WindowType.TOPLEVEL)
+        self.dialog.connect("delete-event", lambda d, r: self.dialog.destroy())
         self.dialog.set_default_size(400, 400)
+        self.dialog.ptr = self  # Store reference (unchanged from original)
 
-        self.vpaned = gtk.VPaned()
+        # Vertical paned layout
+        self.vpaned = Gtk.Paned(orientation=Gtk.Orientation.VERTICAL)
         self.dialog.add(self.vpaned)
         self.vpaned.set_position(200)
-        
-        # editor buffer
-        self.editor = gtk.TextView()
+
+        # Editor buffer
+        self.editor = Gtk.TextView()
         self.editor.connect("key-press-event", self.on_key_press_event)
-        f = pango.FontDescription("Courier New")
-        self.editor.modify_font(f)
-        sw = gtk.ScrolledWindow()
-        sw.set_policy(gtk.POLICY_AUTOMATIC, gtk.POLICY_AUTOMATIC)
-        sw.set_shadow_type(gtk.SHADOW_IN)
+        font_desc = Pango.FontDescription.from_string("Courier New")
+        self.editor.override_font(font_desc)
+        sw = Gtk.ScrolledWindow()
+        sw.set_policy(Gtk.PolicyType.AUTOMATIC, Gtk.PolicyType.AUTOMATIC)
+        sw.set_shadow_type(Gtk.ShadowType.IN)
         sw.add(self.editor)
-        self.vpaned.add1(sw)
-        
-        # output buffer
-        self.output = gtk.TextView()
-        self.output.set_wrap_mode(gtk.WRAP_WORD)
-        f = pango.FontDescription("Courier New")
-        self.output.modify_font(f)
-        sw = gtk.ScrolledWindow()
-        sw.set_policy(gtk.POLICY_AUTOMATIC, gtk.POLICY_AUTOMATIC)
-        sw.set_shadow_type(gtk.SHADOW_IN)
+        self.vpaned.pack1(sw, resize=True, shrink=False)
+
+        # Output buffer
+        self.output = Gtk.TextView()
+        self.output.set_wrap_mode(Gtk.WrapMode.WORD)
+        self.output.override_font(font_desc)
+        sw = Gtk.ScrolledWindow()
+        sw.set_policy(Gtk.PolicyType.AUTOMATIC, Gtk.PolicyType.AUTOMATIC)
+        sw.set_shadow_type(Gtk.ShadowType.IN)
         sw.add(self.output)
-        self.vpaned.add2(sw)
-        
-        self.output.get_buffer().tag_table.add(self.error_tag)
-        self.output.get_buffer().tag_table.add(self.info_tag)
+        self.vpaned.pack2(sw, resize=True, shrink=False)
 
+        # Add tags to output buffer's tag table
+        tag_table = self.output.get_buffer().get_tag_table()
+        tag_table.add(self.error_tag)
+        tag_table.add(self.info_tag)
+
+        # Show dialog
         self.dialog.show_all()
-
-
         self.output_text("Press Ctrl+Enter to execute. Ready...\n", "info")
-    
 
     def on_key_press_event(self, textview, event):
-        """Callback from key press event"""
-        
-        if (event.keyval == gtk.keysyms.Return and
-            event.state & gtk.gdk.CONTROL_MASK):
-            # execute
+        """Callback for key press events"""
+        keyval = event.keyval
+        state = event.state
+
+        if keyval == Gdk.KEY_Return and state & Gdk.ModifierType.CONTROL_MASK:
+            # Execute code on Ctrl+Enter
             self.execute_buffer()
             return True
 
-        if event.keyval == gtk.keysyms.Return:
-            # new line indenting
+        if keyval == Gdk.KEY_Return:
+            # New line indenting
             self.newline_indent()
             return True
 
+        return False
 
     def newline_indent(self):
         """Insert a newline and indent"""
-
         buf = self.editor.get_buffer()
-
-        it = buf.get_iter_at_mark(buf.get_insert())
-        start = it.copy()
-        start = move_to_start_of_line(start)
-        line = start.get_text(it)
-        indent = []
-        for c in line:
-            if c in " \t":
-                indent.append(c)
-            else:
-                break
-        buf.insert_at_cursor("\n" + "".join(indent))
-        
+        insert_mark = buf.get_insert()
+        it = buf.get_iter_at_mark(insert_mark)
+        start = move_to_start_of_line(it.copy())
+        line = buf.get_text(start, it, include_hidden_chars=False)
+        indent = "".join(c for c in line if c in " \t")
+        buf.insert_at_cursor("\n" + indent)
 
     def execute_buffer(self):
         """Execute code in buffer"""
-
         buf = self.editor.get_buffer()
-
         sel = buf.get_selection_bounds()
-        if len(sel) > 0:
-            # get selection
+
+        if sel:
             start, end = sel
             self.output_text("executing selection:\n", "info")
         else:
-            # get all text
             start = buf.get_start_iter()
             end = buf.get_end_iter()
             self.output_text("executing buffer:\n", "info")
 
-        # get text in selection/buffer
-        text = start.get_text(end)
-
-        # execute code
+        text = buf.get_text(start, end, include_hidden_chars=False)
         execute(text, self.env, self.outfile, self.errfile)
-
 
     def output_text(self, text, mode="normal"):
         """Output text to output buffer"""
-        
         buf = self.output.get_buffer()
-
-        # determine whether to follow
-        mark = buf.get_insert()
-        it = buf.get_iter_at_mark(mark)
+        insert_mark = buf.get_insert()
+        it = buf.get_iter_at_mark(insert_mark)
         follow = it.is_end()
 
-        # add output text
+        end_iter = buf.get_end_iter()
         if mode == "error":
-            buf.insert_with_tags(buf.get_end_iter(), text, self.error_tag)
+            buf.insert_with_tags(end_iter, text, self.error_tag)
         elif mode == "info":
-            buf.insert_with_tags(buf.get_end_iter(), text, self.info_tag)
+            buf.insert_with_tags(end_iter, text, self.info_tag)
         else:
-            buf.insert(buf.get_end_iter(), text)
-        
+            buf.insert(end_iter, text)
+
         if follow:
             buf.place_cursor(buf.get_end_iter())
-            self.output.scroll_mark_onscreen(mark)
-
+            self.output.scroll_to_mark(insert_mark, 0.0, True, 0.0, 1.0)
 
     def print_info(self):
-
+        """Print runtime information"""
         print("COMMON INFORMATION")
         print("==================")
         print()
-
         keepnote.print_runtime_info(sys.stdout)
-
         print("Open notebooks")
         print("--------------")
         print("\n".join(n.get_path() for n in self.app.iter_notebooks()))
-        
 
 
 def execute(code, vars, stdout, stderr):
-    """Execute user's python code"""
-
+    """Execute user's Python code"""
     __stdout = sys.stdout
     __stderr = sys.stderr
     sys.stdout = stdout
@@ -247,3 +188,13 @@ def execute(code, vars, stdout, stderr):
     sys.stdout = __stdout
     sys.stderr = __stderr
 
+
+# Ensure this file can be imported as an extension
+if __name__ == "__main__":
+    # Example usage (not typically run standalone)
+    from keepnote.gui import KeepNote
+    app = KeepNote()
+    win = app.new_window()
+    dialog = PythonDialog(win)
+    dialog.show()
+    Gtk.main()

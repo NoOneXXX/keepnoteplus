@@ -5,25 +5,6 @@
 
 """
 
-#
-#  KeepNote
-#  Copyright (c) 2008-2009 Matt Rasmussen
-#  Author: Matt Rasmussen <rasmus@alum.mit.edu>
-#
-# This program is free software; you can redistribute it and/or modify
-# it under the terms of the GNU General Public License as published by
-# the Free Software Foundation; version 2 of the License.
-#
-# This program is distributed in the hope that it will be useful,
-# but WITHOUT ANY WARRANTY; without even the implied warranty of
-# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-# GNU General Public License for more details.
-#
-# You should have received a copy of the GNU General Public License
-# along with this program; if not, write to the Free Software
-# Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301, USA.
-#
-
 
 # python imports
 import os, sys, shutil, time, re, traceback, uuid
@@ -999,8 +980,8 @@ g_notebook_pref_parser = xmlo.XmlObject(
         xmlo.Tag("quick_pick_icons", tags=[
             xmlo.TagMany("icon",
                 iterfunc=lambda s: list(range(len(s.quick_pick_icons))),
-                get=lambda (s,i),x:
-                    s.quick_pick_icons.append(x),
+                get=lambda s_i, x:
+                    s_i.quick_pick_icons.append(x),
                 set=lambda s_i: s_i[0].quick_pick_icons[s_i[1]])
         ])
     ]))

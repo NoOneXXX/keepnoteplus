@@ -73,10 +73,15 @@ class GeneralSection(Section):
         self.xml.add_from_file(get_resource("rc", "keepnote.glade"))
         self.xml.set_translation_domain(keepnote.GETTEXT_DOMAIN)
         self.frame = self.xml.get_object("general_frame")
-        self.xml.connect_signals(self)
+        # Manual signal connections
         default_notebook_button = self.xml.get_object("default_notebook_button")
-        default_notebook_button.connect("clicked", lambda w: on_browse(
-            self.dialog, _("Choose Default Notebook"), "", self.xml.get_object("default_notebook_entry")))
+        default_notebook_button.connect("clicked", self.on_default_notebook_button_clicked)
+
+        systray_check = self.xml.get_object("systray_check")
+        systray_check.connect("toggled", self.on_systray_check_toggled)
+
+        default_radio = self.xml.get_object("default_notebook_radio")
+        default_radio.connect("toggled", self.on_default_notebook_radio_changed)
 
     def on_default_notebook_radio_changed(self, radio):
         """Default notebook radio changed"""
@@ -88,6 +93,9 @@ class GeneralSection(Section):
         """The autosave option controls sensitivity of autosave time"""
         self.xml.get_object("autosave_entry").set_sensitive(widget.get_active())
         self.xml.get_object("autosave_label").set_sensitive(widget.get_active())
+
+    def on_default_notebook_button_clicked(self, widget):
+        on_browse(self.dialog, _("Choose Default Notebook"), "", self.xml.get_object("default_notebook_entry"))
 
     def on_systray_check_toggled(self, widget):
         """Systray option controls sensitivity of sub-options"""
@@ -309,13 +317,26 @@ class HelperAppsSection(Section):
                 app["prog"] = unicode_gtk(self.entries[key].get_text())
 
 class DatesSection(Section):
-    def __init__(self, key, dialog, app, label="", icon="time.png"):
+    def __init__(self, key, dialog, app, label="", icon=None):
         super().__init__(key, dialog, app, label, icon)
-        self.date_xml = Gtk.Builder()
-        self.date_xml.add_from_file(get_resource("rc", "keepnote.glade"))
-        self.date_xml.set_translation_domain(keepnote.GETTEXT_DOMAIN)
-        self.frame = self.date_xml.get_object("date_time_frame")
-        self.date_xml.connect_signals(self)
+        self.xml = Gtk.Builder()
+        try:
+            glade_file = get_resource("rc", "keepnote.glade")
+            print(f"Loading GLADE file for DatesSection: {glade_file}")
+            self.xml.add_from_file(glade_file)
+        except Exception as e:
+            print(f"Failed to load GLADE file for DatesSection: {e}")
+
+        self.frame = self.xml.get_object("dates_frame")
+        if self.frame is None:
+            print("Error: 'dates_frame' not found in GLADE file")
+            self.frame = Gtk.Frame(label=f"<b>{label}</b>")  # Fallback
+            self.frame.get_label_widget().set_use_markup(True)
+            self.frame.set_shadow_type(Gtk.ShadowType.NONE)
+            align = Gtk.Alignment()
+            align.set_padding(10, 0, 10, 0)
+            align.add(Gtk.Label(label="DatesSection Placeholder"))
+            self.frame.add(align)
 
     def load_options(self, app):
         for name in ["same_day", "same_month", "same_year", "diff_year"]:
@@ -583,26 +604,57 @@ class ExtensionWidget(Gtk.EventBox):
     def _on_enabled(self, ext):
         self.enabled = self.enable_check.get_active()
 
+
+# In keepnote/gui/dialog_app_options.py
+# Replace only the relevant methods; keep the rest as in your previous version
+
 class ApplicationOptionsDialog:
-    """Application options"""
     def __init__(self, app):
         self.app = app
         self.parent = None
         self._sections = []
 
         self.xml = Gtk.Builder()
-        self.xml.add_from_file(get_resource("rc", "keepnote.glade"))
+        glade_file = get_resource("rc", "keepnote.glade")
+        print(f"Loading GLADE file: {glade_file}")
+        try:
+            self.xml.add_from_file(glade_file)
+        except Exception as e:
+            raise Exception(f"Failed to load keepnote.glade: {str(e)}")
         self.xml.set_translation_domain(keepnote.GETTEXT_DOMAIN)
+
         self.dialog = self.xml.get_object("app_options_dialog")
+        if self.dialog is None:
+            raise ValueError("Could not find 'app_options_dialog' in keepnote.glade")
         self.dialog.connect("delete-event", self._on_delete_event)
+        print("Dialog children at init:", [child.get_name() for child in self.dialog.get_children()])
+
         self.tabs = self.xml.get_object("app_options_tabs")
-        self.xml.connect_signals({
-            "on_cancel_button_clicked": lambda w: self.on_cancel_button_clicked(),
-            "on_ok_button_clicked": lambda w: self.on_ok_button_clicked(),
-            "on_apply_button_clicked": lambda w: self.on_apply_button_clicked()
-        })
+        if self.tabs is None:
+            raise ValueError("Could not find 'app_options_tabs' in keepnote.glade")
+
+        # Manual signal connections with error checking
+        cancel_button = self.xml.get_object("cancel_button")
+        if cancel_button:
+            cancel_button.connect("clicked", self.on_cancel_button_clicked)
+        else:
+            print("Warning: 'cancel_button' not found in GLADE file")
+
+        ok_button = self.xml.get_object("ok_button")
+        if ok_button:
+            ok_button.connect("clicked", self.on_ok_button_clicked)
+        else:
+            print("Warning: 'ok_button' not found in GLADE file")
+
+        apply_button = self.xml.get_object("apply_button")
+        if apply_button:
+            apply_button.connect("clicked", self.on_apply_button_clicked)
+        else:
+            print("Warning: 'apply_button' not found in GLADE file")
 
         self.overview = self.xml.get_object("app_config_treeview")
+        if self.overview is None:
+            raise ValueError("Could not find 'app_config_treeview' in keepnote.glade")
         self.overview_store = Gtk.TreeStore(str, object, GdkPixbuf.Pixbuf)
         self.overview.set_model(self.overview_store)
         self.overview.connect("cursor-changed", self.on_overview_select)
@@ -617,39 +669,35 @@ class ApplicationOptionsDialog:
         column.add_attribute(cell_text, "text", 0)
 
         self.add_default_sections()
+        print("Dialog children after sections:", [child.get_name() for child in self.dialog.get_children()])
 
-    def show(self, parent, section=None):
-        self.parent = parent
-        self.dialog.set_transient_for(parent)
+    def add_section(self, section, parent=None):
+        if section.frame is None:
+            print(f"Warning: Section '{section.key}' has no frame; skipping")
+            return None
 
-        self.notebook_sections = [
-            self.add_section(NoteBookSection(f"notebook_{i}", self.dialog, self.app, notebook, notebook.get_title()), "notebooks")
-            for i, notebook in enumerate(self.app.iter_notebooks())
-        ]
+        size = (15, 15)
+        if parent:
+            path = self.get_section_path(parent)
+            it = self.overview_store.get_iter(path)
+        else:
+            it = None
 
-        self.extensions_ui = []
-        for ext in self.app.get_enabled_extensions():
-            if isinstance(ext, keepnote.gui.extension.Extension):
-                ext.on_add_options_ui(self)
-                self.extensions_ui.append(ext)
+        self._sections.append(section)
+        self.tabs.insert_page(section.frame, None, -1)
+        section.frame.show()
+        section.frame.queue_resize()
 
-        self.load_options(self.app)
-        self.dialog.show()
+        icon = section.icon
+        if icon is None:
+            icon = "note.png"
+        pixbuf = keepnote.gui.get_resource_pixbuf(icon, size=size) if isinstance(icon, str) else icon
 
-        if section:
-            try:
-                self.overview.set_cursor(self.get_section_path(section))
-            except:
-                pass
+        it = self.overview_store.append(it, [section.label, section, pixbuf])
+        path = self.overview_store.get_path(it)
+        self.overview.expand_to_path(path)
 
-    def finish(self):
-        for ext in self.extensions_ui:
-            if isinstance(ext, keepnote.gui.extension.Extension):
-                ext.on_remove_options_ui(self)
-        self.extensions_ui = []
-
-        for section in self.notebook_sections:
-            self.remove_section(section.key)
+        return section
 
     def add_default_sections(self):
         self.add_section(GeneralSection("general", self.dialog, self.app, keepnote.PROGRAM_NAME))
@@ -660,7 +708,8 @@ class ApplicationOptionsDialog:
         self.add_section(HelperAppsSection("helper_apps", self.dialog, self.app, _("Helper Applications")), "general")
         self.add_section(AllNoteBooksSection("notebooks", self.dialog, self.app, _("Notebook Options"), "folder.png"))
         self.add_section(ExtensionsSection("extensions", self.dialog, self.app, _("Extensions")))
-
+        # Debug: Check dialog children after adding sections
+        print("Dialog children after sections:", [child.get_name() for child in self.dialog.get_children()])
     def load_options(self, app):
         for section in self._sections:
             section.load_options(app)
@@ -752,6 +801,7 @@ class ApplicationOptionsDialog:
         self.dialog.hide()
         self.finish()
         return True
+
 
 if __name__ == "__main__":
     # Minimal test setup (requires a mock `app` object)
