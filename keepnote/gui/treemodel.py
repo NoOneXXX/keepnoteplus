@@ -1,9 +1,7 @@
-
 # PyGObject imports
 from gi import require_version
 require_version('Gtk', '3.0')
 from gi.repository import Gtk, GObject
-
 
 def get_path_from_node(model, node, node_col):
     """
@@ -12,40 +10,28 @@ def get_path_from_node(model, node, node_col):
     if node is None:
         return ()
 
-    # Determine root set
-    root_set = {}
-    child = model.iter_children(None)
-    i = 0
-    while child is not None:
-        root_set[model.get_value(child, node_col)] = i
-        child = model.iter_next(child)
-        i += 1
+    def find_iter(model, target_node, parent_iter=None):
+        """Recursively find the TreeIter for a given node"""
+        iter = model.iter_children(parent_iter)
+        while iter is not None:
+            current_node = model.get_value(iter, node_col)
+            if current_node == target_node:
+                return iter
+            # Recursively search children
+            child_iter = find_iter(model, target_node, iter)
+            if child_iter is not None:
+                return child_iter
+            iter = model.iter_next(iter)
+        return None
 
-    # Walk up parent path until root set
-    node_path = []
-    while node not in root_set:
-        node_path.append(node)
-        node = node.get_parent()
-        if node is None:
-            return None  # Node is not in the model
+    # Find the TreeIter for the target node
+    target_iter = find_iter(model, node)
+    if target_iter is None:
+        return None  # Node is not in the model
 
-    # Walk back down and record path
-    path = [root_set[node]]
-    it = model.get_iter(tuple(path))
-    for node in reversed(node_path):
-        child = model.iter_children(it)
-        i = 0
-        while child is not None:
-            if model.get_value(child, node_col) == node:
-                path.append(i)
-                it = child
-                break
-            child = model.iter_next(child)
-            i += 1
-        else:
-            raise Exception("bad model")
-
-    return tuple(path)
+    # Get the path from the TreeIter
+    path = model.get_path(target_iter)
+    return tuple(path)  # 转换为元组以保持兼容性
 
 
 class TreeModelColumn(object):
@@ -56,7 +42,6 @@ class TreeModelColumn(object):
         self.attr = attr
         self.get_value = get
 
-
 def iter_children(model, it):
     """Iterate through the children of a row (it)"""
     node = model.iter_children(it)
@@ -64,21 +49,17 @@ def iter_children(model, it):
         yield node
         node = model.iter_next(node)
 
-
-class BaseTreeModel(GObject.Object, Gtk.TreeModel):
+class BaseTreeModel(Gtk.TreeStore):
     """
     TreeModel that wraps a subset of a NoteBook
-
     The subset is defined by the self._roots list.
     """
-
     def __init__(self, roots=[]):
-        GObject.Object.__init__(self)
-        # Remove this line: self.set_property("leak-references", False)
+        super().__init__(object)  # 直接调用 Gtk.TreeStore 的 __init__，设置列类型为 object
 
         self._notebook = None
         self._roots = []
-        self._root_set = {}  # Added to initialize properly
+        self._root_set = {}
         self._master_node = None
         self._nested = True
 
@@ -163,9 +144,7 @@ class BaseTreeModel(GObject.Object, Gtk.TreeModel):
         return self._nested
 
     def clear(self):
-        """Clear all rows from model"""
-        for i in range(len(self._roots) - 1, -1, -1):
-            self.row_deleted((i,))
+        super().clear()  # 使用 TreeStore 的 clear 方法
         self._roots = []
         self._root_set = {}
 
@@ -186,14 +165,11 @@ class BaseTreeModel(GObject.Object, Gtk.TreeModel):
         index = len(self._roots)
         self._root_set[node] = index
         self._roots.append(node)
-        rowref = self.create_tree_iter(node)
-        self.row_inserted((index,), rowref)
+        rowref = super().append(None, [node])  # 使用 TreeStore 的 append
         self.row_has_child_toggled((index,), rowref)
-        self.row_has_child_toggled((index,), rowref)  # Double call preserved from original
 
     # Notebook callbacks
     def _on_node_changed(self, actions):
-        """Callback for when a node changes"""
         nodes = [a[1] for a in actions if a[0] in ("changed", "changed-recurse")]
         self.emit("node-changed-start", nodes)
 
@@ -205,137 +181,61 @@ class BaseTreeModel(GObject.Object, Gtk.TreeModel):
                 self.set_root_nodes(self._master_node.get_children())
             elif act == "changed-recurse":
                 try:
-                    path = self.on_get_path(node)
+                    path = get_path_from_node(self, node, self.get_node_column_pos())
                 except:
                     continue
-                rowref = self.create_tree_iter(node)
-                self.row_deleted(path)
-                self.row_inserted(path, rowref)
+                self.remove(self.get_iter(path))  # 删除旧节点
+                rowref = self.append(None, [node])  # 插入新节点
                 self.row_has_child_toggled(path, rowref)
             elif act == "added":
                 try:
-                    path = self.on_get_path(node)
+                    path = get_path_from_node(self, node, self.get_node_column_pos())
                 except:
                     continue
-                rowref = self.create_tree_iter(node)
-                self.row_inserted(path, rowref)
+                rowref = self.append(None, [node])
                 parent = node.get_parent()
                 if len(parent.get_children()) == 1:
-                    rowref2 = self.create_tree_iter(parent)
-                    self.row_has_child_toggled(path[:-1], rowref2)
+                    parent_path = get_path_from_node(self, parent, self.get_node_column_pos())
+                    rowref2 = self.get_iter(parent_path)
+                    self.row_has_child_toggled(parent_path, rowref2)
                 self.row_has_child_toggled(path, rowref)
-            elif act == "removed":
+            elif act == "act":
                 parent = action[1]
                 index = action[2]
                 try:
-                    parent_path = self.on_get_path(parent)
+                    parent_path = get_path_from_node(self, parent, self.get_node_column_pos())
                 except:
                     continue
                 path = parent_path + (index,)
-                self.row_deleted(path)
-                rowref = self.create_tree_iter(parent)
+                self.remove(self.get_iter(path))
+                rowref = self.get_iter(parent_path)
                 if len(parent.get_children()) == 0:
                     self.row_has_child_toggled(parent_path, rowref)
 
         self.emit("node-changed-end", nodes)
 
-    # Gtk.GenericTreeModel implementation
-    def on_get_flags(self):
-        """Returns the flags of this treemodel"""
-        return Gtk.TreeModelFlags.ITERS_PERSIST
-
-    def on_get_n_columns(self):
-        """Returns the number of columns in a treemodel"""
-        return len(self._columns)
-
-    def on_get_column_type(self, index):
-        """Returns the type of a column in the treemodel"""
-        return self._columns[index].type
-
+    # 可选：保留部分自定义方法
     def on_get_iter(self, path):
-        """Returns the node of a path"""
-        if path[0] >= len(self._roots):
+        try:
+            return self.get_iter(path)
+        except ValueError:
             return None
-        node = self._roots[path[0]]
-        for i in path[1:]:
-            children = node.get_children()
-            if i >= len(children):
-                raise ValueError()
-            node = children[i]
-        return node
 
-    def on_get_path(self, rowref):
-        """Returns the path of a rowref"""
-        if rowref is None:
-            return ()
-        path = []
-        node = rowref
-        while node not in self._root_set:
-            path.append(node.get_attr("order"))
-            node = node.get_parent()
-            if node is None:
-                raise Exception("treeiter is not part of model")
-        path.append(self._root_set[node])
-        return tuple(reversed(path))
+    def on_get_path(self, node):
+        return get_path_from_node(self, node, self.get_node_column_pos())
 
     def on_get_value(self, rowref, column):
-        """Returns a value from a row in the treemodel"""
-        return self.get_column(column).get_value(rowref)
-
-    def on_iter_next(self, rowref):
-        """Returns the next sibling of a rowref"""
-        parent = rowref.get_parent()
-        if parent is None or rowref in self._root_set:
-            n = self._root_set[rowref]
-            return self._roots[n + 1] if n < len(self._roots) - 1 else None
-        children = parent.get_children()
-        order = rowref.get_attr("order")
-        assert 0 <= order < len(children)
-        return children[order + 1] if order < len(children) - 1 else None
-
-    def on_iter_children(self, parent):
-        """Returns the first child of a treeiter"""
-        if parent is None:
-            return self._roots[0] if self._roots else None
-        return parent.get_children()[0] if self._nested and parent.get_children() else None
-
-    def on_iter_has_child(self, rowref):
-        """Returns True if treeiter has children"""
-        return self._nested and rowref.has_children()
-
-    def on_iter_n_children(self, rowref):
-        """Returns the number of children of a treeiter"""
-        if rowref is None:
-            return len(self._roots)
-        return len(rowref.get_children()) if self._nested else 0
-
-    def on_iter_nth_child(self, parent, n):
-        """Returns the n'th child of a treeiter"""
-        if parent is None:
-            return self._roots[n] if n < len(self._roots) else None
-        if not self._nested:
-            return None
-        children = parent.get_children()
-        return children[n] if n < len(children) else None
-
-    def on_iter_parent(self, child):
-        """Returns the parent of a treeiter"""
-        return None if child in self._root_set else child.get_parent()
-
+        return self.get_column(column).get_value(self.get_value(rowref, 0))
 
 GObject.type_register(BaseTreeModel)
 GObject.signal_new("node-changed-start", BaseTreeModel, GObject.SignalFlags.RUN_LAST, None, (object,))
 GObject.signal_new("node-changed-end", BaseTreeModel, GObject.SignalFlags.RUN_LAST, None, (object,))
 
-
 class KeepNoteTreeModel(BaseTreeModel):
     """
     TreeModel that wraps a subset of a NoteBook
-
     The subset is defined by the self._roots list.
     """
-
     def __init__(self, roots=[]):
         super().__init__(roots)
         self.fades = set()
-        # Note: Commented-out column initialization moved to treeviewer as per original comment

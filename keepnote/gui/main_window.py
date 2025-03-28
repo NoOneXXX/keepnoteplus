@@ -1,19 +1,3 @@
-# KeepNote
-# Copyright (c) 2008-2011 Matt Rasmussen
-# Author: Matt Rasmussen <rasmus@alum.mit.edu>
-#
-# This program is free software; you can redistribute it and/or modify
-# it under the terms of the GNU General Public License as published by
-# the Free Software Foundation; version 2 of the License.
-#
-# This program is distributed in the hope that it will be useful,
-# but WITHOUT ANY WARRANTY; without even the implied warranty of
-# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-# GNU General Public License for more details.
-#
-# You should have received a copy of the GNU General Public License
-# along with this program; if not, write to the Free Software
-# Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301, USA.
 
 # Python imports
 import os
@@ -264,6 +248,17 @@ class KeepNoteWindow(Gtk.Window):
     def load_preferences(self, first_open=False):
         p = self._app.pref
         window_size = p.get("window", "window_size", default=DEFAULT_WINDOW_SIZE)
+        print(f"window_size: {window_size} (type: {type(window_size)})")
+        if isinstance(window_size, str):
+            try:
+                width, height = map(int, window_size.replace(" ", "").split(","))
+                window_size = (width, height)
+            except (ValueError, TypeError) as e:
+                print(f"Error parsing window_size '{window_size}': {e}. Using default.")
+                window_size = DEFAULT_WINDOW_SIZE
+        if not isinstance(window_size, (tuple, list)) or len(window_size) != 2:
+            window_size = DEFAULT_WINDOW_SIZE
+        print(f"Parsed window_size: {window_size}")
         window_maximized = p.get("window", "window_maximized", default=True)
 
         self.setup_systray()

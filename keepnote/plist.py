@@ -177,50 +177,27 @@ def dumps(elm, indent=0):
     return s.getvalue()
 
 
-def dump_etree(elm):
-    if isinstance(elm, dict):
-        elm2 = ET.Element("dict")
-        for key, val in elm.items():
-            key2 = ET.Element("key")
-            key2.text = key
-            elm2.append(key2)
-            elm2.append(dump_etree(val))
-
-    elif isinstance(elm, (list, tuple)):
-        elm2 = ET.Element("array")
-        for item in elm:
-            elm2.append(dump_etree(item))
-
-    elif isinstance(elm, str):
-        elm2 = ET.Element("string")
-        elm2.text = elm
-
-    elif isinstance(elm, bool):
-        if elm:
-            elm2 = ET.Element("true")
+# In keepnote.plist
+def dump_etree(data, element=None):
+    if element is None:
+        element = ET.Element("dict")
+    # Serialize data into element
+    for key, value in data.items():
+        key_elem = ET.SubElement(element, "key")
+        key_elem.text = key
+        if isinstance(value, dict):
+            value_elem = ET.SubElement(element, "dict")
+            dump_etree(value, value_elem)
+        elif isinstance(value, list):
+            value_elem = ET.SubElement(element, "array")
+            for item in value:
+                if isinstance(item, dict):
+                    item_elem = ET.SubElement(value_elem, "dict")
+                    dump_etree(item, item_elem)
+                else:
+                    item_elem = ET.SubElement(value_elem, "string")
+                    item_elem.text = str(item)
         else:
-            elm2 = ET.Element("false")
-
-    elif isinstance(elm, int):
-        elm2 = ET.Element("integer")
-        elm2.text = str(elm)
-
-    elif isinstance(elm, float):
-        elm2 = ET.Element("real")
-        elm2.text = str(elm)
-
-    elif elm is None:
-        elm2 = ET.Element("null")
-
-    elif isinstance(elm, Data):
-        elm2 = ET.Element("data")
-        elm2.text = base64.encodestring(elm)
-
-    elif isinstance(elm, datetime.datetime):
-        raise Exception("not implemented")
-
-    else:
-        raise Exception("unknown data type '%s' for value '%s'" %
-                        (str(type(elm)), str(elm)))
-
-    return elm2
+            value_elem = ET.SubElement(element, "string")
+            value_elem.text = str(value)
+    return element

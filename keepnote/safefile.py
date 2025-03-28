@@ -7,14 +7,15 @@ import codecs
 import os
 import sys
 import tempfile
+import builtins
 
-def safe_open(filename, mode="r", tmp=None, codec=None):
+def open(filename, mode="r", tmp=None, codec=None):
     """
     Opens a file that writes to a temp location and replaces existing file
     on close.
 
     filename -- filename to open
-    mode     -- write mode (default: 'w')
+    mode     -- write mode (default: 'r')
     tmp      -- specify tempfile
     codec    -- preferred encoding
     """
@@ -29,14 +30,7 @@ def safe_open(filename, mode="r", tmp=None, codec=None):
     return stream
 
 class SafeFile:
-    """Safe file that writes to a temporary file before replacing the original file"""
-
     def __init__(self, filename, mode="r", tmp=None):
-        """
-        filename -- filename to open
-        mode     -- write mode (default: 'w')
-        tmp      -- specify tempfile
-        """
         # Set tempfile
         if "w" in mode and tmp is None:
             f, tmp = tempfile.mkstemp(".tmp", filename + "_", dir=".")
@@ -46,14 +40,13 @@ class SafeFile:
         self._filename = filename
         self._mode = mode
 
-        # Open the file using io.FileIO and BufferedWriter
-        if self._tmp:
-            self.file = open(self._tmp, mode, buffering=1)
-        else:
-            self.file = open(filename, mode, buffering=1)
+        # 打开文件时明确指定文本模式和编码
+        self.file = builtins.open(filename, mode, buffering=1, encoding="utf-8" if "b" not in mode else None)
 
     def write(self, data):
         """Write data to the file"""
+        if isinstance(data, bytes):
+            raise TypeError("SafeFile.write() expects str, not bytes")
         self.file.write(data)
 
     def read(self, size=-1):

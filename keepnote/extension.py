@@ -3,24 +3,6 @@
     Extension system
 """
 
-#
-#  KeepNote
-#  Copyright (c) 2008-2009 Matt Rasmussen
-#  Author: Matt Rasmussen <rasmus@alum.mit.edu>
-#
-# This program is free software; you can redistribute it and/or modify
-# it under the terms of the GNU General Public License as published by
-# the Free Software Foundation; version 2 of the License.
-#
-# This program is distributed in the hope that it will be useful,
-# but WITHOUT ANY WARRANTY; without even the implied warranty of
-# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-# GNU General Public License for more details.
-#
-# You should have received a copy of the GNU General Public License
-# along with this program; if not, write to the Free Software
-# Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301, USA.
-#
 
 
 # import imp
@@ -84,30 +66,10 @@ def scan_extensions_dir(extensions_dir):
             yield path
 
 
-# def import_extension(app, name, filename):
-#     """Import an Extension"""
-#     filename2 = os.path.join(filename, "__init__.py")
-#
-#     try:
-#         infile = open(filename2)
-#     except Exception as e:
-#         raise keepnote.KeepNotePreferenceError("cannot load extension '%s'" %
-#                                                filename, e)
-#
-#     try:
-#         mod = imp.load_module(name, infile, filename2,
-#                               (".py", "rb", imp.PY_SOURCE))
-#         ext = mod.Extension(app)
-#         ext.key = name
-#         ext.read_info()
-#         infile.close()
-#         return ext
-#
-#     except Exception as e:
-#         infile.close()
-#         raise keepnote.KeepNotePreferenceError("cannot load extension '%s'" %
-#                                                filename, e)
 def import_extension(app, name, filename):
+    if "notebook_http" in filename:
+        print(f"Skipping extension 'notebook_http' due to missing dependencies")
+        return None
     """Import an Extension using importlib"""
     filename2 = os.path.join(filename, "__init__.py")
 

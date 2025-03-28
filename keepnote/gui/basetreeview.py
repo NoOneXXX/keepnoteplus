@@ -10,7 +10,7 @@ import gi
 gi.require_version('Gtk', '3.0')  # Specify GTK 3.0
 # PyGObject imports for GTK 3/4
 from gi.repository import Gtk, Gdk, GObject, GObject
-
+from gi.repository import GdkPixbuf  # 新增这一行
 # keepnote imports
 import keepnote
 from keepnote import unicode_gtk
@@ -405,12 +405,12 @@ class KeepNoteBaseTreeView(Gtk.TreeView):
 
         # builtin column types
         if attr == self._attr_icon:
-            coltype = Gdk.Pixbuf
+            coltype = GdkPixbuf.Pixbuf  # 改为 GdkPixbuf.Pixbuf
             coltype_sort = None
             get = lambda node: get_node_icon(node, False,
                                              node in self.rich_model.fades)
         elif attr == self._attr_icon_open:
-            coltype = Gdk.Pixbuf
+            coltype = GdkPixbuf.Pixbuf  # 改为 GdkPixbuf.Pixbuf
             coltype_sort = None
             get = lambda node: get_node_icon(node, True,
                                              node in self.rich_model.fades)

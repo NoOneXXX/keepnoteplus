@@ -368,18 +368,21 @@ def write_attr(filename, nodeid, attr):
     """
     if isinstance(filename, str):
         out = safefile.open(filename, "w", codec="utf-8")
+    else:
+        out = filename  # 如果传入的是流，则直接使用
 
-    # Ensure nodeid is consistent if given.
+    # Ensure nodeid is consistent if given
     nodeid2 = attr.get('nodeid')
     if nodeid2:
         assert nodeid == nodeid2, (nodeid, nodeid2)
 
-    version = attr.get('version',
-                       keepnote.notebook.NOTEBOOK_FORMAT_VERSION)
-    out.write('<?xml version="1.0" encoding="UTF-8"?>\n'
-              '<node>\n'
-              '<version>%d</version>\n'
-              '<id>%s</id>\n' % (version, nodeid))
+    version = attr.get('version', keepnote.notebook.NOTEBOOK_FORMAT_VERSION)
+
+    # 确保所有写入数据为字符串
+    out.write('<?xml version="1.0" encoding="UTF-8"?>\n')
+    out.write('<node>\n')
+    out.write(f'<version>{version}</version>\n')  # 使用 f-string 确保字符串
+    out.write(f'<id>{nodeid}</id>\n')  # 确保 nodeid 是字符串
     plist.dump(attr, out, indent=2, depth=0)
     out.write('</node>\n')
 

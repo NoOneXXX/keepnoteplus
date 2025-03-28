@@ -1,19 +1,3 @@
-# KeepNote
-# Copyright (c) 2008-2011 Matt Rasmussen
-# Author: Matt Rasmussen <rasmus@alum.mit.edu>
-#
-# This program is free software; you can redistribute it and/or modify
-# it under the terms of the GNU General Public License as published by
-# the Free Software Foundation; version 2 of the License.
-#
-# This program is distributed in the hope that it will be useful,
-# but WITHOUT ANY WARRANTY; without even the implied warranty of
-# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-# GNU General Public License for more details.
-#
-# You should have received a copy of the GNU General Public License
-# along with this program; if not, write to the Free Software
-# Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301, USA.
 
 # PyGObject imports
 from gi import require_version
@@ -109,7 +93,8 @@ class KeepNoteTreeView(basetreeview.KeepNoteBaseTreeView):
             self._setup_columns()
 
             if root.get_attr("expanded", True):
-                self.expand_to_path((0,))
+                path = Gtk.TreePath.new_from_indices([0])  # 创建 Gtk.TreePath 对象
+                self.expand_to_path(path)
 
     def edit_node(self, node):
         path = treemodel.get_path_from_node(

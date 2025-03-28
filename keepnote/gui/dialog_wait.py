@@ -43,7 +43,7 @@ class WaitDialog:
         self._task.change_event.add(self._on_task_update)
 
         # Enable/disable cancel button
-        cancel_button = self.xml.get_object("cancel_button")
+        cancel_button = self.xml.get_object("wait_cancel_button")
         cancel_button.set_sensitive(cancel)
 
         # Show the dialog and start the task

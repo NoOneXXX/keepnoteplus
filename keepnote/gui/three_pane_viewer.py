@@ -161,11 +161,15 @@ class ThreePaneViewer(Viewer):
 
     def load_preferences(self, app_pref, first_open=False):
         p = app_pref.get("viewers", "three_pane_viewer", define=True)
+        vsash_pos = p.get("vsash_pos", DEFAULT_VSASH_POS)
+        hsash_pos = p.get("hsash_pos", DEFAULT_HSASH_POS)
+        print(f"vsash_pos: {vsash_pos} (type: {type(vsash_pos)})")
+        print(f"hsash_pos: {hsash_pos} (type: {type(hsash_pos)})")
         self.set_view_mode(p.get("view_mode", DEFAULT_VIEW_MODE))
         self._paned2.set_property("position-set", True)
         self._hpaned.set_property("position-set", True)
-        self._paned2.set_position(p.get("vsash_pos", DEFAULT_VSASH_POS))
-        self._hpaned.set_position(p.get("hsash_pos", DEFAULT_HSASH_POS))
+        self._paned2.set_position(int(vsash_pos))
+        self._hpaned.set_position(int(hsash_pos))
 
         self.listview.load_preferences(app_pref, first_open)
         try:

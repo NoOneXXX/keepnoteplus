@@ -809,6 +809,10 @@ class KeepNote:
     def _import_extension(self, entry):
         try:
             entry.ext = extension.import_extension(self, entry.get_key(), entry.filename)
+            # Check if the extension was successfully loaded
+            if entry.ext is None:
+                log_message(f"Extension '{entry.get_key()}' was not loaded (skipped or failed)\n")
+                return None  # Skip further processing for this extension
             entry.ext.type = entry.ext_type
             entry.ext.enabled.add(lambda e: self.on_extension_enabled(entry.ext, e))
             return entry.ext
@@ -819,6 +823,7 @@ class KeepNote:
     def _import_all_extensions(self):
         for entry in list(self._extensions.values()):
             if entry.ext is None:
+                log_message(f"Importing extension: {entry.get_key()} (filename: {entry.filename})\n")
                 self._import_extension(entry)
 
     def dependency_satisfied(self, dep):

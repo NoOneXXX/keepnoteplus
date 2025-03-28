@@ -5,25 +5,6 @@
 
 """
 
-#
-#  KeepNote
-#  Copyright (c) 2008-2011 Matt Rasmussen
-#  Author: Matt Rasmussen <rasmus@alum.mit.edu>
-#
-# This program is free software; you can redistribute it and/or modify
-# it under the terms of the GNU General Public License as published by
-# the Free Software Foundation; version 2 of the License.
-#
-# This program is distributed in the hope that it will be useful,
-# but WITHOUT ANY WARRANTY; without even the implied warranty of
-# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-# GNU General Public License for more details.
-#
-# You should have received a copy of the GNU General Public License
-# along with this program; if not, write to the Free Software
-# Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301, USA.
-#
-
 # python imports
 import mimetypes
 import os
@@ -50,7 +31,8 @@ import keepnote
 from keepnote.notebook.connection.fs import get_valid_unique_filename
 from keepnote.notebook.connection.fs import index as notebook_index
 from keepnote.notebook import sync
-
+import logging
+logging.basicConfig(filename="keepnote_debug.log", level=logging.DEBUG)
 # pyflakes import
 get_valid_unique_filename
 
@@ -667,13 +649,13 @@ class NoteBookNode (object):
 
     def set_payload(self, filename, new_filename=None):
         """Copy file into NoteBook directory"""
-
+        logging.debug(f"Loading notebook at: {path}")
         # determine new file name
         if new_filename is None:
             new_filename = os.path.basename(filename)
         new_filename = connection_fs.new_filename(
             self._conn, self._attr["nodeid"], new_filename, None)
-
+        logging.debug("Finished loading notebook")
         try:
             # attempt url parse
             parts = urllib.parse.urlparse(filename)

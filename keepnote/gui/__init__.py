@@ -233,8 +233,15 @@ class UIManager(Gtk.UIManager):
         super().__init__()
         self.connect("connect-proxy", self._on_connect_proxy)
         self.connect("disconnect-proxy", self._on_disconnect_proxy)
-
         self.force_stock = force_stock
+
+    def insert_action_group(self, action_group, pos=-1):
+        """Insert an action group, avoiding duplicates"""
+        existing_groups = [group.get_name() for group in self.get_action_groups()]
+        if action_group.get_name() not in existing_groups:
+            super().insert_action_group(action_group, pos)
+        else:
+            print(f"Action group '{action_group.get_name()}' already exists, skipping insertion")
 
     def _on_connect_proxy(self, uimanager, action, widget):
         """Callback for a widget entering management"""
@@ -331,16 +338,37 @@ class KeepNote(keepnote.KeepNote):
 
     def init_dialogs(self):
         from keepnote.gui import dialog_app_options
-        from keepnote.gui import dialog_find  # Assuming this exists
+        from keepnote.gui import dialog_node_icon  # 假设存在
 
         self.app_options_dialog = (
             keepnote.gui.dialog_app_options.ApplicationOptionsDialog(self))
         self.node_icon_dialog = (
             keepnote.gui.dialog_node_icon.NodeIconDialog(self))
 
+        # 验证对话框内容区域，确保只有一个子控件
+        # for dialog in (self.app_options_dialog, self.node_icon_dialog):
+        #     content_area = dialog.get_content_area()
+        #     children = content_area.get_children()
+        #     if len(children) > 1:
+        #         print(f"Warning: Dialog {dialog.get_title()} has multiple children: {children}")
+        #         for child in children[1:]:
+        #             content_area.remove(child)
+
     def set_lang(self):
         """Set language for application"""
         super().set_lang()
+
+    def parse_window_size(self,size_str):
+        """Parse window size string like '(1024, 600)' into a tuple of ints."""
+        try:
+            if not isinstance(size_str, str):
+                return (1024, 600)
+            size_str = size_str.strip("()")
+            width, height = map(int, size_str.split(","))
+            return (width, height)
+        except (ValueError, AttributeError):
+            print("Failed to parse window_size, using default (1024, 600)")
+            return (1024, 600)
 
     def load_preferences(self):
         """Load information from preferences"""
@@ -398,12 +426,10 @@ class KeepNote(keepnote.KeepNote):
         return self._windows
 
     def open_notebook(self, filename, window=None, task=None):
-        """Open notebook"""
         from keepnote.gui import dialog_update_notebook
 
         if isinstance(self._conns.get(filename),
                       keepnote.notebook.connection.fs.NoteBookConnectionFS):
-
             try:
                 version = notebooklib.get_notebook_version(filename)
             except Exception as e:
@@ -411,8 +437,7 @@ class KeepNote(keepnote.KeepNote):
                 return None
 
             if version < notebooklib.NOTEBOOK_FORMAT_VERSION:
-                dialog = dialog_update_notebook.UpdateNoteBookDialog(
-                    self, window)
+                dialog = dialog_update_notebook.UpdateNoteBookDialog(self, window)
                 if not dialog.show(filename, version=version, task=task):
                     self.error("Cannot open notebook (version too old)")
                     return None
@@ -533,8 +558,9 @@ class KeepNote(keepnote.KeepNote):
 
             if not self._auto_save_registered:
                 self._auto_save_registered = True
-                GLib.timeout_add(self.pref.get("autosave_time"),
-                                 self.auto_save)
+                # Convert autosave_time to int to ensure it's a number
+                autosave_time = int(self.pref.get("autosave_time", default=DEFAULT_AUTOSAVE_TIME))
+                GLib.timeout_add(autosave_time, self.auto_save)
         else:
             self._auto_saving = False
 
