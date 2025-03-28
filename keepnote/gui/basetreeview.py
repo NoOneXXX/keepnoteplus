@@ -114,11 +114,11 @@ class KeepNoteBaseTreeView(Gtk.TreeView):
         self.connect("row-collapsed", self._on_row_collapsed)
 
         # drag and drop state
-        self._is_dragging = False   # whether drag is in progress
+        self._is_dragging = False  # whether drag is in progress
         self._drag_count = 0
-        self._dest_row = None        # current drag destination
+        self._dest_row = None  # current drag destination
         self._reorder = REORDER_ALL  # enum determining the kind of reordering
-                                     # that is possible via drag and drop
+        # that is possible via drag and drop
         # region, defined by number of vertical pixels from top and bottom of
         # the treeview widget, where drag scrolling will occur
         self._drag_scroll_region = 30
@@ -138,19 +138,23 @@ class KeepNoteBaseTreeView(Gtk.TreeView):
         self.connect("drag-data-get", self._on_drag_data_get)
         self.connect("drag-data-received", self._on_drag_data_received)
 
+        # Create Gtk.TargetEntry objects for drag-and-drop
+        target_tree_move = Gtk.TargetEntry.new(*DROP_TREE_MOVE)
+        target_uri = Gtk.TargetEntry.new(*DROP_URI)
+
         # configure drag and drop events
         self.enable_model_drag_source(Gdk.ModifierType.BUTTON1_MASK,
-                                      [DROP_TREE_MOVE], Gdk.DragAction.MOVE)
+                                      [target_tree_move], Gdk.DragAction.MOVE)
         self.drag_source_set(Gdk.ModifierType.BUTTON1_MASK,
-                             [DROP_TREE_MOVE], Gdk.DragAction.MOVE)
-        self.enable_model_drag_dest([DROP_TREE_MOVE, DROP_URI],
+                             [target_tree_move], Gdk.DragAction.MOVE)
+        self.enable_model_drag_dest([target_tree_move, target_uri],
                                     Gdk.DragAction.MOVE |
                                     Gdk.DragAction.COPY |
                                     Gdk.DragAction.LINK)
 
         self.drag_dest_set(
             Gtk.DestDefaults.ALL,
-            [DROP_TREE_MOVE, DROP_URI],
+            [target_tree_move, target_uri],
             Gdk.DragAction.DEFAULT |
             Gdk.DragAction.MOVE |
             Gdk.DragAction.COPY |

@@ -11,6 +11,7 @@ import gi
 
 gi.require_version('Gtk', '3.0')
 gi.require_version('GLib', '2.0') # Specify GTK 3.0
+gi.require_version('Gdk', '3.0')  # Add this line
 from gi.repository import Gdk, Gtk, GLib
 from gi.repository import GdkPixbuf
 

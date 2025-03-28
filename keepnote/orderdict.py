@@ -3,25 +3,6 @@
     OrderDict module
 """
 
-#
-#  KeepNote
-#  Copyright (c) 2008-2011 Matt Rasmussen
-#  Author: Matt Rasmussen <rasmus@alum.mit.edu>
-#
-# This program is free software; you can redistribute it and/or modify
-# it under the terms of the GNU General Public License as published by
-# the Free Software Foundation; version 2 of the License.
-#
-# This program is distributed in the hope that it will be useful,
-# but WITHOUT ANY WARRANTY; without even the implied warranty of
-# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-# GNU General Public License for more details.
-#
-# You should have received a copy of the GNU General Public License
-# along with this program; if not, write to the Free Software
-# Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301, USA.
-#
-
 
 class OrderDict (dict):
     """
@@ -37,7 +18,7 @@ class OrderDict (dict):
                 dict.__setitem__(self, k, v)
         else:
             dict.__init__(self, *args, **kargs)
-            self._order = dict.keys(self)
+            self._order = list(dict.keys(self))  # Convert dict_keys to list
 
     # The following methods keep names in sync with dictionary keys
     def __setitem__(self, key, value):

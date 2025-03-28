@@ -30,7 +30,7 @@ if __name__ == '__main__':
         elif _cmd_options.server.startswith('eventlet'):
             import eventlet; eventlet.monkey_patch()
 
-import base64, cgi, email.utils, functools, hmac, imp, itertools, mimetypes,\
+import base64, cgi, email.utils, functools, hmac, itertools, mimetypes,\
         os, re, subprocess, sys, tempfile, threading, time, warnings
 
 from datetime import date as datedate, datetime, timedelta

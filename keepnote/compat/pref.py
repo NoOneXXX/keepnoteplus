@@ -330,7 +330,8 @@ class KeepNotePreferences:
         self._external_apps_lookup = {}
 
         # Read XML preference file
-        g_keepnote_pref_parser.read(self, filename)
+        with open(filename, "rb") as infile:
+            g_keepnote_pref_parser.read(self, infile)
 
 
 g_keepnote_pref_parser = xmlo.XmlObject(

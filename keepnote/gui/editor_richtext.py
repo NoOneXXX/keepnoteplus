@@ -1088,4 +1088,5 @@ class ComboToolAction(Gtk.Action):
     def __init__(self, name, label, tooltip, stock_id):
         super().__init__(name=name, label=label, tooltip=tooltip, stock_id=stock_id)
 
-ComboToolAction.set_tool_item_type(ComboToolItem)
+    def create_tool_item(self):
+        return ComboToolItem()

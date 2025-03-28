@@ -99,7 +99,10 @@ class IconMenu(Gtk.Menu):
     def add_icon(self, iconfile):
         """Add an icon to the menu"""
         child = Gtk.MenuItem()
-        child.remove(child.get_child())  # Remove default label
+        # Remove default label if it exists
+        default_child = child.get_child()
+        if default_child is not None:
+            child.remove(default_child)
         img = Gtk.Image()
         iconfile2 = lookup_icon_filename(self._notebook, iconfile)
         img.set_from_file(iconfile2)

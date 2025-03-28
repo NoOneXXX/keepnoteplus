@@ -66,7 +66,7 @@ class TabbedViewer(Viewer):
         self._tabs = Gtk.Notebook()
         self._tabs.show()
         self._tabs.set_show_border(False)
-        self._tabs.set_property("homogeneous", True)
+        # Remove this line: self._tabs.set_property("homogeneous", True)
         self._tabs.set_scrollable(True)
         self._tabs.connect("switch-page", self._on_switch_tab)
         self._tabs.connect("page-added", self._on_tab_added)

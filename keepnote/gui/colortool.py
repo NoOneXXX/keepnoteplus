@@ -1,6 +1,11 @@
 # Python 3 and PyGObject imports
 import gi
 gi.require_version('Gtk', '3.0')  # Specify GTK 3.0
+gi.require_version('PangoCairo', '1.0')  # Specify PangoCairo 1.0
+gi.require_version('Gdk', '3.0')  # Specify Gdk 3.0
+gi.require_version('GdkPixbuf', '2.0')  # Specify GdkPixbuf 2.0
+gi.require_version('Pango', '1.0')  # Specify Pango 1.0
+gi.require_version('GObject', '2.0')  # Specify GObject 2.0
 from gi.repository import Gtk, Gdk, GdkPixbuf, Pango, PangoCairo, GObject
 import cairo
 import keepnote

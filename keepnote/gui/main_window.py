@@ -91,9 +91,12 @@ class KeepNoteWindow(Gtk.Window):
         # Init main window
         self.set_title(keepnote.PROGRAM_NAME)
         self.set_default_size(*DEFAULT_WINDOW_SIZE)
-        self.set_icon_list(get_resource_pixbuf("keepnote-16x16.png"),
-                           get_resource_pixbuf("keepnote-32x32.png"),
-                           get_resource_pixbuf("keepnote-64x64.png"))
+        self.set_icon_list([
+            get_resource_pixbuf("keepnote-16x16.png"),
+            get_resource_pixbuf("keepnote-32x32.png"),
+            get_resource_pixbuf("keepnote-64x64.png")
+        ])
+        # ... other initialization code ...
 
         # Main window signals
         self.connect("error", lambda w, m, e, t: self.error(m, e, t))
@@ -129,10 +132,14 @@ class KeepNoteWindow(Gtk.Window):
         status_hbox = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=0)
         main_vbox.pack_start(status_hbox, False, True, 0)
 
+        # Status bar
         self.status_bar = Gtk.Statusbar()
         status_hbox.pack_start(self.status_bar, False, True, 0)
-        self.status_bar.set_has_resize_grip(False)
+        # Remove: self.status_bar.set_has_resize_grip(False)
         self.status_bar.set_size_request(300, -1)
+
+        # Set resize grip on the window (optional)
+        self.set_has_resize_grip(False)  # Note: Deprecated in GTK 3.14+
 
         self.stats_bar = Gtk.Statusbar()
         status_hbox.pack_start(self.stats_bar, True, True, 0)
