@@ -287,12 +287,22 @@ def get_win_env(key):
 def init_user_pref_dir(pref_dir=None, home=None):
     if pref_dir is None:
         pref_dir = get_user_pref_dir(home)
+    print(f"Initializing pref_dir: {pref_dir}")
     if not os.path.exists(pref_dir):
         os.makedirs(pref_dir, mode=0o700)
+        print(f"Created directory: {pref_dir}")
     pref_file = get_user_pref_file(pref_dir)
-    if not os.path.exists(pref_file):
-        with open(pref_file, "w", encoding="utf-8") as out:
-            out.write("<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n<keepnote>\n</keepnote>\n")
+    # Write default content if file doesn't exist OR is empty
+    if not os.path.exists(pref_file) or os.path.getsize(pref_file) == 0:
+        try:
+            with open(pref_file, "w", encoding="utf-8") as out:
+                out.write("<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n<keepnote>\n</keepnote>\n")
+            print(f"Created or updated pref_file: {pref_file}, size: {os.path.getsize(pref_file)} bytes")
+            if os.path.getsize(pref_file) == 0:
+                raise IOError("Failed to write content to preferences file")
+        except Exception as e:
+            print(f"Failed to create/update pref_file: {e}")
+            raise
     init_error_log(pref_dir)
     extension.init_user_extensions(pref_dir)
 
@@ -402,6 +412,7 @@ class KeepNotePreferences(Pref):
     def __init__(self, pref_dir=None, home=None):
         super().__init__()
         self._pref_dir = pref_dir or get_user_pref_dir(home)
+        self._tree = ET.ElementTree(ET.Element("keepnote"))  # Always start with valid tree
         self.changed = Listeners()
 
     def get_pref_dir(self):
@@ -409,42 +420,56 @@ class KeepNotePreferences(Pref):
 
     def read(self):
         pref_file = get_user_pref_file(self._pref_dir)
-        if not os.path.exists(pref_file):
+        print(f"Reading from: {pref_file}")
+        if not os.path.exists(pref_file) or os.path.getsize(pref_file) == 0:
+            print(
+                f"File missing or empty (exists: {os.path.exists(pref_file)}, size: {os.path.getsize(pref_file)} bytes)")
             try:
                 init_user_pref_dir(self._pref_dir)
-                self.write()
+                print(
+                    f"After init_user_pref_dir, file exists: {os.path.exists(pref_file)}, size: {os.path.getsize(pref_file)} bytes")
+                with open(pref_file, "r", encoding="utf-8") as f:
+                    content = f.read()
+                    print(f"File content after init: {repr(content)}")
             except Exception as e:
                 raise KeepNotePreferenceError("Cannot initialize preferences", e)
+        else:
+            print(f"File exists, size: {os.path.getsize(pref_file)} bytes")
+            with open(pref_file, "r", encoding="utf-8") as f:
+                content = f.read()
+                print(f"File content before parsing: {repr(content)}")
         try:
             tree = ET.ElementTree(file=pref_file)
             root = tree.getroot()
-            if root.tag == "keepnote":
-                p = root.find("pref")
-                if p is None:
-                    import keepnote.compat.pref as old
-                    old_pref = old.KeepNotePreferences()
-                    old_pref.read(pref_file)
-                    data = old_pref._get_data()
-                else:
-                    d = p.find("dict")
-                    data = plist.load_etree(d) if d is not None else orderdict.OrderDict()
-                self._data.clear()
-                self._data.update(data)
+            print(f"Parsed root tag: {root.tag}")
+            if root.tag != "keepnote":
+                raise KeepNotePreferenceError("Invalid root tag in preferences file", None)
+            p = root.find("pref")
+            if p is None:
+                import keepnote.compat.pref as old
+                old_pref = old.KeepNotePreferences()
+                old_pref.read(pref_file)
+                data = old_pref._get_data()
+            else:
+                d = p.find("dict")
+                data = plist.load_etree(d) if d is not None else orderdict.OrderDict()
+            self._data.clear()
+            self._data.update(data)
         except Exception as e:
             raise KeepNotePreferenceError("Cannot read preferences", e)
         self.changed.notify()
 
     def write(self):
-        try:
-            if not os.path.exists(self._pref_dir):
-                init_user_pref_dir(self._pref_dir)
-            with safefile.open(get_user_pref_file(self._pref_dir), "w", codec="utf-8") as out:
-                out.write('<?xml version="1.0" encoding="UTF-8"?>\n<keepnote>\n<pref>\n')
-                plist.dump(self._data, out, indent=4, depth=4)
-                out.write('</pref>\n</keepnote>\n')
-        except (IOError, OSError) as e:
-            log_error(e, sys.exc_info()[2])
-            raise NoteBookError("Cannot save preferences", e)
+        pref_file = get_user_pref_file(self._pref_dir)
+        if self._tree is None or self._tree.getroot() is None:
+            self._tree = ET.ElementTree(ET.Element("keepnote"))
+        # Add current preferences to the tree before writing
+        root = self._tree.getroot()
+        pref_elem = ET.SubElement(root, "pref")
+        dict_elem = ET.SubElement(pref_elem, "dict")
+        plist.dump_etree(self._data, dict_elem)
+        with open(pref_file, "w", encoding="utf-8") as out:
+            self._tree.write(out, encoding="unicode", xml_declaration=True)
 
 # Application class
 class ExtensionEntry:
