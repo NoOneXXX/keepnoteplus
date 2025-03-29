@@ -75,8 +75,17 @@ class PythonDialog:
         # Editor buffer
         self.editor = Gtk.TextView()
         self.editor.connect("key-press-event", self.on_key_press_event)
-        font_desc = Pango.FontDescription.from_string("Courier New")
-        self.editor.override_font(font_desc)
+        # Set font using CSS
+        css_provider = Gtk.CssProvider()
+        css_provider.load_from_data(b"""
+        * {
+            font-family: "Courier New", monospace;
+            font-size: 10pt;
+        }
+        """)
+        context = self.editor.get_style_context()
+        context.add_provider(css_provider, Gtk.STYLE_PROVIDER_PRIORITY_APPLICATION)
+
         sw = Gtk.ScrolledWindow()
         sw.set_policy(Gtk.PolicyType.AUTOMATIC, Gtk.PolicyType.AUTOMATIC)
         sw.set_shadow_type(Gtk.ShadowType.IN)
@@ -86,7 +95,17 @@ class PythonDialog:
         # Output buffer
         self.output = Gtk.TextView()
         self.output.set_wrap_mode(Gtk.WrapMode.WORD)
-        self.output.override_font(font_desc)
+        # Set font using CSS
+        css_provider = Gtk.CssProvider()
+        css_provider.load_from_data(b"""
+        * {
+            font-family: "Courier New", monospace;
+            font-size: 10pt;
+        }
+        """)
+        context = self.output.get_style_context()
+        context.add_provider(css_provider, Gtk.STYLE_PROVIDER_PRIORITY_APPLICATION)
+
         sw = Gtk.ScrolledWindow()
         sw.set_policy(Gtk.PolicyType.AUTOMATIC, Gtk.PolicyType.AUTOMATIC)
         sw.set_shadow_type(Gtk.ShadowType.IN)

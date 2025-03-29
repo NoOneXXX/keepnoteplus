@@ -378,12 +378,12 @@ def write_attr(filename, nodeid, attr):
 
     version = attr.get('version', keepnote.notebook.NOTEBOOK_FORMAT_VERSION)
 
-    # 确保所有写入数据为字符串
+    # Write XML as strings
     out.write('<?xml version="1.0" encoding="UTF-8"?>\n')
     out.write('<node>\n')
-    out.write(f'<version>{version}</version>\n')  # 使用 f-string 确保字符串
-    out.write(f'<id>{nodeid}</id>\n')  # 确保 nodeid 是字符串
-    plist.dump(attr, out, indent=2, depth=0)
+    out.write(f'<version>{str(version)}</version>\n')  # Ensure version is a string
+    out.write(f'<id>{str(nodeid)}</id>\n')  # Ensure nodeid is a string
+    plist.dump(attr, out, indent=2, depth=0)  # plist.dump should handle strings
     out.write('</node>\n')
 
     if isinstance(filename, str):

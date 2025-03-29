@@ -289,8 +289,19 @@ def execute_command(app, argv):
         win = app.new_window()
 
         if len(app.get_windows()) == 1 and options.default_notebook:
-            for path in app.pref.get("default_notebooks", default=[]):
-                win.open_notebook(path, open_here=False)
+            default_notebooks = app.pref.get("default_notebooks", default=[])
+            notebook_loaded = False
+            for path in reversed(default_notebooks):
+                if os.path.exists(path):
+                    print(f"Loading default notebook: {path}")
+                    if win.open_notebook(path, open_here=False):
+                        notebook_loaded = True
+                        break
+                else:
+                    print(f"Skipping invalid default notebook path: {path}")
+
+            if not notebook_loaded:
+                print("No valid default notebooks found to load.")
 
     return True
 

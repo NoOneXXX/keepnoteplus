@@ -140,7 +140,8 @@ class Extension(extension.Extension):
                 raise AttributeError("Could not find 'main_menu_bar' in Glade file")
         except AttributeError:
             # Fallback if builder is not directly accessible
-            self.app.error("Cannot access main_menu_bar; extension UI setup failed")
+            # self.app.error("Cannot access main_menu_bar; extension UI setup failed")
+            print("Cannot access main_menu_bar; extension UI setup failed")
             return
 
         file_menu = None

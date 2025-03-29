@@ -153,7 +153,9 @@ def ensure_unicode(text, encoding="utf-8"):
 def unicode_gtk(text):
     if text is None:
         return None
-    return str(text, "utf-8")
+    if isinstance(text, bytes):
+        return text.decode("utf-8", errors="replace")
+    return text  # Already a string in Python 3
 
 def print_error_log_header(out=None):
     out = out or sys.stderr
@@ -252,15 +254,12 @@ def get_user_extensions_data_dir(pref_dir=None, home=None):
 def get_system_extensions_dir():
     return os.path.join(BASEDIR, "extensions")
 
-def get_user_documents(home=None):
-    p = get_platform()
-    if p in ("unix", "darwin"):
-        if home is None:
-            home = get_home()
-        return home
-    elif p == "windows":
-        return str(mswin.get_my_documents(), FS_ENCODING)
-    return ""
+def get_user_documents():
+    """Returns the path to the user's documents folder"""
+    if get_platform() == "windows":
+        return mswin.get_my_documents()
+    else:
+        return os.path.expanduser("~/Documents")
 
 def get_user_pref_file(pref_dir=None, home=None):
     if pref_dir is None:
@@ -889,6 +888,8 @@ class KeepNote:
 
     def get_extension_data_dir(self, extkey):
         return os.path.join(get_user_extensions_data_dir(self.get_pref_dir()), extkey)
+
+
 
 def unzip(filename, outdir):
     with zipfile.ZipFile(filename) as extzip:

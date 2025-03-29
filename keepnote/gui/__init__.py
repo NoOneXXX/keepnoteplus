@@ -9,6 +9,8 @@ import sys
 import threading
 import gi
 
+from keepnote.sqlitedict import logger
+
 gi.require_version('Gtk', '3.0')
 gi.require_version('GLib', '2.0') # Specify GTK 3.0
 gi.require_version('Gdk', '3.0')  # Add this line
@@ -192,8 +194,6 @@ def update_file_preview(file_chooser, preview):
     file_chooser.set_preview_widget_active(have_preview)
 
 class FileChooserDialog(Gtk.FileChooserDialog):
-    """File Chooser Dialog with a persistent path"""
-
     def __init__(self, title=None, parent=None,
                  action=Gtk.FileChooserAction.OPEN,
                  buttons=None, backend=None,
@@ -204,8 +204,18 @@ class FileChooserDialog(Gtk.FileChooserDialog):
 
         # Add buttons manually since buttons parameter is deprecated
         if buttons:
-            for label, response in buttons:
-                self.add_button(label, response)
+            # Handle both flat tuple and list of tuples
+            if isinstance(buttons, (list, tuple)) and len(buttons) > 0:
+                # Check if the first element is a tuple (list of tuples format)
+                if isinstance(buttons[0], (list, tuple)):
+                    for label, response in buttons:
+                        self.add_button(label, response)
+                else:
+                    # Handle flat tuple format (label1, response1, label2, response2, ...)
+                    for i in range(0, len(buttons), 2):
+                        label = buttons[i]
+                        response = buttons[i + 1]
+                        self.add_button(label, response)
 
         self._app = app
         self._persistent_path = persistent_path
@@ -433,7 +443,8 @@ class KeepNote(keepnote.KeepNote):
             try:
                 version = notebooklib.get_notebook_version(filename)
             except Exception as e:
-                self.error(f"Could not load notebook '{filename}'.", e, sys.exc_info()[2])
+                print(f"print this error infos {e}")
+                self.error(f"Could not load notebook test '{filename}'.", e, sys.exc_info()[2])
                 return None
 
             if version < notebooklib.NOTEBOOK_FORMAT_VERSION:
@@ -481,11 +492,13 @@ class KeepNote(keepnote.KeepNote):
             return None
 
         except NoteBookError as e:
-            self.error(f"Could not load notebook '{filename}'.", e, task.exc_info()[2])
+            self.error(f"Could not load notebook first'{filename}'.", e, task.exc_info()[2])
             return None
 
         except Exception as e:
-            self.error(f"Could not load notebook '{filename}'.", e, task.exc_info()[2])
+            # self.error(f"Could not load notebook second'{filename}'.", e, task.exc_info()[2])
+            # self.error(f"Could not load notebook 文件名字'{filename}'.")
+            logger.error(f"没有发现这个文件的名字{filename}")
             return None
 
         self._init_notebook(notebook)
@@ -651,8 +664,10 @@ class KeepNote(keepnote.KeepNote):
         dialog = FileChooserDialog(
             title=_("Attach File..."), parent=parent_window,
             action=Gtk.FileChooserAction.OPEN,
-            buttons=(_("Cancel"), Gtk.ResponseType.CANCEL,
-                     _("Attach"), Gtk.ResponseType.OK),
+            buttons=[
+                (_("Cancel"), Gtk.ResponseType.CANCEL),
+                (_("Attach"), Gtk.ResponseType.OK)
+            ],
             app=self,
             persistent_path="attach_file_path")
         dialog.set_default_response(Gtk.ResponseType.OK)
@@ -793,7 +808,7 @@ class KeepNote(keepnote.KeepNote):
                     if isinstance(ext, keepnote.gui.extension.Extension):
                         ext.on_new_window(window)
                 except Exception as e:
-                    log_error(e, sys.exc_info()[2])
+                    log_error(f"看看这里弹出的是啥'.",e, sys.exc_info()[2])
 
     def install_extension(self, filename):
         """Install a new extension"""
@@ -814,3 +829,4 @@ class KeepNote(keepnote.KeepNote):
                              _("Uninstall Successful"))
                 return True
         return False
+

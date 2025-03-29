@@ -5,7 +5,7 @@
 
   <!-- Main Application Window -->
   <object class="GtkWindow" id="main_window">
-    <property name="visible">True</property>
+    <property name="visible">False</property>
     <property name="can-focus">False</property>
     <property name="title" translatable="yes">KeepNote</property>
     <property name="default-width">800</property>
@@ -16,6 +16,109 @@
         <property name="can-focus">False</property>
         <property name="orientation">vertical</property>
         <child>
+          <!-- 添加 main_menu_bar -->
+          <object class="GtkMenuBar" id="main_menu_bar">
+            <property name="visible">True</property>
+            <property name="can-focus">False</property>
+            <child>
+              <object class="GtkMenuItem" id="menu_file">
+                <property name="visible">True</property>
+                <property name="can-focus">False</property>
+                <property name="label" translatable="yes">_File</property>
+                <property name="use-underline">True</property>
+                <child type="submenu">
+                  <object class="GtkMenu" id="menu_file_menu">
+                    <property name="visible">True</property>
+                    <property name="can-focus">False</property>
+                    <child>
+                      <object class="GtkMenuItem" id="new_notebook">
+                        <property name="visible">True</property>
+                        <property name="can-focus">False</property>
+                        <property name="label" translatable="yes">New Notebook</property>
+                        <property name="use-underline">True</property>
+                      </object>
+                    </child>
+                    <child>
+                      <object class="GtkMenuItem" id="open_notebook">
+                        <property name="visible">True</property>
+                        <property name="can-focus">False</property>
+                        <property name="label" translatable="yes">Open Notebook...</property>
+                        <property name="use-underline">True</property>
+                      </object>
+                    </child>
+                    <child>
+                      <object class="GtkMenuItem" id="save_notebook">
+                        <property name="visible">True</property>
+                        <property name="can-focus">False</property>
+                        <property name="label" translatable="yes">Save</property>
+                        <property name="use-underline">True</property>
+                      </object>
+                    </child>
+                    <child>
+                      <object class="GtkMenuItem" id="close_notebook">
+                        <property name="visible">True</property>
+                        <property name="can-focus">False</property>
+                        <property name="label" translatable="yes">Close</property>
+                        <property name="use-underline">True</property>
+                      </object>
+                    </child>
+                    <child>
+                      <object class="GtkSeparatorMenuItem" id="file_separator1">
+                        <property name="visible">True</property>
+                        <property name="can-focus">False</property>
+                      </object>
+                    </child>
+                    <child>
+                      <object class="GtkMenuItem" id="quit">
+                        <property name="visible">True</property>
+                        <property name="can-focus">False</property>
+                        <property name="label" translatable="yes">Quit</property>
+                        <property name="use-underline">True</property>
+                      </object>
+                    </child>
+                  </object>
+                </child>
+              </object>
+            </child>
+            <child>
+              <object class="GtkMenuItem" id="menu_edit">
+                <property name="visible">True</property>
+                <property name="can-focus">False</property>
+                <property name="label" translatable="yes">_Edit</property>
+                <property name="use-underline">True</property>
+                <child type="submenu">
+                  <object class="GtkMenu" id="menu_edit_menu">
+                    <property name="visible">True</property>
+                    <property name="can-focus">False</property>
+                    <child>
+                      <object class="GtkMenuItem" id="undo">
+                        <property name="visible">True</property>
+                        <property name="can-focus">False</property>
+                        <property name="label" translatable="yes">Undo</property>
+                        <property name="use-underline">True</property>
+                      </object>
+                    </child>
+                    <child>
+                      <object class="GtkMenuItem" id="redo">
+                        <property name="visible">True</property>
+                        <property name="can-focus">False</property>
+                        <property name="label" translatable="yes">Redo</property>
+                        <property name="use-underline">True</property>
+                      </object>
+                    </child>
+                  </object>
+                </child>
+              </object>
+            </child>
+            <!-- 可以根据需要添加其他菜单，如 View、Insert 等 -->
+          </object>
+          <packing>
+            <property name="expand">False</property>
+            <property name="fill">False</property>
+            <property name="position">0</property>
+          </packing>
+        </child>
+        <child>
           <object class="GtkLabel" id="placeholder_label">
             <property name="visible">True</property>
             <property name="can-focus">False</property>
@@ -24,7 +127,7 @@
           <packing>
             <property name="expand">True</property>
             <property name="fill">True</property>
-            <property name="position">0</property>
+            <property name="position">1</property>
           </packing>
         </child>
       </object>
@@ -477,7 +580,6 @@
             <property name="can-focus">False</property>
             <property name="orientation">vertical</property>
             <property name="spacing">6</property>
-            <!-- Placeholder content; expand as needed -->
             <child>
               <object class="GtkLabel" id="look_and_feel_placeholder">
                 <property name="visible">True</property>
@@ -511,7 +613,6 @@
             <property name="can-focus">False</property>
             <property name="orientation">vertical</property>
             <property name="spacing">6</property>
-            <!-- Placeholder content; expand as needed -->
             <child>
               <object class="GtkLabel" id="language_placeholder">
                 <property name="visible">True</property>
@@ -545,7 +646,6 @@
             <property name="can-focus">False</property>
             <property name="orientation">vertical</property>
             <property name="spacing">6</property>
-            <!-- Placeholder content; expand as needed -->
             <child>
               <object class="GtkLabel" id="dates_placeholder">
                 <property name="visible">True</property>
@@ -579,7 +679,6 @@
             <property name="can-focus">False</property>
             <property name="orientation">vertical</property>
             <property name="spacing">6</property>
-            <!-- Placeholder content; expand as needed -->
             <child>
               <object class="GtkLabel" id="editor_placeholder">
                 <property name="visible">True</property>
@@ -613,7 +712,6 @@
             <property name="can-focus">False</property>
             <property name="orientation">vertical</property>
             <property name="spacing">6</property>
-            <!-- Placeholder content; expand as needed -->
             <child>
               <object class="GtkLabel" id="helper_apps_placeholder">
                 <property name="visible">True</property>
@@ -647,7 +745,6 @@
             <property name="can-focus">False</property>
             <property name="orientation">vertical</property>
             <property name="spacing">6</property>
-            <!-- Placeholder content; expand as needed -->
             <child>
               <object class="GtkLabel" id="notebooks_placeholder">
                 <property name="visible">True</property>
@@ -681,7 +778,6 @@
             <property name="can-focus">False</property>
             <property name="orientation">vertical</property>
             <property name="spacing">6</property>
-            <!-- Placeholder content; expand as needed -->
             <child>
               <object class="GtkLabel" id="extensions_placeholder">
                 <property name="visible">True</property>
@@ -694,81 +790,81 @@
       </object>
     </child>
   </object>
-  
- <!-- Wait Dialog -->
-<object class="GtkDialog" id="wait_dialog">
-  <property name="visible">False</property>
-  <property name="can-focus">False</property>
-  <property name="title" translatable="yes">Please Wait</property>
-  <property name="type-hint">dialog</property>
-  <property name="transient-for">main_window</property>
-  <child>
-    <object class="GtkBox" id="wait_vbox">
-      <property name="visible">True</property>
-      <property name="can-focus">False</property>
-      <property name="orientation">vertical</property>
-      <property name="spacing">6</property>
-      <child>
-        <object class="GtkLabel" id="wait_text_label">
-          <property name="visible">True</property>
-          <property name="can-focus">False</property>
-          <property name="label" translatable="yes">Loading...</property>
-          <property name="halign">center</property>
-        </object>
-        <packing>
-          <property name="expand">False</property>
-          <property name="fill">True</property>
-          <property name="position">0</property>
-        </packing>
-      </child>
-      <child>
-        <object class="GtkProgressBar" id="wait_progressbar">
-          <property name="visible">True</property>
-          <property name="can-focus">False</property>
-          <property name="hexpand">True</property>
-        </object>
-        <packing>
-          <property name="expand">True</property>
-          <property name="fill">True</property>
-          <property name="position">1</property>
-        </packing>
-      </child>
-      <child>
-        <object class="GtkButton" id="wait_cancel_button">
-          <property name="visible">True</property>
-          <property name="can-focus">True</property>
-          <property name="receives-default">True</property>
-          <property name="halign">end</property>
-          <child>
-            <object class="GtkBox" id="wait_cancel_button_box">
-              <property name="visible">True</property>
-              <property name="can-focus">False</property>
-              <property name="orientation">horizontal</property>
-              <property name="spacing">4</property>
-              <child>
-                <object class="GtkImage" id="wait_cancel_button_image">
-                  <property name="visible">True</property>
-                  <property name="can-focus">False</property>
-                  <property name="icon-name">gtk-cancel</property>
-                </object>
-              </child>
-              <child>
-                <object class="GtkLabel" id="wait_cancel_button_label">
-                  <property name="visible">True</property>
-                  <property name="can-focus">False</property>
-                  <property name="label" translatable="yes">Cancel</property>
-                </object>
-              </child>
-            </object>
-          </child>
-        </object>
-        <packing>
-          <property name="expand">False</property>
-          <property name="fill">False</property>
-          <property name="position">2</property>
-        </packing>
-      </child>
-    </object>
-  </child>
-</object>
+
+  <!-- Wait Dialog -->
+  <object class="GtkDialog" id="wait_dialog">
+    <property name="visible">False</property>
+    <property name="can-focus">False</property>
+    <property name="title" translatable="yes">Please Wait</property>
+    <property name="type-hint">dialog</property>
+    <property name="transient-for">main_window</property>
+    <child>
+      <object class="GtkBox" id="wait_vbox">
+        <property name="visible">True</property>
+        <property name="can-focus">False</property>
+        <property name="orientation">vertical</property>
+        <property name="spacing">6</property>
+        <child>
+          <object class="GtkLabel" id="wait_text_label">
+            <property name="visible">True</property>
+            <property name="can-focus">False</property>
+            <property name="label" translatable="yes">Loading...</property>
+            <property name="halign">center</property>
+          </object>
+          <packing>
+            <property name="expand">False</property>
+            <property name="fill">True</property>
+            <property name="position">0</property>
+          </packing>
+        </child>
+        <child>
+          <object class="GtkProgressBar" id="wait_progressbar">
+            <property name="visible">True</property>
+            <property name="can-focus">False</property>
+            <property name="hexpand">True</property>
+          </object>
+          <packing>
+            <property name="expand">True</property>
+            <property name="fill">True</property>
+            <property name="position">1</property>
+          </packing>
+        </child>
+        <child>
+          <object class="GtkButton" id="wait_cancel_button">
+            <property name="visible">True</property>
+            <property name="can-focus">True</property>
+            <property name="receives-default">True</property>
+            <property name="halign">end</property>
+            <child>
+              <object class="GtkBox" id="wait_cancel_button_box">
+                <property name="visible">True</property>
+                <property name="can-focus">False</property>
+                <property name="orientation">horizontal</property>
+                <property name="spacing">4</property>
+                <child>
+                  <object class="GtkImage" id="wait_cancel_button_image">
+                    <property name="visible">True</property>
+                    <property name="can-focus">False</property>
+                    <property name="icon-name">gtk-cancel</property>
+                  </object>
+                </child>
+                <child>
+                  <object class="GtkLabel" id="wait_cancel_button_label">
+                    <property name="visible">True</property>
+                    <property name="can-focus">False</property>
+                    <property name="label" translatable="yes">Cancel</property>
+                  </object>
+                </child>
+              </object>
+            </child>
+          </object>
+          <packing>
+            <property name="expand">False</property>
+            <property name="fill">False</property>
+            <property name="position">2</property>
+          </packing>
+        </child>
+      </object>
+    </child>
+  </object>
 </interface>

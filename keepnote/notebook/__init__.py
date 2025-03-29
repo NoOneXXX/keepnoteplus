@@ -216,9 +216,13 @@ def read_data_as_plain_text(infile):
 
 def get_notebook_version(filename):
     """Read the version of a notebook from its preference file"""
-
     if os.path.isdir(filename):
         filename = get_pref_file(filename)
+
+    # Check if the file exists before attempting to read it
+    if not os.path.exists(filename):
+        keepnote.log_message(f"Notebook preference file '{filename}' not found. Assuming default version {NOTEBOOK_FORMAT_VERSION}.\n")
+        return NOTEBOOK_FORMAT_VERSION
 
     try:
         tree = ET.ElementTree(file=filename)

@@ -280,7 +280,7 @@ class KeepNoteWindow(Gtk.Window):
             self.stick()
         else:
             self.unstick()
-
+        # 加载最近一次打开的笔记本
         self._recent_notebooks = p.get("recent_notebooks", default=[])
         self.set_recent_notebooks_menu(self._recent_notebooks)
 
@@ -314,9 +314,18 @@ class KeepNoteWindow(Gtk.Window):
         def make_func(filename):
             return lambda w: self.open_notebook(filename)
 
-        for i, notebook in enumerate(recent_notebooks):
-            item = Gtk.MenuItem(label=f"{i+1}. {make_filename(notebook)}")
+        # 只添加有效的笔记本路径
+        valid_notebooks = [notebook for notebook in recent_notebooks if os.path.exists(notebook)]
+        for i, notebook in enumerate(valid_notebooks):
+            item = Gtk.MenuItem(label=f"{i + 1}. {make_filename(notebook)}")
             item.connect("activate", make_func(notebook))
+            item.show()
+            menu.append(item)
+
+        # 如果没有有效的笔记本，显示一个占位符
+        if not valid_notebooks:
+            item = Gtk.MenuItem(label=_("(No recent notebooks)"))
+            item.set_sensitive(False)
             item.show()
             menu.append(item)
 
@@ -331,8 +340,10 @@ class KeepNoteWindow(Gtk.Window):
         dialog = FileChooserDialog(
             _("New Notebook"), self,
             action=Gtk.FileChooserAction.SAVE,
-            buttons=(_("Cancel"), Gtk.ResponseType.CANCEL,
-                     _("New"), Gtk.ResponseType.OK),
+            buttons=[
+                (_("Cancel"), Gtk.ResponseType.CANCEL),
+                (_("New"), Gtk.ResponseType.OK)
+            ],
             app=self._app,
             persistent_path="new_notebook_path")
         response = dialog.run()

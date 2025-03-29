@@ -1,59 +1,34 @@
-"""
-MS Windows utilities for KeepNote
-"""
-# 移除对 screenshot 的导入
-# from .screenshot import take_screenshot
-
-try:
-    import pywintypes
-    import winerror
-    from win32com.shell import shell, shellcon
-    import win32api
-    import win32gui
-    import win32con
-    import win32ui
-
-    import ctypes.windll.kernel32
-
-    # pyflakes ignore
-    pywintypes
-    winerror
-    shell
-    shellcon
-    win32api
-    win32gui
-    win32con
-    win32ui
-    ctypes
-
-except:
-    pass
+import os
+import winreg  # 导入 winreg 标准库
 
 def get_my_documents():
-    """Return the My Documents folder"""
-    # See:
-    # http://msdn.microsoft.com/en-us/library/windows/desktop/bb776887%28v=vs.85%29.aspx#mydocs  # nopep8
-    # http://msdn.microsoft.com/en-us/library/bb762494%28v=vs.85%29.aspx#csidl_personal  # nopep8
-
+    """Returns path to My Documents folder on Windows"""
     try:
-        df = shell.SHGetDesktopFolder()
-        pidl = df.ParseDisplayName(
-            0, None, "::{450d8fba-ad25-11d0-98a8-0800361b1103}")[1]
-    except pywintypes.com_error as e:
-        if e.hresult == winerror.E_INVALIDARG:
-            # This error occurs when the My Documents virtual folder
-            # is not available below the Desktop virtual folder in the
-            # file system.  This may be the case if it has been made
-            # unavailable using a Group Policy setting.  See
-            # http://technet.microsoft.com/en-us/library/cc978354.aspx.
-            pidl = shell.SHGetSpecialFolderLocation(0, shellcon.CSIDL_PERSONAL)
-        else:
-            raise
-    mydocs = shell.SHGetPathFromIDList(pidl)
+        # 打开注册表键
+        key = winreg.OpenKey(
+            winreg.HKEY_CURRENT_USER,
+            r"Software\Microsoft\Windows\CurrentVersion\Explorer\Shell Folders"
+        )
+        # 读取 "Personal" 值（对应 "My Documents" 或 "Documents" 路径）
+        path, _ = winreg.QueryValueEx(key, "Personal")
+        winreg.CloseKey(key)
+        if path and os.path.exists(path):
+            return path
+    except (OSError, FileNotFoundError, WindowsError):
+        # 如果注册表读取失败，回退到其他方法
+        pass
 
-    # TODO: may need to handle window-specific encoding here.
-    #encoding = locale.getdefaultlocale()[1]
-    #if encoding is None:
-    #    encoding = "utf-8"
+    # 回退到使用环境变量 USERPROFILE
+    user_profile = os.getenv("USERPROFILE")
+    if user_profile:
+        default_path = os.path.join(user_profile, "Documents")
+        if os.path.exists(default_path):
+            return default_path
 
-    return mydocs
+    # 最后回退到默认路径
+    default_path = os.path.join(os.path.expanduser("~"), "Documents")
+    if os.path.exists(default_path):
+        return default_path
+
+    # 如果所有方法都失败，返回用户主目录
+    return os.path.expanduser("~")

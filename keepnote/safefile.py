@@ -8,7 +8,6 @@ import os
 import sys
 import tempfile
 import builtins
-
 def open(filename, mode="r", tmp=None, codec=None):
     """
     Opens a file that writes to a temp location and replaces existing file
@@ -19,18 +18,12 @@ def open(filename, mode="r", tmp=None, codec=None):
     tmp      -- specify tempfile
     codec    -- preferred encoding
     """
-    stream = SafeFile(filename, mode, tmp)
-
-    if "b" not in mode and codec:
-        if "r" in mode:
-            stream = codecs.getreader(codec)(stream)
-        elif "w" in mode:
-            stream = codecs.getwriter(codec)(stream)
-
+    # If codec is specified, let SafeFile handle it directly via encoding
+    stream = SafeFile(filename, mode, tmp, codec=codec)
     return stream
 
 class SafeFile:
-    def __init__(self, filename, mode="r", tmp=None):
+    def __init__(self, filename, mode="r", tmp=None, codec=None):
         # Set tempfile
         if "w" in mode and tmp is None:
             f, tmp = tempfile.mkstemp(".tmp", filename + "_", dir=".")
@@ -40,8 +33,14 @@ class SafeFile:
         self._filename = filename
         self._mode = mode
 
-        # 打开文件时明确指定文本模式和编码
-        self.file = builtins.open(filename, mode, buffering=1, encoding="utf-8" if "b" not in mode else None)
+        # Use the specified codec for encoding, default to utf-8 for text mode
+        encoding = codec if codec else ("utf-8" if "b" not in mode else None)
+        self.file = builtins.open(
+            self._tmp if self._tmp else filename,
+            mode,
+            buffering=1,
+            encoding=encoding
+        )
 
     def write(self, data):
         """Write data to the file"""
