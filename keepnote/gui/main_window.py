@@ -372,13 +372,13 @@ class KeepNoteWindow(Gtk.Window):
             dialog.set_current_folder(path)
 
         file_filter = Gtk.FileFilter()
-        file_filter.add_pattern("*.nbk")
-        file_filter.set_name(_("Notebook (*.nbk)"))
+        file_filter.add_pattern("*")
+        file_filter.set_name(_("All files (*.*)"))
         dialog.add_filter(file_filter)
 
         file_filter = Gtk.FileFilter()
-        file_filter.add_pattern("*")
-        file_filter.set_name(_("All files (*.*)"))
+        file_filter.add_pattern("*.nbk")
+        file_filter.set_name(_("Notebook (*.nbk)"))
         dialog.add_filter(file_filter)
 
         response = dialog.run()
@@ -959,6 +959,7 @@ class KeepNoteWindow(Gtk.Window):
             self._tray_icon.uimanager.add_ui_from_string(s)
         self.setup_menus(self._tray_icon.uimanager)
         return self._tray_icon.uimanager.get_widget('/statusicon_menu')
+
 
 
 

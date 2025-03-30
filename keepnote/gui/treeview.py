@@ -1,13 +1,12 @@
-
 # PyGObject imports
 from gi import require_version
 require_version('Gtk', '3.0')
-from gi.repository import Gtk, Gdk, GLib
+from gi.repository import Gtk, Gdk, GLib, GdkPixbuf
 
 # KeepNote imports
 from keepnote.gui import treemodel
 from keepnote.gui import basetreeview
-
+from keepnote.gui.icons import get_node_icon
 
 class KeepNoteTreeView(basetreeview.KeepNoteBaseTreeView):
     """
@@ -19,7 +18,9 @@ class KeepNoteTreeView(basetreeview.KeepNoteBaseTreeView):
 
         self._notebook = None
 
-        self.set_model(treemodel.KeepNoteTreeModel())
+        # 使用自定义模型
+        self.model = treemodel.KeepNoteTreeModel()
+        self.set_model(self.model)
 
         # Treeview signals
         self.connect("key-release-event", self.on_key_released)
@@ -30,7 +31,7 @@ class KeepNoteTreeView(basetreeview.KeepNoteBaseTreeView):
 
         # Tree style
         self.set_headers_visible(False)
-        self.set_property("enable-tree-lines", True)  # GTK+ 3 supports this property
+        self.set_property("enable-tree-lines", True)
 
         self._setup_columns()
         self.set_sensitive(False)
@@ -41,18 +42,32 @@ class KeepNoteTreeView(basetreeview.KeepNoteBaseTreeView):
         if self._notebook is None:
             return
 
-        # Create the treeview column
+        # 创建树视图列
         self.column = Gtk.TreeViewColumn()
         self.column.set_clickable(False)
         self.append_column(self.column)
 
-        self._add_model_column("title")
-        self._add_title_render(self.column, "title")
+        # 添加图标和标题渲染器
+        renderer_pixbuf = Gtk.CellRendererPixbuf()
+        renderer_text = Gtk.CellRendererText()
+        self.column.pack_start(renderer_pixbuf, False)
+        self.column.pack_start(renderer_text, True)
 
-        # Make treeview searchable
+        # 确保模型包含足够的列
+        self._add_model_column("icon")      # 图标列
+        self._add_model_column("icon_open") # 展开时的图标列
+        self._add_model_column("title")     # 标题列
+        self._add_model_column("fgcolor")   # 前景色
+        self._add_model_column("bgcolor")   # 背景色
+        self.column.add_attribute(renderer_pixbuf, "pixbuf", self.model.get_column_by_name("icon").pos)
+        self.column.add_attribute(renderer_pixbuf, "pixbuf-expander-open", self.model.get_column_by_name("icon_open").pos)
+        self.column.add_attribute(renderer_text, "text", self.model.get_column_by_name("title").pos)
+        self.column.add_attribute(renderer_text, "foreground", self.model.get_column_by_name("fgcolor").pos)
+        self.column.add_attribute(renderer_text, "cell-background", self.model.get_column_by_name("bgcolor").pos)
+
+        # 使树视图可搜索
         self.set_search_column(self.model.get_column_by_name("title").pos)
 
-    # GUI callbacks
     def on_key_released(self, widget, event):
         """Process key presses"""
         if self.editing_path:
@@ -65,16 +80,13 @@ class KeepNoteTreeView(basetreeview.KeepNoteBaseTreeView):
     def on_button_press(self, widget, event):
         """Process context popup menu"""
         if event.button == 3:
-            # Popup menu
             return self.popup_menu(event.x, event.y, event.button, event.time)
 
         if event.button == 1 and event.type == Gdk.EventType._2BUTTON_PRESS:
             nodes = self.get_selected_nodes()
             if nodes:
-                # Double click --> goto node
                 self.emit("activate-node", nodes[0])
 
-    # Actions
     def set_notebook(self, notebook):
         basetreeview.KeepNoteBaseTreeView.set_notebook(self, notebook)
 
@@ -93,7 +105,7 @@ class KeepNoteTreeView(basetreeview.KeepNoteBaseTreeView):
             self._setup_columns()
 
             if root.get_attr("expanded", True):
-                path = Gtk.TreePath.new_from_indices([0])  # 创建 Gtk.TreePath 对象
+                path = Gtk.TreePath.new_from_indices([0])
                 self.expand_to_path(path)
 
     def edit_node(self, node):

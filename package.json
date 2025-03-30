@@ -1,17 +1,27 @@
 {
+  "name": "keepnote",
+  "version": "0.7.9",
+  "description": "Note-taking and organization",
+  "license": "MIT",
+  "homepage": "http://keepnote.org",
+  "private": true,
   "dependencies": {
-    "backbone": "^1.1.2",
-    "bower": "^1.3.12",
-    "del": "^1.1.1",
-    "gulp": "^3.8.11",
-    "gulp-bower-normalize": "^1.0.3",
-    "jasmine": "^2.2.1",
-    "jest-cli": "git://github.com/facebook/jest.git",
-    "jquery": "^2.1.1",
-    "jsdom": "^3.1.2",
-    "main-bower-files": "^2.5.0"
+    "bootstrap": "^3.4.1",
+    "jquery": "^3.7.1",
+    "backbone": "^1.5.0",
+    "react": "^18.3.1",
+    "wysihtml": "^0.5.5",
+    "xmldom": "^0.6.0",
+    "gulp": "^4.0.2",
+    "del": "^7.1.0"
+  },
+  "devDependencies": {
+    "jest": "^29.7.0",
+    "jsdom": "^24.1.1"
   },
   "scripts": {
-    "test": "jasmine"
+    "test": "jest",
+    "build": "gulp",
+    "clean": "gulp clean"
   }
 }

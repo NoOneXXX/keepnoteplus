@@ -98,6 +98,13 @@ class KeepNoteBaseTreeView(Gtk.TreeView):
         self._get_node = self._get_node_default
         self._date_formats = {}
 
+        # 初始化信号 ID
+        self.changed_start_id = None
+        self.changed_end_id = None
+        self.insert_id = None
+        self.delete_id = None
+        self.has_child_id = None
+
         self._menu = None
 
         # special attr's
@@ -194,34 +201,35 @@ class KeepNoteBaseTreeView(Gtk.TreeView):
 
     def set_model(self, model):
         """Set the model for the view"""
-
-        # TODO: could group signal IDs into lists, for each detach
-        # if model already attached, disconnect all of its signals
-        if self.model is not None:
-            self.rich_model.disconnect(self.changed_start_id)
-            self.rich_model.disconnect(self.changed_end_id)
-            self.model.disconnect(self.insert_id)
-            self.model.disconnect(self.delete_id)
-            self.model.disconnect(self.has_child_id)
+        # 如果模型已存在，断开信号连接
+        if self.model is not None and self.rich_model is not None:
+            if self.changed_start_id is not None:
+                self.rich_model.disconnect(self.changed_start_id)
+            if self.changed_end_id is not None:
+                self.rich_model.disconnect(self.changed_end_id)
+            if self.insert_id is not None:
+                self.model.disconnect(self.insert_id)
+            if self.delete_id is not None:
+                self.model.disconnect(self.delete_id)
+            if self.has_child_id is not None:
+                self.model.disconnect(self.has_child_id)
 
             self._node_col = None
             self._get_icon = None
 
-        # set new model
+        # 设置新模型
         self.model = model
         self.rich_model = None
         super().set_model(self.model)
 
-        # set new model
+        # 设置新模型
         if self.model is not None:
-            # look to see if model has an inner model (happens when we have
-            # sorting models)
             if hasattr(self.model, "get_model"):
                 self.rich_model = self.model.get_model()
             else:
                 self.rich_model = model
 
-            # init signals for model
+            # 初始化信号
             self.rich_model.set_notebook(self._notebook)
             self.changed_start_id = self.rich_model.connect(
                 "node-changed-start", self._on_node_changed_start)
