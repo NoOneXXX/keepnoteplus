@@ -327,7 +327,6 @@ class KeepNoteListView(basetreeview.KeepNoteBaseTreeView):
 
     #====================================================
     # actions
-
     def view_nodes(self, nodes, nested=True):
         if len(nodes) > 1:
             nested = False
@@ -342,8 +341,11 @@ class KeepNoteListView(basetreeview.KeepNoteBaseTreeView):
             self.load_sorting(nodes[0], self.model)
 
         for node in nodes:
-            self.expand_to_path(treemodel.get_path_from_node(
-                self.model, node, self.rich_model.get_node_column_pos()))
+            # 将元组转换为 Gtk.TreePath
+            path_tuple = treemodel.get_path_from_node(
+                self.model, node, self.rich_model.get_node_column_pos())
+            path = Gtk.TreePath.new_from_indices(path_tuple)
+            self.expand_to_path(path)
 
         self.set_sensitive(len(nodes) > 0)
         self.display_page_count()
