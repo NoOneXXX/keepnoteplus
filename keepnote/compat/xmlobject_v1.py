@@ -296,13 +296,13 @@ if __name__ == "__main__":
 
     parser = XmlObject(
         Tag("notebook", tags=[
-            Tag("window_size", 
+            Tag("window_size",
                 get=lambda s, x: s.__setattr__("window_size",
-                    tuple(map(int,x.split(",")))),
+                                               tuple(map(int, x.split(",")))),
                 set=lambda s: "%d,%d" % s.window_size),
             Tag("window_pos",
-                getobj=("window_pos", lambda x: 
-                    tuple(map(int,x.split(",")))),
+                getobj=("window_pos", lambda x:
+                tuple(map(int, x.split(",")))),
                 set=lambda s: "%d,%d" % s.window_pos),
             Tag("vsash_pos",
                 get=lambda s, x: s.__setattr__("vhash_pos", int(x)),
@@ -313,18 +313,19 @@ if __name__ == "__main__":
             Tag("external_apps", tags=[
                 TagMany("app",
                         iterfunc=lambda s: list(range(len(s.apps))),
-                        get=lambda (s,i), x: s.apps.append(x),
+                        get=lambda s_and_i, x: s_and_i[0].apps.append(x),
                         set=lambda s_i2: s_i2[0].apps[s_i2[1]])]),
             Tag("external_apps2", tags=[
                 TagMany("app",
                         iterfunc=lambda s: list(range(len(s.apps2))),
-                        before=lambda s,i: s.apps2.append([None, None]),
-                        tags=[Tag("name",
-                                  get=lambda (s,i),x: s.apps2[i].__setitem__(0, x),
-                                  set=lambda s_i: s_i[0].apps2[s_i[1]][0]),
-                              Tag("prog",
-                                  get=lambda (s,i),x: s.apps2[i].__setitem__(1,x),
-                                  set=lambda s_i1: s_i1[0].apps2[s_i1[1]][1])
+                        before=lambda s_i: s_i[0].apps2.append([None, None]),
+                        tags=[
+                            Tag("name",
+                                get=lambda s_i, x: s_i[0].apps2[s_i[1]].__setitem__(0, x),
+                                set=lambda s_i: s_i[0].apps2[s_i[1]][0]),
+                            Tag("prog",
+                                get=lambda s_i, x: s_i[0].apps2[s_i[1]].__setitem__(1, x),
+                                set=lambda s_i1: s_i1[0].apps2[s_i1[1]][1])
                         ])
             ]),
         ]))

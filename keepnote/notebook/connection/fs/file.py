@@ -17,10 +17,8 @@ def get_node_filename(node_path, filename):
     node_path  -- local path to a node
     filename   -- node path to attached file
     """
-
     if filename.startswith("/"):
         filename = filename[1:]
-
     return os.path.join(node_path, path_node2local(filename))
 
 
@@ -40,8 +38,8 @@ class FileFS(object):
 
     def open_file(self, nodeid, filename, mode="r", codec=None, _path=None):
         """Open a node file"""
-        if mode not in "rwa":
-            raise FileError("mode must be 'r', 'w', or 'a'")
+        if mode not in "rwa" and mode + "b" not in "rbwbab":  # 检查合法模式
+            raise FileError("mode must be 'r', 'w', 'a', 'rb', 'wb', or 'ab'")
 
         if filename.endswith("/"):
             raise FileError("filename '%s' cannot end with '/'" % filename)
@@ -54,9 +52,8 @@ class FileFS(object):
             if not os.path.exists(dirpath):
                 os.makedirs(dirpath)
 
-            # NOTE: always use binary mode to ensure no
-            # Window-specific line ending conversion
-            stream = safefile.open(fullname, mode + "b", codec=codec)
+            # 直接使用传入的 mode，不强制添加 "b"
+            stream = safefile.open(fullname, mode, codec=codec)
         except Exception as e:
             raise FileError(
                 "cannot open file '%s' '%s': %s" %
@@ -111,13 +108,11 @@ class FileFS(object):
                               (nodeid, filename))
 
         for name in filenames:
-            # TODO: extract this as a documented method.
             if (name != NODE_META_FILE and
                     not name.startswith("__")):
                 fullname = os.path.join(path, name)
                 node_fullname = path_join(filename, name)
                 if not os.path.exists(get_node_meta_file(fullname)):
-                    # ensure directory is not a node
                     if os.path.isdir(fullname):
                         yield node_fullname + "/"
                     else:
@@ -139,13 +134,11 @@ class FileFS(object):
         filepath1 = get_node_filename(path1, filename1)
         filepath2 = get_node_filename(path2, filename2)
         try:
-            # remove files in the way
             if os.path.isfile(filepath2):
                 os.remove(filepath2)
-            if os.path.isdir(filename2):
+            if os.path.isdir(filepath2):  # 修正可能的笔误
                 shutil.rmtree(filepath2)
 
-            # rename file
             os.rename(filepath1, filepath2)
         except Exception as e:
             raise FileError("could not move file '%s' '%s'" %
@@ -158,7 +151,6 @@ class FileFS(object):
 
         If nodeid is None, filename is assumed to be a local file.
         """
-        # Determine full filenames.
         if nodeid1 is None:
             fullname1 = filename1
         else:
@@ -175,8 +167,6 @@ class FileFS(object):
             if os.path.isfile(fullname1):
                 shutil.copy(fullname1, fullname2)
             elif os.path.isdir(fullname1):
-                # TODO: handle case where filename1 = "/" and
-                # filename2 could be an existing directory
                 shutil.copytree(fullname1, fullname2)
         except Exception as e:
             raise FileError(

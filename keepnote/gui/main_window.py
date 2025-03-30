@@ -473,14 +473,33 @@ class KeepNoteWindow(Gtk.Window):
             self.close_notebook()
 
         try:
+            # 确保文件名是 Unicode 并规范化路径
             filename = ensure_unicode(filename, FS_ENCODING)
+            filename = os.path.normpath(filename)  # 规范化路径分隔符
+            print(f"Creating notebook at: {filename}")
+
+            # 检查父目录是否存在且可写
+            parent_dir = os.path.dirname(filename)
+            if not parent_dir:
+                parent_dir = os.getcwd()
+            if not os.path.exists(parent_dir):
+                raise NoteBookError(f"Parent directory does not exist: '{parent_dir}'")
+            if not os.access(parent_dir, os.W_OK):
+                raise NoteBookError(f"No write permission for directory: '{parent_dir}'")
+
+            # 检查目标路径是否已存在
+            if os.path.exists(filename):
+                raise NoteBookError(f"Path already exists: '{filename}'")
+
+            # 创建笔记本
             notebook = notebooklib.NoteBook()
             notebook.create(filename)
             notebook.set_attr("title", os.path.basename(filename))
             notebook.close()
             self.set_status(_("Created '%s'") % notebook.get_title())
         except NoteBookError as e:
-            self.error(_("Could not create new notebook."), e, sys.exc_info()[2])
+            error_msg = f"Could not create new notebook at '{filename}': {str(e)}"
+            self.error(error_msg, e, sys.exc_info()[2])
             self.set_status("")
             return None
 
@@ -940,6 +959,7 @@ class KeepNoteWindow(Gtk.Window):
             self._tray_icon.uimanager.add_ui_from_string(s)
         self.setup_menus(self._tray_icon.uimanager)
         return self._tray_icon.uimanager.get_widget('/statusicon_menu')
+
 
 
 GObject.type_register(KeepNoteWindow)
