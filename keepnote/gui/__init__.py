@@ -111,6 +111,7 @@ class PixbufCache(object):
         if key in self._pixbufs:
             return self._pixbufs[key]
         else:
+            print(f"-------------->{filename}")
             pixbuf = GdkPixbuf.Pixbuf.new_from_file(filename)
 
             if size:
@@ -194,46 +195,33 @@ def update_file_preview(file_chooser, preview):
     file_chooser.set_preview_widget_active(have_preview)
 
 class FileChooserDialog(Gtk.FileChooserDialog):
-    def __init__(self, title=None, parent=None,
-                 action=Gtk.FileChooserAction.OPEN,
-                 buttons=None, backend=None,
-                 app=None,
-                 persistent_path=None):
-        super().__init__(title=title, parent=parent,
-                         action=action)
+    def __init__(self, title, parent, action, buttons, app=None, persistent_path=None):
+        super().__init__(title=title, parent=parent, action=action)
+        for button in buttons:
+            self.add_button(button[0], button[1])
 
-        # Add buttons manually since buttons parameter is deprecated
-        if buttons:
-            # Handle both flat tuple and list of tuples
-            if isinstance(buttons, (list, tuple)) and len(buttons) > 0:
-                # Check if the first element is a tuple (list of tuples format)
-                if isinstance(buttons[0], (list, tuple)):
-                    for label, response in buttons:
-                        self.add_button(label, response)
-                else:
-                    # Handle flat tuple format (label1, response1, label2, response2, ...)
-                    for i in range(0, len(buttons), 2):
-                        label = buttons[i]
-                        response = buttons[i + 1]
-                        self.add_button(label, response)
+        # 添加以下代码，确保不重复添加控件
+        content_area = self.get_content_area()
+        children = content_area.get_children()
+        if len(children) > 1:
+            print(f"Warning: FileChooserDialog has multiple children: {children}")
+            for child in children[1:]:
+                content_area.remove(child)
+
+        # 添加自定义控件（如果需要）
+        # box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL)
+        # content_area.add(box)
+        # content_area.show_all()
 
         self._app = app
         self._persistent_path = persistent_path
 
-        if self._app and self._persistent_path:
-            path = self._app.get_default_path(self._persistent_path)
-            if path and os.path.exists(path):
-                self.set_current_folder(path)
-
     def run(self):
         response = super().run()
-
-        if (response == Gtk.ResponseType.OK and
-                self._app and self._persistent_path):
-            self._app.set_default_path(
-                self._persistent_path, self.get_current_folder())
-
         return response
+
+    def get_filename(self):
+        return super().get_filename()
 
 # Menu actions
 class UIManager(Gtk.UIManager):

@@ -509,13 +509,11 @@ class KeepNote:
         self._listeners = {}
 
     def init(self):
-        self.pref.read()
-        self.load_preferences()
-        self._extension_paths = [
-            (get_system_extensions_dir(), "system"),
-            (get_user_extensions_dir(self.get_pref_dir()), "user"),
-        ]
-        self.init_extensions()
+        import threading
+        if threading.current_thread() is not threading.main_thread():
+            print("Error: GTK must run in the main thread")
+            sys.exit(1)
+        # super().init()
 
     def load_preferences(self):
         self.language = self.pref.get("language", default="")

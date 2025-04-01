@@ -7,8 +7,9 @@ class FontSelector(Gtk.ComboBox):
     """ComboBox for selecting font families"""
 
     def __init__(self):
-        super().__init__()
-
+        Gtk.ComboBox.__init__(self)
+        context = self.get_pango_context_fixed()  # 使用新方法避免递归
+        families = context.list_families()
         # Create a ListStore to hold font family names (strings)
         self._list = Gtk.ListStore(str)
         self.set_model(self._list)
@@ -46,8 +47,12 @@ class FontSelector(Gtk.ComboBox):
             return self._families[active]
         return None
 
+    def get_pango_context_fixed(self):
+        # 直接调用 Gtk.Widget 的 get_pango_context 或创建新的 Pango.Context
+        if hasattr(Gtk.Widget, 'get_pango_context'):
+            return super().get_pango_context()  # 调用父类方法
+        return Pango.Context()  # 回退到默认上下文
+
+    # 原方法保留但不使用，避免冲突
     def get_pango_context(self):
-        """Get the Pango context for the widget"""
-        # In GTK 3, we need to get the Pango context from the widget's style context
-        # Since ComboBox doesn't directly provide a Pango context, we create a temporary one
-        return self.get_pango_context() if hasattr(self, 'get_pango_context') else Pango.Context()
+        return self.get_pango_context_fixed()  # 重定向到新方法

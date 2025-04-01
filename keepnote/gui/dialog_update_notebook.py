@@ -37,6 +37,11 @@ class UpdateNoteBookDialog:
         self.xml.add_from_file(get_resource("rc", "keepnote.glade"))
         self.xml.set_translation_domain(keepnote.GETTEXT_DOMAIN)
         self.dialog = self.xml.get_object("update_notebook_dialog")
+        # 添加错误处理，确保 dialog 存在
+        if self.dialog is None:
+            print("Error: update_notebook_dialog not found in keepnote.glade")
+            return False
+
         self.dialog.connect("response", lambda d, r: self.dialog.response(r))
         self.dialog.set_transient_for(self.main_window)
 

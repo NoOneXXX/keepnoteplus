@@ -1,8 +1,10 @@
 # PyGObject imports
 from gi import require_version
+from gi.overrides import GdkPixbuf
+import os
 require_version('Gtk', '3.0')
 from gi.repository import Gtk, GObject
-
+from keepnote import get_resource
 def get_path_from_node(model, node, node_col):
     """
     Determine the path of a NoteBookNode 'node' in a gtk.TreeModel 'model'
@@ -50,13 +52,8 @@ def iter_children(model, it):
         node = model.iter_next(node)
 
 class BaseTreeModel(Gtk.TreeStore):
-    """
-    TreeModel that wraps a subset of a NoteBook
-    The subset is defined by the self._roots list.
-    """
     def __init__(self, roots=[]):
-        super().__init__(object)  # 直接调用 Gtk.TreeStore 的 __init__，设置列类型为 object
-
+        super().__init__(object, str, GdkPixbuf.Pixbuf, str, str, GdkPixbuf.Pixbuf)  # 6 列
         self._notebook = None
         self._roots = []
         self._root_set = {}
@@ -69,9 +66,30 @@ class BaseTreeModel(Gtk.TreeStore):
 
         self.set_root_nodes(roots)
 
-        # Add default node column
         self.append_column(TreeModelColumn("node", object, get=lambda node: node))
+        self.append_column(TreeModelColumn("title", str, get=lambda node: node.get_title() if node else ""))
+        self.append_column(TreeModelColumn("icon", GdkPixbuf.Pixbuf, get=self._get_node_icon))
+        self.append_column(TreeModelColumn("bgcolor", str,
+                                           get=lambda node: node.get_attr("background") if node and node.get_attr(
+                                               "background") else ""))
+        self.append_column(TreeModelColumn("fgcolor", str,
+                                           get=lambda node: node.get_attr("foreground") if node and node.get_attr(
+                                               "foreground") else ""))
+        self.append_column(TreeModelColumn("icon_open", GdkPixbuf.Pixbuf, get=self._get_expander_icon))
         self.set_node_column(self.get_column_by_name("node"))
+        print(f"Initialized BaseTreeModel with {self.get_n_columns()} columns")
+
+    def _get_expander_icon(self, node):
+        if not node or not node.has_children():
+            return None
+        icon_name = node.get_attr("icon_open") or "folder-open.png"
+        try:
+            icon_path = get_resource("images", os.path.join("node_icons", icon_name))
+            print(f"Loading expander icon from: {icon_path}")
+            return GdkPixbuf.Pixbuf.new_from_file_at_size(icon_path, 16, 16)
+        except Exception as e:
+            print(f"Failed to load expander icon {icon_name}: {e}")
+            return None
 
     def set_notebook(self, notebook):
         """
@@ -85,6 +103,18 @@ class BaseTreeModel(Gtk.TreeStore):
 
         if self._notebook:
             self._notebook.node_changed.add(self._on_node_changed)
+
+    def _get_node_icon(self, node):
+        if not node:
+            return None
+        icon_name = node.get_attr("icon") or "note.png"
+        try:
+            icon_path = get_resource("images", os.path.join("node_icons", icon_name))
+            print(f"Loading icon from: {icon_path}")
+            return GdkPixbuf.Pixbuf.new_from_file_at_size(icon_path, 16, 16)
+        except Exception as e:
+            print(f"Failed to load icon {icon_name}: {e}")
+            return None
 
     # Column manipulation
     def append_column(self, column):
@@ -161,11 +191,17 @@ class BaseTreeModel(Gtk.TreeStore):
         return self._roots
 
     def append(self, node):
-        """Appends a node at the root level of the treemodel"""
         index = len(self._roots)
         self._root_set[node] = index
         self._roots.append(node)
-        rowref = super().append(None, [node])  # 使用 TreeStore 的 append
+        title = node.get_title() if node else ""
+        icon = self._get_node_icon(node)
+        bgcolor = node.get_attr("background") if node and node.get_attr("background") else None  # 改为 None
+        fgcolor = node.get_attr("foreground") if node and node.get_attr("foreground") else None  # 改为 None
+        icon_open = self._get_expander_icon(node)
+        rowref = super().append(None, [node, title, icon, bgcolor, fgcolor, icon_open])
+        print(
+            f"Appending node={node}, title={title}, icon={icon}, bgcolor={bgcolor}, fgcolor={fgcolor}, icon_open={icon_open}, column count={self.get_n_columns()}")
         self.row_has_child_toggled((index,), rowref)
 
     # Notebook callbacks
@@ -225,17 +261,47 @@ class BaseTreeModel(Gtk.TreeStore):
         return get_path_from_node(self, node, self.get_node_column_pos())
 
     def on_get_value(self, rowref, column):
-        return self.get_column(column).get_value(self.get_value(rowref, 0))
+        print(f"on_get_value: rowref={rowref}, requested column={column}, total columns={self.get_n_columns()}")
+        if column >= self.get_n_columns():
+            print(f"Error: Column {column} exceeds defined columns {self.get_n_columns()}")
+            return None
+        node = self.get_value(rowref, 0)
+        col = self.get_column(column)
+        if col is None:
+            print(f"Error: No column definition for index {column}")
+            return None
+        value = col.get_value(node)
+        print(f"Returning value={value} for column={column}")
+        return value
 
 GObject.type_register(BaseTreeModel)
 GObject.signal_new("node-changed-start", BaseTreeModel, GObject.SignalFlags.RUN_LAST, None, (object,))
 GObject.signal_new("node-changed-end", BaseTreeModel, GObject.SignalFlags.RUN_LAST, None, (object,))
 
 class KeepNoteTreeModel(BaseTreeModel):
-    """
-    TreeModel that wraps a subset of a NoteBook
-    The subset is defined by the self._roots list.
-    """
-    def __init__(self, roots=[]):
-        super().__init__(roots)
-        self.fades = set()
+    def __init__(self, notebook=None):
+        super().__init__()
+        self._notebook = notebook
+        if notebook:
+            self.set_root_nodes([notebook])
+
+    # 重写以避免重复添加列
+    def _add_model_column(self, name):
+        if name not in self._columns_lookup:
+            col = TreeModelColumn(name, None, get=lambda node: None)  # 占位符，不改变物理列
+            self._columns.append(col)
+            self._columns_lookup[name] = col
+            col.pos = self.get_column_pos(name)  # 使用已有列位置
+        return self._columns_lookup[name]
+
+    def get_column_pos(self, name):
+        # 映射到 BaseTreeModel 的列
+        mapping = {
+            "node": 0,
+            "title": 1,
+            "icon": 2,
+            "bgcolor": 3,
+            "fgcolor": 4,
+            "icon_open": 5
+        }
+        return mapping.get(name, -1)

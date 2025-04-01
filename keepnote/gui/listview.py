@@ -1,24 +1,11 @@
-# Copyright (c) 2008-2011 Matt Rasmussen
-# Author: Matt Rasmussen <rasmus@alum.mit.edu>
-#
-# This program is free software; you can redistribute it and/or modify
-# it under the terms of the GNU General Public License as published by
-# the Free Software Foundation; version 2 of the License.
-#
-# This program is distributed in the hope that it will be useful,
-# but WITHOUT ANY WARRANTY; without even the implied warranty of
-# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-# GNU General Public License for more details.
-#
-# You should have received a copy of the GNU General Public License
-# along with this program; if not, write to the Free Software
-# Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301, USA.
-#
+
 
 # PyGObject imports
 from gi import require_version
 require_version('Gtk', '3.0')
 from gi.repository import Gtk, Gdk
+import warnings
+warnings.filterwarnings("ignore", category=DeprecationWarning)
 
 from keepnote.gui import basetreeview
 from keepnote.gui import treemodel
@@ -65,7 +52,7 @@ class KeepNoteListView(basetreeview.KeepNoteBaseTreeView):
 
     def load_preferences(self, app_pref, first_open=False):
         """Load application preferences"""
-        self.set_date_formats(app_pref.get("timestamp_formats"))
+        self.set_date_formats(app_pref.get("timestamp_formats", default=["%Y-%m-%d %H:%M:%S"]))
         self.set_rules_hint(
             app_pref.get("look_and_feel", "listview_rules", default=True))
 
@@ -159,48 +146,46 @@ class KeepNoteListView(basetreeview.KeepNoteBaseTreeView):
             self._columns_set = False
             return
 
-        attrs = self._notebook.attr_tables.get(self._current_table).attrs
+        # 获取属性表，确保不为空
+        attrs = self._notebook.attr_tables.get(self._current_table)
+        if not attrs or not attrs.attrs:
+            attrs.attrs = ["title", "created_time"]  # 默认列
 
-        # add columns
-        for attr in attrs:
+        # 添加列
+        for attr in attrs.attrs:
             col = self._add_column(attr)
-            col.set_reorderable(True)  # allow column reordering
+            col.set_reorderable(True)
             if attr == self._attr_title:
                 self.title_column = col
 
-        # add model columns
+        # 添加模型列
         self._add_model_column("order")
 
-        # Create a new TreeModelSort with the rich_model
+        # 创建排序模型
+        if self.rich_model is None:
+            self.rich_model = treemodel.KeepNoteTreeModel()
         self.set_model(Gtk.TreeModelSort(model=self.rich_model))
 
-        # config columns view
+        # 配置列视图
         self.set_expander_column(self.get_column(0))
 
-        # set default sorting
-        self.model.set_sort_column_id(
-            self.rich_model.get_column_by_name("order").pos,
-            Gtk.SortType.ASCENDING)
+        # 设置默认排序
+        order_col = self.rich_model.get_column_by_name("order")
+        if order_col:
+            self.model.set_sort_column_id(order_col.pos, Gtk.SortType.ASCENDING)
         self.set_reorder(basetreeview.REORDER_ALL)
 
         self._columns_set = True
 
     def _add_column(self, attr, cell_attr=None):
-        # get attribute definition from notebook
         attr_def = self._notebook.attr_defs.get(attr)
+        datatype = attr_def.datatype if attr_def else "string"
+        col_title = attr_def.name if attr_def else attr
 
-        # get datatype
-        if attr_def is not None:
-            datatype = attr_def.datatype
-            col_title = attr_def.name
-        else:
-            datatype = "string"
-            col_title = attr
+        # 确保模型列存在
+        if not self.rich_model.get_column_by_name(attr):
+            self._add_model_column(attr)
 
-        # get/make model column
-        self._add_model_column(attr)
-
-        # create column view
         column = Gtk.TreeViewColumn()
         column.attr = attr
         column.set_sizing(Gtk.TreeViewColumnSizing.FIXED)
@@ -225,10 +210,8 @@ class KeepNoteListView(basetreeview.KeepNoteBaseTreeView):
             self._add_text_render(
                 column, attr, editable=True,
                 validator=basetreeview.TextRendererValidator(
-                    lambda x: keepnote.timestamp.format_timestamp(
-                        x, self.time_edit_format),
-                    lambda x: keepnote.timestamp.parse_timestamp(
-                        x, self.time_edit_format)))
+                    lambda x: keepnote.timestamp.format_timestamp(x, self.time_edit_format) if x else "",
+                    lambda x: keepnote.timestamp.parse_timestamp(x, self.time_edit_format) if x else 0))
         else:
             self._add_text_render(column, attr)
 
