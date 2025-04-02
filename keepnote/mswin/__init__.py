@@ -1,5 +1,10 @@
 import os
-import winreg  # 导入 winreg 标准库
+
+import platform
+
+if platform.system() == "Windows":
+    import winreg
+
 
 def get_my_documents():
     """Returns path to My Documents folder on Windows"""

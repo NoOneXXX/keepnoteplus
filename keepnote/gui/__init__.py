@@ -7,10 +7,10 @@
 import os
 import sys
 import threading
-import gi
+
 
 from keepnote.sqlitedict import logger
-
+import gi
 gi.require_version('Gtk', '3.0')
 gi.require_version('GLib', '2.0') # Specify GTK 3.0
 gi.require_version('Gdk', '3.0')  # Add this line
@@ -701,7 +701,7 @@ class KeepNote(keepnote.KeepNote):
 
         except Exception as e:
             if len(filenames) > 1:
-                self.error(f"Error while attaching files {', '.join([f'\"{f}\"' for f in filenames])}.",
+                self.error(f"Error while attaching files {', '.join([f'{f}' for f in filenames])}.",
                            e, sys.exc_info()[2])
             else:
                 self.error(f"Error while attaching file '{filenames[0]}'.",
