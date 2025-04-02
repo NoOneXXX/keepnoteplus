@@ -465,57 +465,31 @@ class KeepNoteBaseTreeView(Gtk.TreeView):
         self.__scroll = self.convert_widget_to_tree_coords(0, 0)
 
     def _on_node_changed_end(self, model, nodes):
-        # maintain proper expansion
+        # 省略其他代码...
         for node in nodes:
             if node == self._master_node:
                 for child in node.get_children():
                     if self.is_node_expanded(child):
-                        path = get_path_from_node(
+                        path_tuple = get_path_from_node(
                             self.model, child,
                             self.rich_model.get_node_column_pos())
+                        path = Gtk.TreePath.new_from_indices(path_tuple)
                         self.expand_row(path, False)
             else:
                 try:
-                    path = get_path_from_node(
+                    path_tuple = get_path_from_node(
                         self.model, node,
                         self.rich_model.get_node_column_pos())
+                    path = Gtk.TreePath.new_from_indices(path_tuple)
                 except:
                     path = None
                 if path is not None:
                     parent = node.get_parent()
-
-                    # NOTE: parent may lose expand state if it has one child
-                    # therefore, we should expand parent if it exists and is
-                    # visible (i.e. len(path)>1) in treeview
                     if (parent and self.is_node_expanded(parent) and
                             len(path) > 1):
                         self.expand_row(path[:-1], False)
-
                     if self.is_node_expanded(node):
                         self.expand_row(path, False)
-
-        # if nodes still exist, and expanded, try to reselect them
-        sel_count = 0
-        selection = self.get_selection()
-        for node in self.__sel_nodes2:
-            sel_count += 1
-            if node.is_valid():
-                path2 = get_path_from_node(
-                    self.model, node, self.rich_model.get_node_column_pos())
-                if (path2 is not None and
-                        (len(path2) <= 1 or self.row_expanded(path2[:-1]))):
-                    # reselect and scroll to node
-                    selection.select_path(path2)
-
-        # restore scroll
-        GObject.idle_add(lambda: self.scroll_to_point(*self.__scroll))
-
-        # resume emitting selection changes
-        self.__suppress_sel = False
-
-        # emit de-selection
-        if sel_count == 0:
-            self.select_nodes([])
 
     def __on_select_changed(self, treeselect):
         """Keep track of which nodes are selected"""

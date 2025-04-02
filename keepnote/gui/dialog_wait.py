@@ -9,8 +9,6 @@ import keepnote
 from keepnote import get_resource
 
 class WaitDialog:
-    """General dialog for background tasks"""
-
     def __init__(self, parent_window):
         self.parent_window = parent_window
         self._task = None
@@ -20,7 +18,6 @@ class WaitDialog:
         self.progressbar = None
 
     def show(self, title, message, task, cancel=True):
-        """Show the wait dialog with a progress bar for the given task"""
         # Load the Glade file
         self.xml = Gtk.Builder()
         self.xml.add_from_file(get_resource("rc", "keepnote.glade"))
@@ -35,6 +32,14 @@ class WaitDialog:
 
         # Connect signals
         self.xml.connect_signals(self)
+
+        # 添加检查
+        content_area = self.dialog.get_content_area()
+        children = content_area.get_children()
+        if len(children) > 1:
+            print(f"Warning: WaitDialog has multiple children: {children}")
+            for child in children[1:]:
+                content_area.remove(child)
 
         # Set initial values
         self.dialog.set_title(title)

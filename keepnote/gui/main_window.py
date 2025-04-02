@@ -6,9 +6,12 @@ import sys
 import uuid
 
 # PyGObject imports
+
 from gi import require_version
 require_version('Gtk', '3.0')
 from gi.repository import Gtk, Gdk, GLib, GObject
+import warnings
+warnings.filterwarnings("ignore", category=DeprecationWarning)
 
 # KeepNote imports
 import keepnote
@@ -280,9 +283,19 @@ class KeepNoteWindow(Gtk.Window):
             self.stick()
         else:
             self.unstick()
-        # 加载最近一次打开的笔记本
+        # 加载最近的笔记本
         self._recent_notebooks = p.get("recent_notebooks", default=[])
+        if first_open and not self._recent_notebooks:
+            # 如果是第一次打开且没有最近笔记本，创建一个默认笔记本
+            default_path = os.path.join(keepnote.get_user_pref_dir(), "DefaultNotebook")
+            if not os.path.exists(default_path):
+                self.new_notebook(default_path)
+            self._recent_notebooks = [default_path]
         self.set_recent_notebooks_menu(self._recent_notebooks)
+
+        # 确保打开一个笔记本
+        if self._recent_notebooks and not self.get_notebook():
+            self.open_notebook(self._recent_notebooks[0])
 
         self._uimanager.set_force_stock(p.get("look_and_feel", "use_stock_icons", default=False))
         self.viewer.load_preferences(self._app.pref, first_open)
@@ -359,6 +372,14 @@ class KeepNoteWindow(Gtk.Window):
             action=Gtk.FileChooserAction.SELECT_FOLDER,
             buttons=(_("Cancel"), Gtk.ResponseType.CANCEL,
                      _("Open"), Gtk.ResponseType.OK))
+
+        # 确保只有一个内容区域
+        content_area = dialog.get_content_area()
+        content_area.set_border_width(5)
+        # 清空可能的多余控件，只保留默认布局
+        for child in content_area.get_children():
+            if not isinstance(child, Gtk.Box):  # 保留默认的 Box
+                content_area.remove(child)
 
         def on_folder_changed(filechooser):
             folder = unicode_gtk(filechooser.get_current_folder())
@@ -958,7 +979,9 @@ class KeepNoteWindow(Gtk.Window):
         for s in self.get_ui_statusicon():
             self._tray_icon.uimanager.add_ui_from_string(s)
         self.setup_menus(self._tray_icon.uimanager)
+
         return self._tray_icon.uimanager.get_widget('/statusicon_menu')
+
 
 
 

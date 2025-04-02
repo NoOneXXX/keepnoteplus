@@ -693,6 +693,8 @@ class ApplicationOptionsDialog:
             icon = "note.png"
         pixbuf = keepnote.gui.get_resource_pixbuf(icon, size=size) if isinstance(icon, str) else icon
 
+        print(f"Appending to overview_store: label={section.label}, section={section}, pixbuf={pixbuf}")
+        print(f"Current column count: {self.overview_store.get_n_columns()}")
         it = self.overview_store.append(it, [section.label, section, pixbuf])
         path = self.overview_store.get_path(it)
         self.overview.expand_to_path(path)
@@ -781,6 +783,7 @@ class ApplicationOptionsDialog:
         path, col = overview.get_cursor()
         if path:
             section = self.overview_store[path][1]
+            print(f"Selected path={path}, section={section.key}, column count={self.overview_store.get_n_columns()}")
             self.tabs.set_current_page(self._sections.index(section))
 
     def on_cancel_button_clicked(self):
@@ -796,6 +799,7 @@ class ApplicationOptionsDialog:
         self.save_options(self.app)
         self.finish()
         self.show(self.parent)
+
 
     def _on_delete_event(self, widget, event):
         self.dialog.hide()
