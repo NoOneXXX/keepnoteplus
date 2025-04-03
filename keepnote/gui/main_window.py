@@ -350,19 +350,19 @@ class KeepNoteWindow(Gtk.Window):
 
     # Notebook open/save/close UI
     def on_new_notebook(self):
-        dialog = FileChooserDialog(
-            _("New Notebook"), self,
+        print("========start new notebook thread========")
+        dialog = Gtk.FileChooserDialog(
+            title=_("New Notebook"),
+            parent=self,
             action=Gtk.FileChooserAction.SAVE,
-            buttons=[
-                (_("Cancel"), Gtk.ResponseType.CANCEL),
-                (_("New"), Gtk.ResponseType.OK)
-            ],
-            app=self._app,
-            persistent_path="new_notebook_path")
-        response = dialog.run()
+            buttons=(_("Cancel"), Gtk.ResponseType.CANCEL,
+                     _("New"), Gtk.ResponseType.OK)
+        )
 
+        response = dialog.run()
         if response == Gtk.ResponseType.OK and dialog.get_filename():
-            self.new_notebook(unicode_gtk(dialog.get_filename()))
+            filename = unicode_gtk(dialog.get_filename())
+            self.new_notebook(filename)
 
         dialog.destroy()
 
