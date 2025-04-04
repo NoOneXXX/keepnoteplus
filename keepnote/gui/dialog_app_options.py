@@ -66,7 +66,7 @@ class GeneralSection(Section):
         self.notebook = None
 
         self.xml = Gtk.Builder()
-        self.xml.add_from_file(get_resource("rc", "keepnote.glade"))
+        self.xml.add_from_file(get_resource("rc", "keepnote.ui"))
         self.xml.set_translation_domain(keepnote.GETTEXT_DOMAIN)
         self.frame = self.xml.get_object("general_frame")
 
@@ -289,7 +289,7 @@ class DatesSection(Section):
         super().__init__(key, dialog, app, label, icon)
         self.xml = Gtk.Builder()
         try:
-            glade_file = get_resource("rc", "keepnote.glade")
+            glade_file = get_resource("rc", "keepnote.ui")
             print(f"Loading GLADE file for DatesSection: {glade_file}")
             self.xml.add_from_file(glade_file)
         except Exception as e:
@@ -356,7 +356,7 @@ class NoteBookSection(Section):
         self.notebook = notebook
 
         self.notebook_xml = Gtk.Builder()
-        self.notebook_xml.add_from_file(get_resource("rc", "keepnote.glade"))
+        self.notebook_xml.add_from_file(get_resource("rc", "keepnote.ui"))
         self.notebook_xml.set_translation_domain(keepnote.GETTEXT_DOMAIN)
         self.frame = self.notebook_xml.get_object("notebook_frame")
 
@@ -527,22 +527,22 @@ class ApplicationOptionsDialog:
         self._sections = []
 
         self.xml = Gtk.Builder()
-        glade_file = get_resource("rc", "keepnote.glade")
+        glade_file = get_resource("rc", "keepnote.ui")
         print(f"Loading GLADE file: {glade_file}")
         try:
             self.xml.add_from_file(glade_file)
         except Exception as e:
-            raise Exception(f"Failed to load keepnote.glade: {str(e)}")
+            raise Exception(f"Failed to load keepnote.ui: {str(e)}")
         self.xml.set_translation_domain(keepnote.GETTEXT_DOMAIN)
 
         self.dialog = self.xml.get_object("app_options_dialog")
         if self.dialog is None:
-            raise ValueError("Could not find 'app_options_dialog' in keepnote.glade")
+            raise ValueError("Could not find 'app_options_dialog' in keepnote.ui")
         self.dialog.connect("close-request", self._on_close_request)
 
         self.tabs = self.xml.get_object("app_options_tabs")
         if self.tabs is None:
-            raise ValueError("Could not find 'app_options_tabs' in keepnote.glade")
+            raise ValueError("Could not find 'app_options_tabs' in keepnote.ui")
 
         cancel_button = self.xml.get_object("cancel_button")
         if cancel_button:
@@ -558,7 +558,7 @@ class ApplicationOptionsDialog:
 
         self.overview = self.xml.get_object("app_config_treeview")
         if self.overview is None:
-            raise ValueError("Could not find 'app_config_treeview' in keepnote.glade")
+            raise ValueError("Could not find 'app_config_treeview' in keepnote.ui")
         self.overview_store = Gtk.TreeStore(str, object, GdkPixbuf.Pixbuf)
         self.overview.set_model(self.overview_store)
         self.overview.connect("row-activated", self.on_overview_select)

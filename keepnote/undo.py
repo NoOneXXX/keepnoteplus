@@ -4,9 +4,6 @@
     UndoStack for maintaining undo and redo actions
 
 """
-
-
-
 import sys
 
 from keepnote.linked_list import LinkedList

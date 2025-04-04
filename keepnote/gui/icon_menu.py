@@ -1,6 +1,6 @@
 # Python 3 and PyGObject imports
 import gi
-gi.require_version('Gtk', '3.0')  # Specify GTK 3.0
+gi.require_version('Gtk', '4.0')  # Specify GTK 4.0
 from gi.repository import Gtk, GObject
 
 # KeepNote imports
@@ -11,7 +11,7 @@ from keepnote.gui.icons import lookup_icon_filename
 default_menu_icons = [x for x in keepnote.gui.icons.builtin_icons
                       if "-open." not in x][:20]
 
-class IconMenu(Gtk.Menu):
+class IconMenu(Gtk.Popover):
     """Icon picker menu"""
 
     def __init__(self):
@@ -20,13 +20,11 @@ class IconMenu(Gtk.Menu):
         self._notebook = None
 
         # Default icon menu item
-        self.default_icon = Gtk.MenuItem(label="_Default Icon")
+        self.default_icon = Gtk.MenuItem.new_with_label("_Default Icon")
         self.default_icon.connect("activate", lambda w: self.emit("set-icon", ""))
-        self.default_icon.show()
 
         # New icon menu item
-        self.new_icon = Gtk.MenuItem(label="_More Icons...")
-        self.new_icon.show()
+        self.new_icon = Gtk.MenuItem.new_with_label("_More Icons...")
 
         self.width = 4
         self.posi = 0
@@ -68,7 +66,6 @@ class IconMenu(Gtk.Menu):
 
         # Separator
         item = Gtk.SeparatorMenuItem()
-        item.show()
         self.append(item)
 
         # Default icon
@@ -77,17 +74,13 @@ class IconMenu(Gtk.Menu):
         # New icon
         self.append(self.new_icon)
 
-        # Ensure changes are visible
-        self.queue_draw()
-
     def append_grid(self, item):
         """Attach item in a grid layout"""
-        self.attach(item, self.posj, self.posj + 1, self.posi, self.posi + 1)
-
-        self.posj += 1
-        if self.posj >= self.width:
-            self.posj = 0
-            self.posi += 1
+        # Note: attach() is not available in GTK 4 for Gtk.Menu.
+        # We will simulate the grid layout by using a different approach if needed.
+        # For now, we will append items directly and note the limitation.
+        print("Warning: append_grid is not fully supported in GTK 4 (Gtk.Menu.attach is deprecated)")
+        self.append(item)
 
     def append(self, item):
         """Append item to menu, resetting grid position if needed"""
@@ -106,10 +99,13 @@ class IconMenu(Gtk.Menu):
         img = Gtk.Image()
         iconfile2 = lookup_icon_filename(self._notebook, iconfile)
         img.set_from_file(iconfile2)
-        child.add(img)
-        child.show_all()
+        child.set_child(img)  # Changed from add to set_child
         child.connect("activate", lambda w: self.emit("set-icon", iconfile))
         self.append_grid(child)
+
+# Note: GObject.signal_new is not needed in GTK 4 for custom signals.
+# We assume the signal "set-icon" is handled by KeepNote's custom signal system.
+# If needed, this can be reimplemented using a custom GObject subclass with a signal.
 
 # Register the custom signal for IconMenu
 GObject.type_register(IconMenu)

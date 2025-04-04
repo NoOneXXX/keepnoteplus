@@ -1,7 +1,6 @@
-
 # PyGObject imports
 from gi import require_version
-require_version('Gtk', '3.0')
+require_version('Gtk', '4.0')
 from gi.repository import Gtk, Gdk, GObject
 
 # KeepNote imports
@@ -35,7 +34,6 @@ class ThreePaneViewer(Viewer):
         super().__init__(app, main_window, viewerid, viewer_name="three_pane_viewer")
         self._ui_ready = False
 
-        # Node selections
         self._current_page = None
         self._treeview_sel_nodes = []
         self._queue_list_select = []
@@ -45,8 +43,6 @@ class ThreePaneViewer(Viewer):
 
         self.connect("history-changed", self._on_history_changed)
 
-        # Widgets
-        # Treeview
         self.treeview = KeepNoteTreeView()
         self.treeview.set_get_node(self._app.get_node)
         self.treeview.connect("select-nodes", self._on_tree_select)
@@ -57,7 +53,6 @@ class ThreePaneViewer(Viewer):
         self.treeview.connect("activate-node", self.on_activate_node)
         self.treeview.connect("drop-file", self._on_attach_file)
 
-        # Listview
         self.listview = KeepNoteListView()
         self.listview.set_get_node(self._app.get_node)
         self.listview.connect("select-nodes", self._on_list_select)
@@ -70,7 +65,6 @@ class ThreePaneViewer(Viewer):
         self.listview.connect("drop-file", self._on_attach_file)
         self.listview.on_status = self.set_status
 
-        # Editor
         self.editor = ContentEditor(self._app)
         rich_editor = RichTextEditor(self._app)
         self.editor.add_editor("text/xhtml+xml", rich_editor)
@@ -85,35 +79,31 @@ class ThreePaneViewer(Viewer):
         self.editor.view_nodes([])
 
         self.editor_pane = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=5)
-        self.editor_pane.pack_start(self.editor, True, True, 0)
+        self.editor_pane.append(self.editor)
 
-        # Layout
         self._hpaned = Gtk.Paned(orientation=Gtk.Orientation.HORIZONTAL)
-        self.pack_start(self._hpaned, True, True, 0)
+        self.append(self._hpaned)
         self._hpaned.set_position(DEFAULT_HSASH_POS)
 
         self._paned2 = Gtk.Paned(orientation=Gtk.Orientation.VERTICAL)
-        self._hpaned.pack2(self._paned2, resize=True, shrink=False)
+        self._hpaned.set_end_child(self._paned2)
         self._paned2.set_position(DEFAULT_VSASH_POS)
 
-        # Treeview with scrollbars
         sw = Gtk.ScrolledWindow()
         sw.set_policy(Gtk.PolicyType.AUTOMATIC, Gtk.PolicyType.AUTOMATIC)
-        sw.set_shadow_type(Gtk.ShadowType.IN)
-        sw.add(self.treeview)
-        self._hpaned.pack1(sw, resize=False, shrink=True)
+        sw.set_child(self.treeview)  # GTK4 change
+        self._hpaned.set_start_child(sw)
 
-        # Listview with scrollbars
         self._listview_sw = Gtk.ScrolledWindow()
         self._listview_sw.set_policy(Gtk.PolicyType.AUTOMATIC, Gtk.PolicyType.AUTOMATIC)
-        self._listview_sw.set_shadow_type(Gtk.ShadowType.IN)
-        self._listview_sw.add(self.listview)
-        self._paned2.pack1(self._listview_sw, resize=True, shrink=True)
+        self._listview_sw.set_child(self.listview)  # GTK4 change
+        self._paned2.set_start_child(self._listview_sw)
 
-        # Editor
-        self._paned2.pack2(self.editor_pane, resize=True, shrink=False)
-
+        self._paned2.set_end_child(self.editor_pane)
         self.treeview.grab_focus()
+
+    # All other methods are preserved as-is unless GTK upgrade is needed (e.g., .add() to .set_child())
+
 
     def set_notebook(self, notebook):
         self._app.ref_notebook(notebook)

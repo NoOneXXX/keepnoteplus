@@ -162,7 +162,7 @@ class RichTextError(Exception):
     def __str__(self):
         return f"{self.error}\n{self.msg}" if self.error else self.msg
 
-class RichTextMenu(Gtk.Menu):
+class RichTextMenu(Gtk.PopoverMenu):
     """A popup menu for child widgets in a RichTextView"""
     def __init__(self):
         super().__init__()

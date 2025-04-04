@@ -86,11 +86,10 @@ def download_file(url, filename):
         return False
 
 # RichText child objects
-class BaseWidget(Gtk.EventBox):
+class BaseWidget(Gtk.Box):
     """Widgets in RichTextBuffer must support this interface"""
     def __init__(self):
-        super().__init__()
-        # In GTK 4, use CSS for background color instead of modify_bg
+        super().__init__(orientation=Gtk.Orientation.VERTICAL)
         self.set_css_classes(["richtext-base-widget"])
         # Define CSS in your application if needed:
         # .richtext-base-widget { background-color: rgb(255, 255, 255); }

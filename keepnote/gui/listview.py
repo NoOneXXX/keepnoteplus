@@ -1,12 +1,11 @@
-
-
 # PyGObject imports
 from gi import require_version
-require_version('Gtk', '3.0')
+require_version('Gtk', '4.0')  # Specify GTK 4.0
 from gi.repository import Gtk, Gdk
 import warnings
 warnings.filterwarnings("ignore", category=DeprecationWarning)
 
+# KeepNote imports
 from keepnote.gui import basetreeview
 from keepnote.gui import treemodel
 import keepnote
@@ -17,43 +16,42 @@ _ = keepnote.translate
 DEFAULT_ATTR_COL_WIDTH = 150
 DEFAULT_TITLE_COL_WIDTH = 250
 
-
 class KeepNoteListView(basetreeview.KeepNoteBaseTreeView):
 
     def __init__(self):
-        basetreeview.KeepNoteBaseTreeView.__init__(self)
+        super().__init__()
         self._sel_nodes = None
         self._columns_set = False
         self._current_table = "default"
         self._col_widths = {}
         self.time_edit_format = "%Y/%m/%d %H:%M:%S"
 
-        # configurable callback for setting window status
+        # Configurable callback for setting window status
         self.on_status = None
 
-        # selection config
+        # Selection config
         self.get_selection().set_mode(Gtk.SelectionMode.MULTIPLE)
 
-        # init view
+        # Init view
         self.connect("key-release-event", self.on_key_released)
         self.connect("button-press-event", self.on_button_press)
         self.connect("row-expanded", self._on_listview_row_expanded)
         self.connect("row-collapsed", self._on_listview_row_collapsed)
         self.connect("columns-changed", self._on_columns_changed)
 
-        self.set_rules_hint(True)
+        self.set_enable_grid_lines(True)  # Replaces set_rules_hint
         self.set_fixed_height_mode(True)
         self.set_sensitive(False)
 
-        # init model
-        self.set_model(Gtk.TreeModelSort(model=treemodel.KeepNoteTreeModel()))
+        # Init model
+        self.set_model(Gtk.TreeModelSort.new_with_model(treemodel.KeepNoteTreeModel()))
 
         self.setup_columns()
 
     def load_preferences(self, app_pref, first_open=False):
         """Load application preferences"""
         self.set_date_formats(app_pref.get("timestamp_formats", default=["%Y-%m-%d %H:%M:%S"]))
-        self.set_rules_hint(
+        self.set_enable_grid_lines(
             app_pref.get("look_and_feel", "listview_rules", default=True))
 
     def save_preferences(self, app_pref):
@@ -66,13 +64,13 @@ class KeepNoteListView(basetreeview.KeepNoteBaseTreeView):
             self._notebook.get_listeners("table_changed").remove(
                 self._on_table_changed)
 
-        basetreeview.KeepNoteBaseTreeView.set_notebook(self, notebook)
+        super().set_notebook(notebook)
 
         if self.rich_model is not None:
             self.rich_model.set_root_nodes([])
 
         if notebook:
-            # load notebook prefs
+            # Load notebook prefs
             self.set_sensitive(True)
             notebook.get_listeners("table_changed").add(self._on_table_changed)
         else:
@@ -91,14 +89,14 @@ class KeepNoteListView(basetreeview.KeepNoteBaseTreeView):
         self._notebook.mark_modified()
 
     def _save_column_widths(self):
-        # save attr column widths
+        # Save attr column widths
         widths = self._notebook.get_attr("column_widths", {})
         for col in self.get_columns():
             widths[col.attr] = col.get_width()
         self._notebook.set_attr("column_widths", widths)
 
     def _save_column_order(self):
-        # save column attrs
+        # Save column attrs
         table = self._notebook.attr_tables.get(self._current_table)
         table.attrs = [col.attr for col in self.get_columns()]
 
@@ -116,7 +114,7 @@ class KeepNoteListView(basetreeview.KeepNoteBaseTreeView):
 
         if table.attrs != current_attrs:
             if set(current_attrs) == set(table.attrs):
-                # only order changed
+                # Only order changed
                 lookup = {col.attr: col for col in self.get_columns()}
                 prev = None
                 for attr in table.attrs:
@@ -124,7 +122,7 @@ class KeepNoteListView(basetreeview.KeepNoteBaseTreeView):
                     self.move_column_after(col, prev)
                     prev = col
             else:
-                # resetup all columns
+                # Resetup all columns
                 self.setup_columns()
 
     def _on_table_changed(self, notebook, table):
@@ -133,10 +131,10 @@ class KeepNoteListView(basetreeview.KeepNoteBaseTreeView):
             self._load_column_order()
 
     #==================================
-    # model and view setup
+    # Model and view setup
 
     def set_model(self, model):
-        basetreeview.KeepNoteBaseTreeView.set_model(self, model)
+        super().set_model(model)
         if model:
             self.model.connect("sort-column-changed", self._sort_column_changed)
 
@@ -165,7 +163,7 @@ class KeepNoteListView(basetreeview.KeepNoteBaseTreeView):
         # 创建排序模型
         if self.rich_model is None:
             self.rich_model = treemodel.KeepNoteTreeModel()
-        self.set_model(Gtk.TreeModelSort(model=self.rich_model))
+        self.set_model(Gtk.TreeModelSort.new_with_model(self.rich_model))
 
         # 配置列视图
         self.set_expander_column(self.get_column(0))
@@ -200,13 +198,13 @@ class KeepNoteListView(basetreeview.KeepNoteBaseTreeView):
                 attr, DEFAULT_ATTR_COL_WIDTH))
         column.set_title(col_title)
 
-        # define column sorting
+        # Define column sorting
         attr_sort = attr + "_sort"
         col = self.rich_model.get_column_by_name(attr_sort)
         if col:
             column.set_sort_column_id(col.pos)
 
-        # add cell renders
+        # Add cell renderers
         if attr == self._attr_title:
             self._add_title_render(column, attr)
         elif datatype == "timestamp":
@@ -222,7 +220,7 @@ class KeepNoteListView(basetreeview.KeepNoteBaseTreeView):
         return column
 
     #=============================================
-    # gui callbacks
+    # GUI callbacks
 
     def is_node_expanded(self, node):
         return node.get_attr("expanded2", False)
@@ -260,26 +258,27 @@ class KeepNoteListView(basetreeview.KeepNoteBaseTreeView):
         if self.editing_path:
             return
 
-        keyval = event.keyval
-        state = event.get_state()
+        # In GTK 4, event.keyval is replaced with event.get_keyval()[1]
+        keyval = event.get_keyval()[1]
+        state = event.get_state()[1]  # In GTK 4, get_state() returns a tuple
 
         if keyval == Gdk.KEY_Delete:
-            self.stop_emission_by_name("key-release-event")
+            self.stop_emission("key-release-event")
             self.emit("delete-node", self.get_selected_nodes())
 
         elif keyval == Gdk.KEY_BackSpace and state & Gdk.ModifierType.CONTROL_MASK:
-            self.stop_emission_by_name("key-release-event")
+            self.stop_emission("key-release-event")
             self.emit("goto-parent-node")
 
         elif keyval == Gdk.KEY_Return and state & Gdk.ModifierType.CONTROL_MASK:
-            self.stop_emission_by_name("key-release-event")
+            self.stop_emission("key-release-event")
             self.emit("activate-node", None)
 
     def on_button_press(self, widget, event):
         if event.button == 3:
             return self.popup_menu(event.x, event.y, event.button, event.time)
 
-        if event.button == 1 and event.type == Gdk.EventType._2BUTTON_PRESS:
+        if event.button == 1 and event.type == Gdk.EventType.DOUBLE_BUTTON_PRESS:  # Changed from _2BUTTON_PRESS
             model, paths = self.get_selection().get_selected_rows()
             if len(paths) > 0:
                 nodes = [
@@ -315,7 +314,8 @@ class KeepNoteListView(basetreeview.KeepNoteBaseTreeView):
                 self._notebook, self._current_table)
 
     #====================================================
-    # actions
+    # Actions
+
     def view_nodes(self, nodes, nested=True):
         print(f"List view_nodes called with nodes: {[node.get_title() for node in nodes]}")
         if len(nodes) > 1:
@@ -331,7 +331,7 @@ class KeepNoteListView(basetreeview.KeepNoteBaseTreeView):
             self.load_sorting(nodes[0], self.model)
 
         for node in nodes:
-            # 将元组转换为 Gtk.TreePath
+            # Convert tuple to Gtk.TreePath
             path_tuple = treemodel.get_path_from_node(
                 self.model, node, self.rich_model.get_node_column_pos())
             path = Gtk.TreePath.new_from_indices(path_tuple)
@@ -388,7 +388,7 @@ class KeepNoteListView(basetreeview.KeepNoteBaseTreeView):
             assert path is not None
         self.set_cursor_on_cell(path, self.title_column, self.title_text, True)
         path, col = self.get_cursor()
-        self.scroll_to_cell(path)
+        self.scroll_to_cell(path, col, False, 0.0, 0.0)  # Updated for GTK 4
 
     def save_sorting(self, node):
         info_sort, sort_dir = self.model.get_sort_column_id()
@@ -421,7 +421,7 @@ class KeepNoteListView(basetreeview.KeepNoteBaseTreeView):
             self.on_status(text, bar=bar)
 
     def _on_node_changed_end(self, model, nodes):
-        basetreeview.KeepNoteBaseTreeView._on_node_changed_end(self, model, nodes)
+        super()._on_node_changed_end(model, nodes)
 
         if self.rich_model.get_nested():
             child = model.iter_children(None)

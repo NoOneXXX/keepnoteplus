@@ -1,10 +1,12 @@
 # PyGObject imports
 from gi import require_version
-from gi.overrides import GdkPixbuf
+require_version('Gtk', '4.0')  # GTK4 change
+from gi.repository import GObject
+from gi.repository import Gtk, GdkPixbuf  # GTK4 change
 import os
-require_version('Gtk', '3.0')
-from gi.repository import Gtk, GObject
+
 from keepnote import get_resource
+
 def get_path_from_node(model, node, node_col):
     """
     Determine the path of a NoteBookNode 'node' in a gtk.TreeModel 'model'
@@ -92,10 +94,6 @@ class BaseTreeModel(Gtk.TreeStore):
             return None
 
     def set_notebook(self, notebook):
-        """
-        Set the notebook for this model
-        A notebook must be set before any nodes can be added to the model
-        """
         if self._notebook is not None:
             self._notebook.node_changed.remove(self._on_node_changed)
 
@@ -118,26 +116,21 @@ class BaseTreeModel(Gtk.TreeStore):
 
     # Column manipulation
     def append_column(self, column):
-        """Append a new column to the treemodel"""
         assert column.name not in self._columns_lookup
         column.pos = len(self._columns)
         self._columns.append(column)
         self._columns_lookup[column.name] = column
 
     def get_column(self, pos):
-        """Returns a column from a particular position"""
         return self._columns[pos]
 
     def get_columns(self):
-        """Returns list of columns in treemodel"""
         return self._columns
 
     def get_column_by_name(self, colname):
-        """Returns a column with the given name"""
         return self._columns_lookup.get(colname, None)
 
     def add_column(self, name, coltype, get):
-        """Append column only if it does not already exist"""
         col = self.get_column_by_name(name)
         if col is None:
             col = TreeModelColumn(name, coltype, get=get)
@@ -145,19 +138,15 @@ class BaseTreeModel(Gtk.TreeStore):
         return col
 
     def get_node_column_pos(self):
-        """Returns the column position containing node objects"""
         assert self._node_column is not None
         return self._node_column.pos
 
     def get_node_column(self):
-        """Returns the column that contains nodes"""
         return self._node_column
 
     def set_node_column(self, col):
-        """Set the column that contains nodes"""
         self._node_column = col
 
-    # Master nodes and root nodes
     def set_master_node(self, node):
         self._master_node = node
 
@@ -165,21 +154,18 @@ class BaseTreeModel(Gtk.TreeStore):
         return self._master_node
 
     def set_nested(self, nested):
-        """Sets the 'nested mode' of the treemodel"""
         self._nested = nested
         self.set_root_nodes(self._roots)
 
     def get_nested(self):
-        """Returns True if treemodel is in 'nested mode'"""
         return self._nested
 
     def clear(self):
-        super().clear()  # 使用 TreeStore 的 clear 方法
+        super().clear()
         self._roots = []
         self._root_set = {}
 
     def set_root_nodes(self, roots=[]):
-        """Set the root nodes of the model"""
         self.clear()
         for node in roots:
             self.append(node)
@@ -187,7 +173,6 @@ class BaseTreeModel(Gtk.TreeStore):
             assert self._notebook is not None
 
     def get_root_nodes(self):
-        """Returns the root nodes of the treemodel"""
         return self._roots
 
     def append(self, node):
@@ -196,15 +181,14 @@ class BaseTreeModel(Gtk.TreeStore):
         self._roots.append(node)
         title = node.get_title() if node else ""
         icon = self._get_node_icon(node)
-        bgcolor = node.get_attr("background") if node and node.get_attr("background") else None  # 改为 None
-        fgcolor = node.get_attr("foreground") if node and node.get_attr("foreground") else None  # 改为 None
+        bgcolor = node.get_attr("background") if node and node.get_attr("background") else None
+        fgcolor = node.get_attr("foreground") if node and node.get_attr("foreground") else None
         icon_open = self._get_expander_icon(node)
         rowref = super().append(None, [node, title, icon, bgcolor, fgcolor, icon_open])
         print(
             f"Appending node={node}, title={title}, icon={icon}, bgcolor={bgcolor}, fgcolor={fgcolor}, icon_open={icon_open}, column count={self.get_n_columns()}")
         self.row_has_child_toggled((index,), rowref)
 
-    # Notebook callbacks
     def _on_node_changed(self, actions):
         nodes = [a[1] for a in actions if a[0] in ("changed", "changed-recurse")]
         self.emit("node-changed-start", nodes)
@@ -220,8 +204,8 @@ class BaseTreeModel(Gtk.TreeStore):
                     path = get_path_from_node(self, node, self.get_node_column_pos())
                 except:
                     continue
-                self.remove(self.get_iter(path))  # 删除旧节点
-                rowref = self.append(None, [node])  # 插入新节点
+                self.remove(self.get_iter(path))
+                rowref = self.append(None, [node])
                 self.row_has_child_toggled(path, rowref)
             elif act == "added":
                 try:
@@ -250,7 +234,6 @@ class BaseTreeModel(Gtk.TreeStore):
 
         self.emit("node-changed-end", nodes)
 
-    # 可选：保留部分自定义方法
     def on_get_iter(self, path):
         try:
             return self.get_iter(path)
@@ -285,17 +268,15 @@ class KeepNoteTreeModel(BaseTreeModel):
         if notebook:
             self.set_root_nodes([notebook])
 
-    # 重写以避免重复添加列
     def _add_model_column(self, name):
         if name not in self._columns_lookup:
-            col = TreeModelColumn(name, None, get=lambda node: None)  # 占位符，不改变物理列
+            col = TreeModelColumn(name, None, get=lambda node: None)
             self._columns.append(col)
             self._columns_lookup[name] = col
-            col.pos = self.get_column_pos(name)  # 使用已有列位置
+            col.pos = self.get_column_pos(name)
         return self._columns_lookup[name]
 
     def get_column_pos(self, name):
-        # 映射到 BaseTreeModel 的列
         mapping = {
             "node": 0,
             "title": 1,

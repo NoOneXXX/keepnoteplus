@@ -1,7 +1,7 @@
 # Python 3 and PyGObject imports
 import gi
-gi.require_version('Gtk', '3.0')  # Specify GTK 3.0
-from gi.repository import Gtk, GObject, Gdk
+gi.require_version('Gtk', '4.0')  # Specify GTK 4.0
+from gi.repository import Gtk, Gdk
 
 # KeepNote imports
 from keepnote import unicode_gtk
@@ -26,37 +26,35 @@ class LinkEditor(Gtk.Frame):
 
     def layout(self):
         # Layout
-        self.set_no_show_all(True)
+        self.set_visible(False)  # Replaces set_no_show_all(True)
 
-        self.align = Gtk.Alignment()
-        self.add(self.align)
-        self.align.set_padding(5, 5, 5, 5)
-        self.align.set(0, 0, 1, 1)
-
-        self.show()
-        self.align.show_all()
+        self.align = Gtk.Box()  # Gtk.Alignment is deprecated, using Gtk.Box instead
+        self.align.set_margin_start(5)
+        self.align.set_margin_end(5)
+        self.align.set_margin_top(5)
+        self.align.set_margin_bottom(5)
+        self.set_child(self.align)  # Changed from add to set_child
 
         vbox = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=5)
-        self.align.add(vbox)
+        self.align.append(vbox)  # Changed from add to append
 
         hbox = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=5)
-        vbox.pack_start(hbox, True, True, 0)
+        vbox.append(hbox)  # Changed from pack_start to append
 
         label = Gtk.Label(label="url:")
-        hbox.pack_start(label, False, False, 0)
-        label.set_xalign(0)
-        label.set_yalign(0.5)
+        hbox.append(label)  # Changed from pack_start to append
+        label.set_halign(Gtk.Align.START)  # Replaces set_xalign
+        label.set_valign(Gtk.Align.CENTER)  # Replaces set_yalign
 
         self.url_text = Gtk.Entry()
-        hbox.pack_start(self.url_text, True, True, 0)
-        self.url_text.set_width_chars(-1)
+        hbox.append(self.url_text)  # Changed from pack_start to append
         self.url_text.connect("key-press-event", self._on_key_press_event)
         self.url_text.connect("focus-in-event", self._on_url_text_start)
         self.url_text.connect("focus-out-event", self._on_url_text_done)
         self.url_text.connect("changed", self._on_url_text_changed)
         self.url_text.connect("activate", self._on_activate)
 
-        self._liststore = Gtk.ListStore(str, str)
+        self._liststore = Gtk.ListStore.new([str, str])
         self.completion = Gtk.EntryCompletion()
         self.completion.connect("match-selected", self._on_completion_match)
         self.completion.set_match_func(self._match_func)
@@ -66,7 +64,7 @@ class LinkEditor(Gtk.Frame):
         self._ignore_text = False
 
         if not self.active:
-            self.hide()
+            self.set_visible(False)
 
     def set_search_nodes(self, search):
         self.search_nodes = search
@@ -124,9 +122,7 @@ class LinkEditor(Gtk.Frame):
         """Callback for when font changes under richtext cursor"""
         if font.link:
             self.active = True
-            self.url_text.set_width_chars(-1)
-            self.show()
-            self.align.show_all()
+            self.set_visible(True)
             self.current_url = font.link.get_href()
             self._ignore_text = True
             self.url_text.set_text(self.current_url)
@@ -134,14 +130,16 @@ class LinkEditor(Gtk.Frame):
 
             if self.textview:
                 def scroll_to_mark():
-                    self.textview.scroll_mark_onscreen(self.textview.get_buffer().get_insert())
+                    self.textview.scroll_to_mark(self.textview.get_buffer().get_insert(), 0.0, False, 0.0, 0.0)
                     return False
-                GObject.idle_add(scroll_to_mark)
+                # GObject.idle_add is replaced with GLib.idle_add in GTK 4
+                from gi.repository import GLib
+                GLib.idle_add(scroll_to_mark)
 
         elif self.active:
             self.set_url()
             self.active = False
-            self.hide()
+            self.set_visible(False)
             self.current_url = None
             self.url_text.set_text("")
 
@@ -159,7 +157,9 @@ class LinkEditor(Gtk.Frame):
         self.dismiss(True)
 
     def _on_key_press_event(self, widget, event):
-        if event.keyval == Gdk.KEY_Escape:
+        # In GTK 4, event.keyval is replaced with event.get_keyval()[1]
+        keyval = event.get_keyval()[1]
+        if keyval == Gdk.KEY_Escape:
             self.dismiss(False)
 
     def dismiss(self, set_url):

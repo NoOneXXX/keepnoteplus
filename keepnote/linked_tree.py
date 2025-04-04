@@ -4,9 +4,6 @@
     A tree implemented with linked lists
 
 """
-
-
-
 class LinkedTreeNode (object):
     """A node in a linked list tree"""
 

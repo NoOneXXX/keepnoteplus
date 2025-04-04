@@ -5,9 +5,6 @@
 
 """
 
-
-
-
 # python imports
 from heapq import heappop
 

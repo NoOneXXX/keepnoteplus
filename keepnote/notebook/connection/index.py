@@ -9,14 +9,6 @@
 
 # python imports
 from itertools import chain
-
-#try:
-#    import pysqlite2.dbapi2 as sqlite
-#except ImportError:
-#    pass
-#sqlite.enable_shared_cache(True)
-#sqlite.threadsafety = 0
-
 # keepnote imports
 import keepnote
 import keepnote.notebook

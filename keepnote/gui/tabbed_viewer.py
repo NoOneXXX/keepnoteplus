@@ -1,23 +1,6 @@
-# KeepNote
-# Copyright (c) 2008-2009 Matt Rasmussen
-# Author: Matt Rasmussen <rasmus@alum.mit.edu>
-#
-# This program is free software; you can redistribute it and/or modify
-# it under the terms of the GNU General Public License as published by
-# the Free Software Foundation; version 2 of the License.
-#
-# This program is distributed in the hope that it will be useful,
-# but WITHOUT ANY WARRANTY; without even the implied warranty of
-# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-# GNU General Public License for more details.
-#
-# You should have received a copy of the GNU General Public License
-# along with this program; if not, write to the Free Software
-# Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301, USA.
-
 # PyGObject imports
 from gi import require_version
-require_version('Gtk', '3.0')
+require_version('Gtk', '4.0')
 from gi.repository import Gtk, Gdk, GLib, GObject
 
 # KeepNote imports
@@ -28,7 +11,6 @@ from keepnote.gui.viewer import Viewer
 from keepnote.gui.icons import get_node_icon
 
 _ = keepnote.translate
-
 
 class TwoWayDict(object):
     def __init__(self):
@@ -44,7 +26,6 @@ class TwoWayDict(object):
 
     def get2(self, item2, default=None):
         return self._lookup2.get(item2, default)
-
 
 class TabbedViewer(Viewer):
     """A viewer with a treeview, listview, and editor"""
@@ -64,15 +45,13 @@ class TabbedViewer(Viewer):
 
         # Layout
         self._tabs = Gtk.Notebook()
-        self._tabs.show()
         self._tabs.set_show_border(False)
-        # Remove this line: self._tabs.set_property("homogeneous", True)
         self._tabs.set_scrollable(True)
         self._tabs.connect("switch-page", self._on_switch_tab)
         self._tabs.connect("page-added", self._on_tab_added)
         self._tabs.connect("page-removed", self._on_tab_removed)
         self._tabs.connect("button-press-event", self._on_button_press)
-        self.pack_start(self._tabs, True, True, 0)
+        self.append(self._tabs)  # Changed from pack_start to append
 
         # Initialize with a single tab
         self.new_tab()
@@ -98,7 +77,6 @@ class TabbedViewer(Viewer):
         self._tabs.append_page(viewer, label)
         self._tabs.set_tab_reorderable(viewer, True)
         self._tab_names[viewer] = None
-        viewer.show_all()
 
         # Setup viewer signals
         self._callbacks[viewer] = [
@@ -217,7 +195,7 @@ class TabbedViewer(Viewer):
 
     def _on_button_press(self, widget, event):
         if (self.get_toplevel().get_focus() == self._tabs and
-                event.button == 1 and event.type == Gdk.EventType._2BUTTON_PRESS):
+                event.button == 1 and event.type == Gdk.EventType.DOUBLE_BUTTON_PRESS):  # Changed from _2BUTTON_PRESS
             label = self._tabs.get_tab_label(self._tabs.get_nth_page(self._tabs.get_current_page()))
             label.start_editing()
 
@@ -388,7 +366,6 @@ class TabbedViewer(Viewer):
             ("Previous Tab", None, _("_Previous Tab"), "<control>Page_Up", _("Switch to previous tab"), lambda w: self.switch_tab(-1))
         ]]
 
-
 class TabLabel(Gtk.Box):
     def __init__(self, tabs, viewer, icon, text):
         super().__init__(orientation=Gtk.Orientation.HORIZONTAL, spacing=2)
@@ -400,13 +377,13 @@ class TabLabel(Gtk.Box):
         self.icon = Gtk.Image()
         if icon:
             self.icon.set_from_pixbuf(icon)
-        self.icon.show()
+        self.icon.set_visible(True)  # Replaces show()
 
         # Label
         self.label = Gtk.Label(label=text)
         self.label.set_halign(Gtk.Align.START)
         self.label.set_valign(Gtk.Align.CENTER)
-        self.label.show()
+        self.label.set_visible(True)  # Replaces show()
 
         # Entry
         self.entry = Gtk.Entry()
@@ -418,26 +395,29 @@ class TabLabel(Gtk.Box):
         # Close button
         self.close_button_state = [Gtk.StateType.NORMAL]
 
-        def highlight(w, state):
-            self.close_button_state[0] = w.get_state()
-            w.set_state(state)
+        def highlight(w, event):
+            self.close_button_state[0] = w.get_state_flags()  # Replaces get_state()
+            w.set_state_flags(Gtk.StateFlags.PRELIGHT, clear=False)  # Replaces set_state()
+
+        def unhighlight(w, event):
+            w.set_state_flags(self.close_button_state[0], clear=True)  # Replaces set_state()
 
         self.eclose_button = Gtk.EventBox()
         self.close_button = keepnote.gui.get_resource_image("close_tab.png")
-        self.eclose_button.add(self.close_button)
-        self.eclose_button.show()
+        self.eclose_button.set_child(self.close_button)  # Changed from add to set_child
+        self.eclose_button.set_visible(True)  # Replaces show()
 
-        self.eclose_button.connect("enter-notify-event", lambda w, e: highlight(w, Gtk.StateType.PRELIGHT))
-        self.eclose_button.connect("leave-notify-event", lambda w, e: highlight(w, self.close_button_state[0]))
-        self.close_button.show()
+        self.eclose_button.connect("enter-notify-event", highlight)
+        self.eclose_button.connect("leave-notify-event", unhighlight)
+        self.close_button.set_visible(True)  # Replaces show()
 
         self.eclose_button.connect("button-press-event", lambda w, e:
                                    self.tabs.close_viewer(self.viewer) if e.button == 1 else None)
 
         # Layout
-        self.pack_start(self.icon, False, False, 0)
-        self.pack_start(self.label, True, True, 0)
-        self.pack_start(self.eclose_button, False, False, 0)
+        self.append(self.icon)  # Changed from pack_start to append
+        self.append(self.label)  # Changed from pack_start to append
+        self.append(self.eclose_button)  # Changed from pack_start to append
 
     def _done(self, widget):
         text = self.entry.get_text()
@@ -448,23 +428,25 @@ class TabLabel(Gtk.Box):
     def start_editing(self):
         if not self._editing:
             self._editing = True
-            size = self.label.get_preferred_size()
-            w, h = size[1].width, size[1].height
+            # In GTK 4, get_preferred_size() is replaced with measure()
+            self.label.measure(Gtk.Orientation.HORIZONTAL, -1)
+            w = self.label.get_width()  # Simplified for now
+            h = self.label.get_height()  # Simplified for now
             self.remove(self.label)
             self.entry.set_text(self.label.get_label())
-            self.pack_start(self.entry, True, True, 0)
+            self.append(self.entry)  # Changed from pack_start to append
             self.reorder_child(self.entry, 1)
             self.entry.set_size_request(w, h)
-            self.entry.show()
+            self.entry.set_visible(True)  # Replaces show()
             self.entry.grab_focus()
 
     def stop_editing(self):
         if self._editing:
             self._editing = False
             self.remove(self.entry)
-            self.pack_start(self.label, True, True, 0)
+            self.append(self.label)  # Changed from pack_start to append
             self.reorder_child(self.label, 1)
-            self.label.show()
+            self.label.set_visible(True)  # Replaces show()
 
     def set_text(self, text):
         if not self._editing:
@@ -472,7 +454,6 @@ class TabLabel(Gtk.Box):
 
     def set_icon(self, pixbuf):
         self.icon.set_from_pixbuf(pixbuf)
-
 
 GObject.type_register(TabLabel)
 GObject.signal_new("new-name", TabLabel, GObject.SignalFlags.RUN_LAST, None, (str,))

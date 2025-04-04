@@ -1,7 +1,7 @@
 # PyGObject imports
 from gi import require_version
-require_version('Gtk', '3.0')
-from gi.repository import Gtk, Gdk, GLib, GdkPixbuf
+require_version('Gtk', '4.0')  # GTK4 change
+from gi.repository import Gtk, Gdk, GLib, GdkPixbuf  # GTK4 change
 
 # KeepNote imports
 from keepnote.gui import treemodel
@@ -31,7 +31,7 @@ class KeepNoteTreeView(basetreeview.KeepNoteBaseTreeView):
 
         # Tree style
         self.set_headers_visible(False)
-        self.set_property("enable-tree-lines", True)
+        self.set_property("enable-tree-lines", True)  # GTK4: 保留无效，仅用于向后兼容
 
         self._setup_columns()
         self.set_sensitive(False)
@@ -59,8 +59,10 @@ class KeepNoteTreeView(basetreeview.KeepNoteBaseTreeView):
         self._add_model_column("title")     # 标题列
         self._add_model_column("fgcolor")   # 前景色
         self._add_model_column("bgcolor")   # 背景色
+
         self.column.add_attribute(renderer_pixbuf, "pixbuf", self.model.get_column_by_name("icon").pos)
-        self.column.add_attribute(renderer_pixbuf, "pixbuf-expander-open", self.model.get_column_by_name("icon_open").pos)
+        # GTK4 不再支持 pixbuf-expander-open，保留注释如下：
+        # self.column.add_attribute(renderer_pixbuf, "pixbuf-expander-open", self.model.get_column_by_name("icon_open").pos)
         self.column.add_attribute(renderer_text, "text", self.model.get_column_by_name("title").pos)
         self.column.add_attribute(renderer_text, "foreground", self.model.get_column_by_name("fgcolor").pos)
         self.column.add_attribute(renderer_text, "cell-background", self.model.get_column_by_name("bgcolor").pos)

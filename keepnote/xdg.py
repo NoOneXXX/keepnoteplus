@@ -1,11 +1,7 @@
 """
 
     Simple implementation of the XDG Base Directory Specification
-
-    http://standards.freedesktop.org/basedir-spec/basedir-spec-0.6.html
-
 """
-
 
 # python imports
 import os

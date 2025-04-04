@@ -1,21 +1,19 @@
 # Python 3 and PyGObject imports
 import gi
-gi.require_version('Gtk', '3.0')  # Specify GTK 3.0
+gi.require_version('Gtk', '4.0')  # Specify GTK 4.0
 from gi.repository import Gtk, Pango
 
 class FontSelector(Gtk.ComboBox):
     """ComboBox for selecting font families"""
 
     def __init__(self):
-        Gtk.ComboBox.__init__(self)
-        context = self.get_pango_context_fixed()  # 使用新方法避免递归
-        families = context.list_families()
+        super().__init__()
         # Create a ListStore to hold font family names (strings)
-        self._list = Gtk.ListStore(str)
+        self._list = Gtk.ListStore.new([str])
         self.set_model(self._list)
 
         # Get the list of font families from Pango context
-        context = self.get_pango_context()
+        context = self.get_pango_context_fixed()
         self._families = sorted(f.get_name() for f in context.list_families())
         self._lookup = [x.lower() for x in self._families]
 
@@ -48,11 +46,9 @@ class FontSelector(Gtk.ComboBox):
         return None
 
     def get_pango_context_fixed(self):
-        # 直接调用 Gtk.Widget 的 get_pango_context 或创建新的 Pango.Context
-        if hasattr(Gtk.Widget, 'get_pango_context'):
-            return super().get_pango_context()  # 调用父类方法
-        return Pango.Context()  # 回退到默认上下文
+        # Directly call Gtk.Widget's get_pango_context or create a new Pango.Context
+        return super().get_pango_context()  # Call parent method
 
-    # 原方法保留但不使用，避免冲突
+    # Original method retained but not used, to avoid conflicts
     def get_pango_context(self):
-        return self.get_pango_context_fixed()  # 重定向到新方法
+        return self.get_pango_context_fixed()  # Redirect to new method

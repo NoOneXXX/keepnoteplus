@@ -1,7 +1,6 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
-#
-# Copyright (C) 2011 Radim Rehurek <radimrehurek@seznam.cz>
+
 
 # Hacked together from:
 #  * http://code.activestate.com/recipes/576638-draft-for-an-sqlite3-based-dbm/

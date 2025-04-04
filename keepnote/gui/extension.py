@@ -1,7 +1,7 @@
 # Python 3 and PyGObject imports
 import sys
 import gi
-gi.require_version('Gtk', '3.0')  # Specify GTK 3.0
+gi.require_version('Gtk', '4.0')  # Specify GTK 4.0
 from gi.repository import Gtk
 
 # KeepNote imports
@@ -90,60 +90,44 @@ class Extension(extension.Extension):
                    callback=lambda w: None,
                    stock_id=None, accel="", tooltip=None):
         """Add an action to the window's UI manager"""
-        # Initialize action group if not present
-        if window not in self.__action_groups:
-            group = Gtk.ActionGroup(name="MainWindow")
-            self.__action_groups[window] = group
-            window.get_uimanager().insert_action_group(group, 0)
-
-        # Add action
-        self.__action_groups[window].add_actions([
-            (action_name, stock_id, menu_text, accel, tooltip, callback)])
+        # Note: Gtk.ActionGroup is deprecated in GTK 4. This method needs to be reimplemented
+        # using GAction and GMenu or manual widget creation.
+        print(f"Warning: add_action needs to be reimplemented for GTK 4 (Gtk.ActionGroup is deprecated) - {action_name}")
+        pass
 
     def remove_action(self, window, action_name):
         """Remove a specific action from the window's UI manager"""
-        group = self.__action_groups.get(window)
-        if group is not None:
-            action = group.get_action(action_name)
-            if action:
-                group.remove_action(action)
+        # Note: This method needs to be reimplemented for GTK 4.
+        print(f"Warning: remove_action needs to be reimplemented for GTK 4 - {action_name}")
+        pass
 
     def remove_all_actions(self, window):
         """Remove all actions for the window"""
-        group = self.__action_groups.get(window)
-        if group is not None:
-            window.get_uimanager().remove_action_group(group)
+        # Note: This method needs to be reimplemented for GTK 4.
+        print("Warning: remove_all_actions needs to be reimplemented for GTK 4")
+        if window in self.__action_groups:
             del self.__action_groups[window]
 
     def add_ui(self, window, uixml):
         """Add UI elements to the window's UI manager"""
-        # Initialize list of UI IDs if not present
-        uids = self.__ui_ids.get(window)
-        if uids is None:
-            uids = self.__ui_ids[window] = []
-
-        # Add UI and record ID
-        uid = window.get_uimanager().add_ui_from_string(uixml)
-        uids.append(uid)
-
-        # Return ID
-        return uid
+        # Note: Gtk.UIManager is deprecated in GTK 4. This method needs to be reimplemented
+        # using GMenu or manual widget creation.
+        print("Warning: add_ui needs to be reimplemented for GTK 4 (Gtk.UIManager is deprecated)")
+        return None
 
     def remove_ui(self, window, uid):
         """Remove a specific UI element from the window's UI manager"""
+        # Note: This method needs to be reimplemented for GTK 4.
+        print("Warning: remove_ui needs to be reimplemented for GTK 4")
         uids = self.__ui_ids.get(window)
         if uids is not None and uid in uids:
-            window.get_uimanager().remove_ui(uid)
             uids.remove(uid)
-
-            # Remove UID list if last UID removed
             if len(uids) == 0:
                 del self.__ui_ids[window]
 
     def remove_all_ui(self, window):
         """Remove all UI elements for the window"""
-        uids = self.__ui_ids.get(window)
-        if uids is not None:
-            for uid in uids:
-                window.get_uimanager().remove_ui(uid)
+        # Note: This method needs to be reimplemented for GTK 4.
+        print("Warning: remove_all_ui needs to be reimplemented for GTK 4")
+        if window in self.__ui_ids:
             del self.__ui_ids[window]

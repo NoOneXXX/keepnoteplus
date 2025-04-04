@@ -118,37 +118,46 @@ class ColorTextImage(Gtk.Image):
         snapshot.append_texture(texture, Gdk.Rectangle(x=0, y=0, width=self.width, height=self.height))
 
 # ColorMenu class
-class ColorMenu(Gtk.Menu):
+class ColorMenu(Gtk.Popover):
     def __init__(self, colors=DEFAULT_COLORS):
         super().__init__()
         self.width = 7
-        self.posi = 4
-        self.posj = 0
         self.color_items = []
+        self.colors = []
 
-        no_color = Gtk.MenuItem.new_with_label("_Default Color")
-        no_color.connect("activate", self.on_no_color)
-        self.attach(no_color, 0, self.width, 0, 1)
-        no_color.show()
+        self.box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=4)
+        self.set_child(self.box)
 
-        new_color = Gtk.MenuItem.new_with_label("_New Color...")
-        new_color.connect("activate", self.on_new_color)
-        self.attach(new_color, 0, self.width, 1, 2)
-        new_color.show()
+        # Default color button
+        no_color_btn = Gtk.Button(label=_("Default Color"))
+        no_color_btn.connect("clicked", self.on_no_color)
+        self.box.append(no_color_btn)
 
-        separator = Gtk.SeparatorMenuItem()
-        self.attach(separator, 0, self.width, 3, 4)
-        separator.show()
+        # New color button
+        new_color_btn = Gtk.Button(label=_("New Color..."))
+        new_color_btn.connect("clicked", self.on_new_color)
+        self.box.append(new_color_btn)
+
+        # Separator
+        self.box.append(Gtk.Separator(orientation=Gtk.Orientation.HORIZONTAL))
+
+        # Grid for color buttons
+        self.grid = Gtk.Grid()
+        self.grid.set_column_spacing(4)
+        self.grid.set_row_spacing(4)
+        self.box.append(self.grid)
 
         self.set_colors(colors)
 
-    def on_new_color(self, menu):
+    def on_new_color(self, button):
         dialog = ColorSelectionDialog("Choose color")
         dialog.set_modal(True)
         dialog.show()
         if dialog.run() == Gtk.ResponseType.OK:
             color = dialog.get_rgba()
-            color_str = color_int16_to_str((int(color.red * 65535), int(color.green * 65535), int(color.blue * 65535)))
+            color_str = color_int16_to_str((int(color.red * 65535),
+                                            int(color.green * 65535),
+                                            int(color.blue * 65535)))
             if color_str not in self.colors:
                 self.colors.append(color_str)
                 self.append_color(color_str)
@@ -156,47 +165,40 @@ class ColorMenu(Gtk.Menu):
             self.emit("set-color", color_str)
         dialog.destroy()
 
-    def on_no_color(self, menu):
+    def on_no_color(self, button):
         self.emit("set-color", None)
 
     def clear_colors(self):
         for item in self.color_items:
-            self.remove(item)
-        self.posi = 4
-        self.posj = 0
+            self.grid.remove(item)
         self.color_items = []
         self.colors = []
 
     def set_colors(self, colors):
         self.clear_colors()
         self.colors = list(colors)
-        for color in colors:
-            self.append_color(color, refresh=False)
-        self.show_all()
+        for i, color in enumerate(colors):
+            self.append_color(color)
 
-    def get_colors(self):
-        return self.colors
+    def append_color(self, color):
+        i = len(self.color_items)
+        row = i // self.width
+        col = i % self.width
+        self.add_color(row, col, color)
 
-    def append_color(self, color, refresh=True):
-        self.add_color(self.posi, self.posj, color, refresh=refresh)
-        self.posj += 1
-        if self.posj >= self.width:
-            self.posj = 0
-            self.posi += 1
-
-    def add_color(self, i, j, color, refresh=True):
-        item = Gtk.MenuItem()
+    def add_color(self, i, j, color):
+        button = Gtk.Button()
         img = ColorTextImage(15, 15, False)
         img.set_bg_color(color)
-        item.set_child(img)
-        item.connect("activate", lambda w: self.emit("set-color", color))
-        self.attach(item, j, j + 1, i, i + 1)
-        self.color_items.append(item)
-        item.show()
+        button.set_child(img)
+        button.connect("clicked", lambda w: self.emit("set-color", color))
+        self.grid.attach(button, j, i, 1, 1)
+        self.color_items.append(button)
 
 GObject.type_register(ColorMenu)
 GObject.signal_new("set-color", ColorMenu, GObject.SignalFlags.RUN_LAST, None, (GObject.TYPE_PYOBJECT,))
 GObject.signal_new("set-colors", ColorMenu, GObject.SignalFlags.RUN_LAST, None, (GObject.TYPE_PYOBJECT,))
+
 GObject.signal_new("get-colors", ColorMenu, GObject.SignalFlags.RUN_LAST, None, ())
 
 # ColorTool base class

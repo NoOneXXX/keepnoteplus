@@ -4,9 +4,6 @@
     Node history data structure
 
 """
-
-
-
 class NodeHistory (object):
     """Data structure of node history"""
 

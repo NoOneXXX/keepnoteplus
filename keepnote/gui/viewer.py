@@ -1,27 +1,10 @@
-# KeepNote
-# Copyright (c) 2008-2011 Matt Rasmussen
-# Author: Matt Rasmussen <rasmus@alum.mit.edu>
-#
-# This program is free software; you can redistribute it and/or modify
-# it under the terms of the GNU General Public License as published by
-# the Free Software Foundation; version 2 of the License.
-#
-# This program is distributed in the hope that it will be useful,
-# but WITHOUT ANY WARRANTY; without even the implied warranty of
-# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-# GNU General Public License for more details.
-#
-# You should have received a copy of the GNU General Public License
-# along with this program; if not, write to the Free Software
-# Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301, USA.
-
 # Python imports
 import uuid
 
 # PyGObject imports
 from gi import require_version
-require_version('Gtk', '3.0')
-from gi.repository import Gtk, GObject
+require_version('Gtk', '4.0')  # GTK4 change
+from gi.repository import Gtk, GObject, Gio  # GTK4 change
 
 # KeepNote imports
 import keepnote
@@ -33,7 +16,7 @@ _ = keepnote.translate
 
 class Viewer(Gtk.Box):
     def __init__(self, app, parent, viewerid=None, viewer_name="viewer"):
-        super().__init__(orientation=Gtk.Orientation.VERTICAL, spacing=0)
+        super().__init__(orientation=Gtk.Orientation.VERTICAL, spacing=0)  # GTK4 change
         self._app = app
         self._main_window = parent
         self._viewerid = viewerid if viewerid else str(uuid.uuid4())

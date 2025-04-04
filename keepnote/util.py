@@ -4,9 +4,6 @@
     utilities
 
 """
-
-
-
 class PushIter (object):
     """
     Wrap an iterator in another iterator that allows one to push new

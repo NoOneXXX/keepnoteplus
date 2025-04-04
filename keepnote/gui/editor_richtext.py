@@ -930,22 +930,23 @@ class EditorMenus:
         print("Warning: setup_menu needs to be reimplemented for GTK 4")
         pass
 
-class ComboToolItem(Gtk.ToolItem):
+class ComboToolItem(Gtk.Box):
     def __init__(self):
-        super().__init__()
-
-        self.set_border_width(2)
-        self.set_homogeneous(False)
-        self.set_expand(False)
+        super().__init__(orientation=Gtk.Orientation.HORIZONTAL, spacing=6)
+        self.set_margin_top(3)
+        self.set_margin_bottom(3)
+        self.set_margin_start(6)
+        self.set_margin_end(6)
 
         self.combobox = Gtk.ComboBoxText.new_with_entry()
         for text in ['a', 'b', 'c', 'd', 'e', 'f']:
             self.combobox.append_text(text)
-        self.set_child(self.combobox)  # Changed from add to set_child
+        self.append(self.combobox)
 
     def set_tooltip(self, tooltips, tip_text=None, tip_private=None):
-        self.set_tooltip_text(tip_text)  # Changed from super().set_tooltip_text
+        self.set_tooltip_text(tip_text)
         self.combobox.set_tooltip_text(tip_text)
+
 
 class ComboToolAction(Action):
     def __init__(self, name, label, tooltip, stock_id):

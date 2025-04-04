@@ -1,15 +1,13 @@
 # PyGObject imports
 from gi import require_version
-require_version('Gtk', '3.0')
+require_version('Gtk', '4.0')
 from gi.repository import Gtk, Gdk
-
 
 class PopupWindow(Gtk.Window):
     """A customizable popup window"""
 
     def __init__(self, parent):
-        super().__init__(type=Gtk.WindowType.POPUP)
-        self.set_type_hint(Gdk.WindowTypeHint.MENU)
+        super().__init__(type_hint=Gdk.SurfaceTypeHint.MENU)  # Replaces WindowType.POPUP and set_type_hint
         self.set_transient_for(parent.get_toplevel())
         self.set_can_focus(True)
         self.add_events(Gdk.EventMask.KEY_PRESS_MASK |
@@ -30,7 +28,7 @@ class PopupWindow(Gtk.Window):
     def move_on_parent(self, x, y, y2):
         """Move popup relative to parent widget"""
 
-        win = self._parent.get_parent_window()
+        win = self._parent.get_parent_surface()  # Replaces get_parent_window
         if win is None:
             return
 
@@ -40,11 +38,13 @@ class PopupWindow(Gtk.Window):
         self._y2 = y2
 
         # Get screen dimensions
-        screen = self.get_screen()
-        screenh = screen.get_height()
+        display = self.get_display()
+        monitor = display.get_monitor_at_surface(win)
+        geometry = monitor.get_geometry()
+        screenh = geometry.height  # Replaces screen.get_height()
 
         # Account for window
-        wx, wy = win.get_origin()
+        wx, wy = win.get_position()  # Replaces get_origin()
 
         # Account for widget
         rect = self._parent.get_allocation()
@@ -54,13 +54,35 @@ class PopupWindow(Gtk.Window):
         # Get size of popup
         child = self.get_child()
         if child:
-            w, h = child.get_preferred_size()[1].width, child.get_preferred_size()[1].height
-            self.resize(w, h)
+            # In GTK 4, get_preferred_size() is replaced with measure()
+            child.measure(Gtk.Orientation.HORIZONTAL, -1)
+            child.measure(Gtk.Orientation.VERTICAL, -1)
+            w = child.get_width()  # Simplified for now
+            h = child.get_height()  # Simplified for now
+            self.set_default_size(w, h)  # Replaces resize()
 
         # Perform move
         if y + y3 + h < screenh:
             # Drop down
-            self.move(x + x3, y + y3)
+            self.set_position(x + x3, y + y3)  # Replaces move()
         else:
             # Drop up
-            self.move(x + x3, y2 + y3 - h)
+            self.set_position(x + x3, y2 + y3 - h)  # Replaces move()
+
+    def set_position(self, x, y):
+        """Set the position of the window"""
+        # In GTK 4, move() is replaced with manual positioning
+        self.set_default_position(x, y)  # Custom method to store position
+        if self.get_realized():
+            self.get_surface().move(x, y)
+
+    def set_default_position(self, x, y):
+        """Store the default position for unrealized windows"""
+        self._default_x = x
+        self._default_y = y
+
+    def realize(self):
+        """Override realize to set position after realization"""
+        super().realize()
+        if hasattr(self, '_default_x') and hasattr(self, '_default_y'):
+            self.get_surface().move(self._default_x, self._default_y)

@@ -8,11 +8,13 @@ import os
 import sys
 import threading
 
+
+
 from keepnote.sqlitedict import logger
 import gi
 gi.require_version('Gtk', '4.0')
 from gi.repository import Gtk, GLib, Gdk, GdkPixbuf
-
+from gi.repository import Gio
 # KeepNote imports
 import keepnote
 from keepnote import log_error

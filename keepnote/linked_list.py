@@ -4,9 +4,6 @@
     Linked list data structure
 
 """
-
-
-
 class LinkedNode (object):
     """A node in a doubly linked list"""
 

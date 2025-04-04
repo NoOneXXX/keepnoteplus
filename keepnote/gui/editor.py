@@ -1,7 +1,7 @@
 # Python 3 and PyGObject imports
 import gi
-gi.require_version('Gtk', '3.0')  # Specify GTK 3.0
-from gi.repository import Gtk, GObject
+gi.require_version('Gtk', '4.0')  # GTK4 change
+from gi.repository import Gtk, GObject, Gio  # GTK4 change
 
 # KeepNote imports
 import keepnote
@@ -14,11 +14,11 @@ class KeepNoteEditor(Gtk.Box):
     """
 
     def __init__(self, app):
-        super().__init__(orientation=Gtk.Orientation.VERTICAL, spacing=0)
+        super().__init__(orientation=Gtk.Orientation.VERTICAL, spacing=0)  # GTK4 change
         self._app = app
         self._notebook = None
         self._textview = None
-        self.show_all()
+        # self.show_all()  # GTK4: deprecated and removed, omit safely
 
     def set_notebook(self, notebook):
         """Set notebook for editor"""
@@ -75,6 +75,7 @@ class KeepNoteEditor(Gtk.Box):
     def redo(self):
         """Redo the last undone action"""
         pass
+
 
 # Add new signals to KeepNoteEditor
 GObject.type_register(KeepNoteEditor)
