@@ -3,8 +3,8 @@ KeepNote
 RichText base classes for tags
 """
 import gi
-gi.require_version('Gtk', '3.0')
-# PyGObject imports (GTK 3)
+gi.require_version('Gtk', '4.0')
+# PyGObject imports (GTK 4)
 from gi.repository import Gtk
 
 # Tag table and tags
@@ -37,9 +37,10 @@ class RichTextBaseTagTable(Gtk.TextTagTable):
         super().remove(tag)
         if tag in self._expiring_tags:
             self._expiring_tags.remove(tag)
-        cls = self._tag2class[tag]
-        del self._tag2class[tag]
-        cls.tags.remove(tag)
+        cls = self._tag2class.get(tag)
+        if cls:
+            del self._tag2class[tag]
+            cls.tags.remove(tag)
 
     def new_tag_class(self, class_name, class_type, exclusive=True):
         """Create a new RichTextTag class for RichTextBaseTagTable"""
@@ -71,7 +72,6 @@ class RichTextBaseTagTable(Gtk.TextTagTable):
     def lookup(self, name):
         """Lookup any tag, create it if needed"""
         # Test to see if name is directly in table
-        # Modifications and justifications are directly stored
         tag = super().lookup(name)
         if tag:
             return tag
@@ -177,3 +177,24 @@ class RichTextTag(Gtk.TextTag):
     @classmethod
     def make_from_name(cls, tag_name):
         return cls(cls.get_value(tag_name))
+
+# Example usage (optional, for testing)
+if __name__ == "__main__":
+    win = Gtk.Window()
+    textview = Gtk.TextView()
+    buffer = textview.get_buffer()
+    tag_table = RichTextBaseTagTable()
+    buffer.set_tag_table(tag_table)
+
+    # Add a simple tag class and tag for testing
+    tag_table.new_tag_class("test", RichTextTag, exclusive=True)
+    test_tag = tag_table.tag_class_add("test", RichTextTag("test-bold", weight=700))
+
+    buffer.insert(buffer.get_start_iter(), "Hello, world!", -1)
+    start, end = buffer.get_bounds()
+    buffer.apply_tag(test_tag, start, end)
+
+    win.set_child(textview)
+    win.connect("close-request", Gtk.main_quit)
+    win.show()
+    Gtk.main()

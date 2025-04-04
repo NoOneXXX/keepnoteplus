@@ -3,8 +3,8 @@ KeepNote
 Richtext buffer base class
 """
 import gi
-gi.require_version('Gtk', '3.0')
-# PyGObject imports (GTK 3)
+gi.require_version('Gtk', '4.0')
+# PyGObject imports (GTK 4)
 from gi.repository import Gtk, GObject
 
 # Import textbuffer tools
@@ -29,10 +29,10 @@ def add_child_to_buffer(textbuffer, it, anchor):
 class RichTextAnchor(Gtk.TextChildAnchor):
     """Base class of all anchor objects in a RichTextView"""
     __gsignals__ = {
-        "selected": (GObject.SIGNAL_RUN_LAST, None, ()),
-        "activated": (GObject.SIGNAL_RUN_LAST, None, ()),
-        "popup-menu": (GObject.SIGNAL_RUN_LAST, None, (int, object)),
-        "init": (GObject.SIGNAL_RUN_LAST, None, ()),
+        "selected": (GObject.SignalFlags.RUN_LAST, None, ()),
+        "activated": (GObject.SignalFlags.RUN_LAST, None, ()),
+        "popup-menu": (GObject.SignalFlags.RUN_LAST, None, (int, object)),
+        "init": (GObject.SignalFlags.RUN_LAST, None, ()),
     }
 
     def __init__(self):
@@ -44,7 +44,7 @@ class RichTextAnchor(Gtk.TextChildAnchor):
         return None
 
     def get_widget(self, view=None):
-        return self._widgets[view]
+        return self._widgets.get(view)
 
     def get_all_widgets(self):
         return self._widgets
@@ -81,7 +81,7 @@ class RichTextBaseBuffer(Gtk.TextBuffer):
         - maintains undo/redo stacks
     """
     __gsignals__ = {
-        "ending-user-action": (GObject.SIGNAL_RUN_LAST, None, ()),
+        "ending-user-action": (GObject.SignalFlags.RUN_LAST, None, ()),
     }
 
     def __init__(self, tag_table=RichTextBaseTagTable()):
@@ -104,8 +104,8 @@ class RichTextBaseBuffer(Gtk.TextBuffer):
         # Setup signals
         self._signals = [
             # Local events
-            self.connect("begin_user_action", self._on_begin_user_action),
-            self.connect("end_user_action", self._on_end_user_action),
+            self.connect("begin-user-action", self._on_begin_user_action),
+            self.connect("end-user-action", self._on_end_user_action),
             self.connect("mark-set", self._on_mark_set),
             self.connect("insert-text", self._on_insert_text),
             self.connect("insert-child-anchor", self._on_insert_child_anchor),
@@ -232,16 +232,15 @@ class RichTextBaseBuffer(Gtk.TextBuffer):
 
     def _on_insert_text(self, textbuffer, it, text, length):
         """Callback for text insert"""
-        # In GTK 3, text is already a UTF-8 string, no need for conversion
-        # Check to see if insert is allowed
+        # In GTK 4, text is still a UTF-8 string
         if textbuffer.is_interactive() and \
            not self.is_insert_allowed(it, text):
-            textbuffer.stop_emission("insert-text")
+            textbuffer.stop_emission_by_name("insert-text")
 
     def _on_insert_child_anchor(self, textbuffer, it, anchor):
         """Callback for inserting a child anchor"""
         if not self.is_insert_allowed(it, ""):
-            self.stop_emission("insert-child-anchor")
+            self.stop_emission_by_name("insert-child-anchor")
 
     def _on_apply_tag(self, textbuffer, tag, start, end):
         """Callback for tag apply"""

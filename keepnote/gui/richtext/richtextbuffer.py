@@ -9,8 +9,8 @@ import tempfile
 import urllib.request, urllib.error, urllib.parse
 from itertools import chain
 import gi
-gi.require_version('Gtk', '3.0')
-# PyGObject imports (GTK 3)
+gi.require_version('Gtk', '4.0')
+# PyGObject imports (GTK 4)
 from gi.repository import Gtk, GObject, Gdk, GdkPixbuf
 
 # KeepNote imports
@@ -57,9 +57,10 @@ BULLET_STR = "\u2022 "
 # many websites refuse the python user agent
 USER_AGENT = ""
 
-# Default color of a richtext background
+# Default color of a richtext background (RGB values for white)
 DEFAULT_BGCOLOR = (65535, 65535, 65535)
 
+# Default color for horizontal rule (black)
 DEFAULT_HR_COLOR = (0, 0, 0)
 
 def ignore_tag(tag):
@@ -89,9 +90,10 @@ class BaseWidget(Gtk.EventBox):
     """Widgets in RichTextBuffer must support this interface"""
     def __init__(self):
         super().__init__()
-
-        # TODO: Use CSS to set background color in GTK 3
-        # self.modify_bg(Gtk.StateType.NORMAL, Gdk.Color(*DEFAULT_BGCOLOR))
+        # In GTK 4, use CSS for background color instead of modify_bg
+        self.set_css_classes(["richtext-base-widget"])
+        # Define CSS in your application if needed:
+        # .richtext-base-widget { background-color: rgb(255, 255, 255); }
 
     def highlight(self):
         pass
@@ -100,52 +102,57 @@ class BaseWidget(Gtk.EventBox):
         pass
 
     def show(self):
-        self.show_all()
+        self.set_visible(True)
 
 class RichTextSep(BaseWidget):
     """Separator widget for a Horizontal Rule"""
     def __init__(self):
         super().__init__()
-        self._sep = Gtk.HSeparator()
-        self.add(self._sep)
+        self._sep = Gtk.Separator(orientation=Gtk.Orientation.HORIZONTAL)
+        self.set_child(self._sep)
         self._size = None
 
-        # TODO: Use CSS to set colors in GTK 3
-        # self._sep.modify_bg(Gtk.StateType.NORMAL, Gdk.Color(*DEFAULT_HR_COLOR))
-        # self._sep.modify_fg(Gtk.StateType.NORMAL, Gdk.Color(*DEFAULT_HR_COLOR))
+        # In GTK 4, use CSS for styling instead of modify_bg/fg
+        self._sep.set_css_classes(["richtext-hr"])
+        # Define CSS in your application if needed:
+        # .richtext-hr { background-color: black; color: black; }
 
-        self.connect("size-request", self._on_resize)
-        self.connect("parent-set", self._on_parent_set)
+        self.connect("resize", self._on_resize)
+        self.connect("notify::parent", self._on_parent_set)
 
-        self._resizes_id = None
+        self._resize_id = None
 
-    def _on_parent_set(self, widget, old_parent):
+    def _on_parent_set(self, widget, pspec):
         """Callback for changing parent"""
-        if old_parent:
-            old_parent.disconnect(self._resize_id)
+        if self._resize_id:
+            old_parent = self.get_parent()
+            if old_parent:
+                old_parent.disconnect(self._resize_id)
+        parent = self.get_parent()
+        if parent:
+            self._resize_id = parent.connect("size-allocate",
+                                             self._on_size_change)
 
-        if self.get_parent():
-            self._resize_id = self.get_parent().connect("size-allocate",
-                                                        self._on_size_change)
-
-    def _on_size_change(self, widget, req):
+    def _on_size_change(self, widget, allocation):
         """Callback for parent's changed size allocation"""
         w, h = self.get_desired_size()
         self.set_size_request(w, h)
 
-    def _on_resize(self, sep, req):
+    def _on_resize(self, widget, width, height):
         """Callback for widget resize"""
         w, h = self.get_desired_size()
-        req.width = w
-        req.height = h
+        self.set_size_request(w, h)
 
     def get_desired_size(self):
         """Returns the desired size"""
         HR_HORIZONTAL_MARGIN = 20
         HR_VERTICAL_MARGIN = 10
-        self._size = (self.get_parent().get_allocation().width -
-                      HR_HORIZONTAL_MARGIN,
-                      HR_VERTICAL_MARGIN)
+        parent = self.get_parent()
+        if parent:
+            self._size = (parent.get_width() - HR_HORIZONTAL_MARGIN,
+                          HR_VERTICAL_MARGIN)
+        else:
+            self._size = (100, HR_VERTICAL_MARGIN)  # Fallback size
         return self._size
 
 class RichTextHorizontalRule(RichTextAnchor):
@@ -165,8 +172,8 @@ class BaseImage(BaseWidget):
     def __init__(self, *args, **kwargs):
         super().__init__()
         self._img = Gtk.Image(*args, **kwargs)
-        self._img.show()
-        self.add(self._img)
+        self._img.set_visible(True)
+        self.set_child(self._img)
 
     def highlight(self):
         self.drag_highlight()
@@ -178,8 +185,8 @@ class BaseImage(BaseWidget):
         self._img.set_from_pixbuf(pixbuf)
 
     def set_from_stock(self, stock, size):
-        # GTK 3 does not support stock icons, use a placeholder or custom icon
-        self._img.set_from_icon_name("image-missing", Gtk.IconSize.MENU)
+        # GTK 4 does not support stock icons, use icon names instead
+        self._img.set_from_icon_name("image-missing", Gtk.IconSize.NORMAL)
 
 def get_image_format(filename):
     """Returns the image format for a filename"""
@@ -201,9 +208,9 @@ class RichTextImage(RichTextAnchor):
         self._save_needed = False
 
     def __del__(self):
-        for widget in self._widgets:
-            widget.disconnect("destroy")
-            widget.disconnect("button-press-event")
+        for widget in self._widgets.values():
+            widget.disconnect_by_func(self._on_image_destroy)
+            widget.disconnect_by_func(self._on_clicked)
 
     def add_view(self, view):
         self._widgets[view] = BaseImage()
@@ -308,7 +315,7 @@ class RichTextImage(RichTextAnchor):
     def set_no_image(self):
         """Set the 'no image' icon"""
         for widget in self.get_all_widgets().values():
-            widget.set_from_icon_name("image-missing", Gtk.IconSize.MENU)
+            widget.set_from_icon_name("image-missing", Gtk.IconSize.NORMAL)
         self._pixbuf_original = None
         self._pixbuf = None
 
@@ -407,18 +414,18 @@ class RichTextImage(RichTextAnchor):
 
     # GUI callbacks
     def _on_image_destroy(self, widget):
-        for key, value in self._widgets.items():
+        for key, value in list(self._widgets.items()):
             if value == widget:
                 del self._widgets[key]
                 break
 
     def _on_clicked(self, widget, event):
         """Callback for when image is clicked"""
-        button = event.get_button()[1]
+        button = event.button
         if button == 1:
             widget.grab_focus()
             self.emit("selected")
-            if event.type == Gdk.EventType._2BUTTON_PRESS:
+            if event.type == Gdk.EventType.DOUBLE_BUTTON_PRESS:
                 self.emit("activated")
             return True
         elif button == 3:
@@ -491,10 +498,10 @@ class RichTextBuffer(RichTextBaseBuffer):
     - manages "current font" behavior
     """
     __gsignals__ = {
-        "child-added": (GObject.SIGNAL_RUN_LAST, None, (object,)),
-        "child-activated": (GObject.SIGNAL_RUN_LAST, None, (object,)),
-        "child-menu": (GObject.SIGNAL_RUN_LAST, None, (object, object, object)),
-        "font-change": (GObject.SIGNAL_RUN_LAST, None, (object,)),
+        "child-added": (GObject.SignalFlags.RUN_LAST, None, (object,)),
+        "child-activated": (GObject.SignalFlags.RUN_LAST, None, (object,)),
+        "child-menu": (GObject.SignalFlags.RUN_LAST, None, (object, object, object)),
+        "font-change": (GObject.SignalFlags.RUN_LAST, None, (object,)),
     }
 
     def __init__(self, table=RichTextTagTable()):

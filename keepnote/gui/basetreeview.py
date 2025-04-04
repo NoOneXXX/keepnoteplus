@@ -3,14 +3,12 @@
     base class for treeview
 """
 
-
 # python imports
 import urllib.parse
 import gi
-gi.require_version('Gtk', '3.0')  # Specify GTK 3.0
-# PyGObject imports for GTK 3/4
-from gi.repository import Gtk, Gdk, GObject, GObject
-from gi.repository import GdkPixbuf  # 新增这一行
+gi.require_version('Gtk', '4.0')
+from gi.repository import Gtk, Gdk, GObject
+from gi.repository import GdkPixbuf
 # keepnote imports
 import keepnote
 from keepnote import unicode_gtk
@@ -29,34 +27,26 @@ MIME_TREE_COPY = "application/x-keepnote-tree-copy"
 MIME_NODE_CUT = "application/x-keepnote-node-cut"
 
 # treeview drag and drop config
-DROP_URI = ("text/uri-list", 0, 1)
-DROP_TREE_MOVE = ("drop_node", 0, 0)  # Updated to use modern target format
-# DROP_NO = ("drop_no", gtk.TARGET_SAME_WIDGET, 0)  # Deprecated
+DROP_URI = Gtk.DropTarget.new(Gdk.FileList, Gdk.DragAction.COPY)
+DROP_TREE_MOVE = Gtk.DropTarget.new(str, Gdk.DragAction.MOVE)
 
 # treeview reorder rules
 REORDER_NONE = 0
 REORDER_FOLDER = 1
 REORDER_ALL = 2
 
-
 def parse_utf(text):
-    # TODO: lookup the standard way to do this
-
-    if (text[:2] in ('\xff\xfe', '\xfe\xff') or
-            (len(text) > 1 and text[1] == '\x00') or
-            (len(text) > 3 and text[3] == '\x00')):
+    if (text[:2] in (b'\xff\xfe', b'\xfe\xff') or
+            (len(text) > 1 and text[1] == 0) or
+            (len(text) > 3 and text[3] == 0)):
         return text.decode("utf-16")
     else:
-        text = text.replace("\x00", "")
+        text = text.replace(b"\x00", b"")
         return text.decode("utf-8")
 
-
 def compute_new_path(model, target, drop_position):
-    """Compute the new path of a target rowiter in a treemodel"""
     path = model.get_path(target)
-
-    if (drop_position == Gtk.TreeViewDropPosition.INTO_OR_BEFORE or
-            drop_position == Gtk.TreeViewDropPosition.INTO_OR_AFTER):
+    if drop_position in (Gtk.TreeViewDropPosition.INTO_OR_BEFORE, Gtk.TreeViewDropPosition.INTO_OR_AFTER):
         return path + (0,)
     elif drop_position == Gtk.TreeViewDropPosition.BEFORE:
         return path
@@ -65,22 +55,16 @@ def compute_new_path(model, target, drop_position):
     else:
         raise Exception("unknown drop position %s" % str(drop_position))
 
-
 class TextRendererValidator:
-    def __init__(self, format=lambda x: x, parse=lambda x: x,
-                 validate=lambda x: True):
+    def __init__(self, format=lambda x: x, parse=lambda x: x, validate=lambda x: True):
         def parse2(x):
             if not validate(x):
                 raise Exception("Invalid")
             return parse(x)
-
         self.format = format
         self.parse = parse2
 
-
 class KeepNoteBaseTreeView(Gtk.TreeView):
-    """Base class for treeviews of a NoteBook notes"""
-
     def __init__(self):
         super().__init__()
 
@@ -98,7 +82,6 @@ class KeepNoteBaseTreeView(Gtk.TreeView):
         self._get_node = self._get_node_default
         self._date_formats = {}
 
-        # 初始化信号 ID
         self.changed_start_id = None
         self.changed_end_id = None
         self.insert_id = None
@@ -107,71 +90,41 @@ class KeepNoteBaseTreeView(Gtk.TreeView):
 
         self._menu = None
 
-        # special attr's
         self._attr_title = "title"
         self._attr_icon = "icon"
         self._attr_icon_open = "icon_open"
 
-        # selection
         self.get_selection().connect("changed", self.__on_select_changed)
         self.get_selection().connect("changed", self.on_select_changed)
 
-        # row expand/collapse
         self.connect("row-expanded", self._on_row_expanded)
         self.connect("row-collapsed", self._on_row_collapsed)
 
-        # drag and drop state
-        self._is_dragging = False  # whether drag is in progress
+        self._is_dragging = False
         self._drag_count = 0
-        self._dest_row = None  # current drag destination
-        self._reorder = REORDER_ALL  # enum determining the kind of reordering
-        # that is possible via drag and drop
-        # region, defined by number of vertical pixels from top and bottom of
-        # the treeview widget, where drag scrolling will occur
+        self._dest_row = None
+        self._reorder = REORDER_ALL
         self._drag_scroll_region = 30
 
-        # clipboard
         self.connect("copy-clipboard", self._on_copy_node)
         self.connect("copy-tree-clipboard", self._on_copy_tree)
         self.connect("cut-clipboard", self._on_cut_node)
         self.connect("paste-clipboard", self._on_paste_node)
 
-        # drop and drop events
-        self.connect("drag-begin", self._on_drag_begin)
-        self.connect("drag-end", self._on_drag_end)
-        self.connect("drag-motion", self._on_drag_motion)
-        self.connect("drag-drop", self._on_drag_drop)
-        self.connect("drag-data-delete", self._on_drag_data_delete)
-        self.connect("drag-data-get", self._on_drag_data_get)
-        self.connect("drag-data-received", self._on_drag_data_received)
+        drag_source = Gtk.DragSource.new()
+        drag_source.set_actions(Gdk.DragAction.MOVE)
+        drag_source.connect("prepare", self._on_drag_prepare)
+        drag_source.connect("drag-begin", self._on_drag_begin)
+        drag_source.connect("drag-end", self._on_drag_end)
+        self.add_controller(drag_source)
 
-        # Create Gtk.TargetEntry objects for drag-and-drop
-        target_tree_move = Gtk.TargetEntry.new(*DROP_TREE_MOVE)
-        target_uri = Gtk.TargetEntry.new(*DROP_URI)
-
-        # configure drag and drop events
-        self.enable_model_drag_source(Gdk.ModifierType.BUTTON1_MASK,
-                                      [target_tree_move], Gdk.DragAction.MOVE)
-        self.drag_source_set(Gdk.ModifierType.BUTTON1_MASK,
-                             [target_tree_move], Gdk.DragAction.MOVE)
-        self.enable_model_drag_dest([target_tree_move, target_uri],
-                                    Gdk.DragAction.MOVE |
-                                    Gdk.DragAction.COPY |
-                                    Gdk.DragAction.LINK)
-
-        self.drag_dest_set(
-            Gtk.DestDefaults.ALL,
-            [target_tree_move, target_uri],
-            Gdk.DragAction.DEFAULT |
-            Gdk.DragAction.MOVE |
-            Gdk.DragAction.COPY |
-            Gdk.DragAction.LINK |
-            Gdk.DragAction.PRIVATE |
-            Gdk.DragAction.ASK)
+        drop_target = Gtk.DropTarget.new(str, Gdk.DragAction.MOVE | Gdk.DragAction.COPY)
+        drop_target.connect("motion", self._on_drag_motion)
+        drop_target.connect("drop", self._on_drag_drop)
+        self.add_controller(drop_target)
 
     def set_master_node(self, node):
         self._master_node = node
-
         if self.rich_model:
             self.rich_model.set_master_node(node)
 
@@ -180,8 +133,6 @@ class KeepNoteBaseTreeView(Gtk.TreeView):
 
     def set_notebook(self, notebook):
         self._notebook = notebook
-
-        # NOTE: not used yet
         if self.model:
             if hasattr(self.model, "get_model"):
                 self.model.get_model().set_notebook(notebook)
@@ -200,8 +151,6 @@ class KeepNoteBaseTreeView(Gtk.TreeView):
         return self._notebook.get_node_by_id(nodeid)
 
     def set_model(self, model):
-        """Set the model for the view"""
-        # 如果模型已存在，断开信号连接
         if self.model is not None and self.rich_model is not None:
             if self.changed_start_id is not None:
                 self.rich_model.disconnect(self.changed_start_id)
@@ -217,35 +166,25 @@ class KeepNoteBaseTreeView(Gtk.TreeView):
             self._node_col = None
             self._get_icon = None
 
-        # 设置新模型
         self.model = model
         self.rich_model = None
         super().set_model(self.model)
 
-        # 设置新模型
         if self.model is not None:
             if hasattr(self.model, "get_model"):
                 self.rich_model = self.model.get_model()
             else:
                 self.rich_model = model
 
-            # 初始化信号
             self.rich_model.set_notebook(self._notebook)
-            self.changed_start_id = self.rich_model.connect(
-                "node-changed-start", self._on_node_changed_start)
-            self.changed_end_id = self.rich_model.connect(
-                "node-changed-end", self._on_node_changed_end)
+            self.changed_start_id = self.rich_model.connect("node-changed-start", self._on_node_changed_start)
+            self.changed_end_id = self.rich_model.connect("node-changed-end", self._on_node_changed_end)
             self._node_col = self.rich_model.get_node_column_pos()
-            self._get_icon = lambda row: \
-                self.model.get_value(
-                    row, self.rich_model.get_column_by_name("icon").pos)
+            self._get_icon = lambda row: self.model.get_value(row, self.rich_model.get_column_by_name("icon").pos)
 
-            self.insert_id = self.model.connect("row-inserted",
-                                                self.on_row_inserted)
-            self.delete_id = self.model.connect("row-deleted",
-                                                self.on_row_deleted)
-            self.has_child_id = self.model.connect(
-                "row-has-child-toggled", self.on_row_has_child_toggled)
+            self.insert_id = self.model.connect("row-inserted", self.on_row_inserted)
+            self.delete_id = self.model.connect("row-deleted", self.on_row_deleted)
+            self.has_child_id = self.model.connect("row-has-child-toggled", self.on_row_has_child_toggled)
 
     def set_popup_menu(self, menu):
         self._menu = menu
@@ -254,26 +193,20 @@ class KeepNoteBaseTreeView(Gtk.TreeView):
         return self._menu
 
     def popup_menu(self, x, y, button, time):
-        """Display popup menu"""
         if self._menu is None:
             return
-
         path = self.get_path_at_pos(int(x), int(y))
         if path is None:
             return False
-
         path = path[0]
-
         if not self.get_selection().path_is_selected(path):
             self.get_selection().unselect_all()
             self.get_selection().select_path(path)
-
-        self._menu.popup(None, None, None, button, time)
-        self._menu.show()
+        popup = Gtk.PopoverMenu.new_from_model(self._menu)
+        popup.set_parent(self)
+        popup.set_position(Gtk.PositionType.BOTTOM)
+        popup.popup()
         return True
-
-    #========================================
-    # columns
 
     def clear_columns(self):
         for col in reversed(self.get_columns()):
@@ -286,69 +219,36 @@ class KeepNoteBaseTreeView(Gtk.TreeView):
         return None
 
     def _add_title_render(self, column, attr):
-        # make sure icon attributes are in model
         self._add_model_column(self._attr_icon)
         self._add_model_column(self._attr_icon_open)
 
-        # add renders
-        cell_icon = self._add_pixbuf_render(
-            column, self._attr_icon, self._attr_icon_open)
-        title_text = self._add_text_render(
-            column, attr, editable=True,
-            validator=TextRendererValidator(validate=lambda x: x != ""))
-
-        # record reference to title_text renderer
+        cell_icon = self._add_pixbuf_render(column, self._attr_icon, self._attr_icon_open)
+        title_text = self._add_text_render(column, attr, editable=True,
+                                           validator=TextRendererValidator(validate=lambda x: x != ""))
         self.title_text = title_text
-
         return cell_icon, title_text
 
-    def _add_text_render(self, column, attr, editable=False,
-                         validator=TextRendererValidator()):
-        # cell renderer text
+    def _add_text_render(self, column, attr, editable=False, validator=TextRendererValidator()):
         cell = Gtk.CellRendererText()
         cell.set_fixed_height_from_font(1)
         column.pack_start(cell, True)
-        column.add_attribute(cell, 'text',
-                             self.rich_model.get_column_by_name(attr).pos)
+        column.add_attribute(cell, 'text', self.rich_model.get_column_by_name(attr).pos)
+        column.add_attribute(cell, 'cell-background', self.rich_model.add_column("title_bgcolor", str, lambda node: node.get_attr("title_bgcolor", None)).pos)
+        column.add_attribute(cell, 'foreground', self.rich_model.add_column("title_fgcolor", str, lambda node: node.get_attr("title_fgcolor", None)).pos)
 
-        column.add_attribute(
-            cell, 'cell-background',
-            self.rich_model.add_column(
-                "title_bgcolor", str,
-                lambda node: node.get_attr("title_bgcolor", None)).pos)
-        column.add_attribute(
-            cell, 'foreground',
-            self.rich_model.add_column(
-                "title_fgcolor", str,
-                lambda node: node.get_attr("title_fgcolor", None)).pos)
-
-        # set edit callbacks
         if editable:
-            cell.connect("edited", lambda r, p, t: self.on_edit_attr(
-                r, p, attr, t, validator=validator))
-            cell.connect("editing-started", lambda r, e, p:
-                         self.on_editing_started(r, e, p, attr, validator))
+            cell.connect("edited", lambda r, p, t: self.on_edit_attr(r, p, attr, t, validator=validator))
+            cell.connect("editing-started", lambda r, e, p: self.on_editing_started(r, e, p, attr, validator))
             cell.connect("editing-canceled", self.on_editing_canceled)
             cell.set_property("editable", True)
-
         return cell
 
     def _add_pixbuf_render(self, column, attr, attr_open=None):
         cell = Gtk.CellRendererPixbuf()
         column.pack_start(cell, False)
-        column.add_attribute(cell, 'pixbuf',
-                             self.rich_model.get_column_by_name(attr).pos)
-        # column.add_attribute(
-        #     cell, 'cell-background',
-        #     self.rich_model.add_column(
-        #         "title_bgcolor", str,
-        #         lambda node: node.get_attr("title_bgcolor", None)).pos)
-
+        column.add_attribute(cell, 'pixbuf', self.rich_model.get_column_by_name(attr).pos)
         if attr_open:
-            column.add_attribute(
-                cell, 'pixbuf-expander-open',
-                self.rich_model.get_column_by_name(attr_open).pos)
-
+            column.add_attribute(cell, 'pixbuf-expander-open', self.rich_model.get_column_by_name(attr_open).pos)
         return cell
 
     def _get_model_column(self, attr, mapfunc=lambda x: x):
@@ -377,10 +277,7 @@ class KeepNoteBaseTreeView(Gtk.TreeView):
             return lambda x: x
 
     def _add_model_column(self, attr, add_sort=True, mapfunc=lambda x: x):
-        # get attribute definition from notebook
         attr_def = self._notebook.attr_defs.get(attr)
-
-        # get datatype
         if attr_def is not None:
             datatype = attr_def.datatype
             default = attr_def.default
@@ -388,10 +285,7 @@ class KeepNoteBaseTreeView(Gtk.TreeView):
             datatype = "string"
             default = ""
 
-        # value fetching
         get = lambda node: mapfunc(node.get_attr(attr, default))
-
-        # get coltype
         mapfunc_sort = lambda x: x
         if datatype == "string":
             coltype = str
@@ -411,111 +305,74 @@ class KeepNoteBaseTreeView(Gtk.TreeView):
             coltype = str
             coltype_sort = str
 
-        # builtin column types
         if attr == self._attr_icon:
-            coltype = GdkPixbuf.Pixbuf  # 改为 GdkPixbuf.Pixbuf
+            coltype = GdkPixbuf.Pixbuf
             coltype_sort = None
-            get = lambda node: get_node_icon(node, False,
-                                             node in self.rich_model.fades)
+            get = lambda node: get_node_icon(node, False, node in self.rich_model.fades)
         elif attr == self._attr_icon_open:
-            coltype = GdkPixbuf.Pixbuf  # 改为 GdkPixbuf.Pixbuf
+            coltype = GdkPixbuf.Pixbuf
             coltype_sort = None
-            get = lambda node: get_node_icon(node, True,
-                                             node in self.rich_model.fades)
+            get = lambda node: get_node_icon(node, True, node in self.rich_model.fades)
 
-        # get/make model column
         col = self.rich_model.get_column_by_name(attr)
         if col is None:
             col = treemodel.TreeModelColumn(attr, coltype, attr=attr, get=get)
             self.rich_model.append_column(col)
 
-        # define column sorting
         if add_sort and coltype_sort is not None:
             attr_sort = attr + "_sort"
             col = self.rich_model.get_column_by_name(attr_sort)
             if col is None:
-                get_sort = lambda node: mapfunc_sort(
-                    node.get_attr(attr, default))
-                col = treemodel.TreeModelColumn(
-                    attr_sort, coltype_sort, attr=attr, get=get_sort)
+                get_sort = lambda node: mapfunc_sort(node.get_attr(attr, default))
+                col = treemodel.TreeModelColumn(attr_sort, coltype_sort, attr=attr, get=get_sort)
                 self.rich_model.append_column(col)
 
     def set_date_formats(self, formats):
-        """Sets the date formats of the treemodel"""
         self._date_formats = formats
 
     def format_timestamp(self, timestamp):
-        return (get_str_timestamp(timestamp, formats=self._date_formats)
-                if timestamp is not None else "")
-
-    #=========================================
-    # model change callbacks
+        return (get_str_timestamp(timestamp, formats=self._date_formats) if timestamp is not None else "")
 
     def _on_node_changed_start(self, model, nodes):
-        # remember which nodes are selected
         self.__sel_nodes2 = list(self.__sel_nodes)
-
-        # suppress selection changes while nodes are changing
         self.__suppress_sel = True
-
-        # cancel editing
         self.cancel_editing()
-
-        # save scrolling
         self.__scroll = self.convert_widget_to_tree_coords(0, 0)
 
     def _on_node_changed_end(self, model, nodes):
-        # 省略其他代码...
         for node in nodes:
             if node == self._master_node:
                 for child in node.get_children():
                     if self.is_node_expanded(child):
-                        path_tuple = get_path_from_node(
-                            self.model, child,
-                            self.rich_model.get_node_column_pos())
+                        path_tuple = get_path_from_node(self.model, child, self.rich_model.get_node_column_pos())
                         path = Gtk.TreePath.new_from_indices(path_tuple)
                         self.expand_row(path, False)
             else:
                 try:
-                    path_tuple = get_path_from_node(
-                        self.model, node,
-                        self.rich_model.get_node_column_pos())
+                    path_tuple = get_path_from_node(self.model, node, self.rich_model.get_node_column_pos())
                     path = Gtk.TreePath.new_from_indices(path_tuple)
                 except:
                     path = None
                 if path is not None:
                     parent = node.get_parent()
-                    if (parent and self.is_node_expanded(parent) and
-                            len(path) > 1):
+                    if parent and self.is_node_expanded(parent) and len(path) > 1:
                         self.expand_row(path[:-1], False)
                     if self.is_node_expanded(node):
                         self.expand_row(path, False)
 
     def __on_select_changed(self, treeselect):
-        """Keep track of which nodes are selected"""
         self.__sel_nodes = self.get_selected_nodes()
         if self.__suppress_sel:
             self.get_selection().stop_emission("changed")
 
     def is_node_expanded(self, node):
-        # query expansion from nodes
         return node.get_attr("expanded", False)
 
     def set_node_expanded(self, node, expand):
-        # save expansion in node
         node.set_attr("expanded", expand)
 
-        # TODO: do I notify listeners of expand change
-        # Will this interfere with on_node_changed callbacks
-
     def _on_row_expanded(self, treeview, it, path):
-        """Callback for row expand
-
-           Performs smart expansion (remembers children expansion)"""
-        # save expansion in node
         self.set_node_expanded(self.model.get_value(it, self._node_col), True)
-
-        # recursively expand nodes that should be expanded
         def walk(it):
             child = self.model.iter_children(it)
             while child:
@@ -528,7 +385,6 @@ class KeepNoteBaseTreeView(Gtk.TreeView):
         walk(it)
 
     def _on_row_collapsed(self, treeview, it, path):
-        # save expansion in node
         self.set_node_expanded(self.model.get_value(it, self._node_col), False)
 
     def on_row_inserted(self, model, path, it):
@@ -542,22 +398,15 @@ class KeepNoteBaseTreeView(Gtk.TreeView):
 
     def cancel_editing(self):
         if self.editing_path:
-            self.set_cursor(self.editing_path, None, None, False)
-
-    #===========================================
-    # actions
+            self.set_cursor(self.editing_path, None, False)
 
     def expand_node(self, node):
-        """Expand a node in TreeView"""
-        path = get_path_from_node(self.model, node,
-                                  self.rich_model.get_node_column_pos())
+        path = get_path_from_node(self.model, node, self.rich_model.get_node_column_pos())
         if path is not None:
             self.expand_to_path(path)
 
     def collapse_all_beneath(self, path):
-        """Collapse all children beneath a path"""
         it = self.model.get_iter(path)
-
         def walk(it):
             for child in iter_children(self.model, it):
                 walk(child)
@@ -565,33 +414,24 @@ class KeepNoteBaseTreeView(Gtk.TreeView):
             self.collapse_row(path2)
         walk(it)
 
-    #===========================================
-    # selection
-
     def select_nodes(self, nodes):
-        """Select nodes in treeview"""
-        # NOTE: for now only select one node
         if len(nodes) > 0:
             node = nodes[0]
-            path = get_path_from_node(self.model, node,
-                                      self.rich_model.get_node_column_pos())
+            path = get_path_from_node(self.model, node, self.rich_model.get_node_column_pos())
             if path is not None:
                 if len(path) > 1:
                     self.expand_to_path(path[:-1])
-                self.set_cursor(path, None)
+                self.set_cursor(path)
                 GObject.idle_add(lambda: self.scroll_to_cell(path))
         else:
-            # unselect all nodes
             self.get_selection().unselect_all()
 
     def on_select_changed(self, treeselect):
-        """Callback for when selection changes"""
         nodes = self.get_selected_nodes()
         self.emit("select-nodes", nodes)
         return True
 
     def get_selected_nodes(self):
-        """Returns a list of currently selected nodes"""
         iters = self.get_selected_iters()
         if len(iters) == 0:
             if self.editing_path:
@@ -599,30 +439,15 @@ class KeepNoteBaseTreeView(Gtk.TreeView):
                 if node:
                     return [node]
             return []
-        else:
-            return [self.model.get_value(it, self._node_col)
-                    for it in iters]
+        return [self.model.get_value(it, self._node_col) for it in iters]
 
     def get_selected_iters(self):
-        """Return a list of currently selected TreeIter's"""
         iters = []
-        self.get_selection().selected_foreach(lambda model, path, it:
-                                              iters.append(it))
+        self.get_selection().selected_foreach(lambda model, path, it: iters.append(it))
         return iters
 
-    # TODO: add a reselect if node is deleted
-    # select next sibling or parent
-
-    #============================================
-    # editing attr
-
-    def on_editing_started(self, cellrenderer, editable, path, attr,
-                           validator=TextRendererValidator()):
-        """Callback for start of title editing"""
-        # remember editing state
+    def on_editing_started(self, cellrenderer, editable, path, attr, validator=TextRendererValidator()):
         self.editing_path = path
-
-        # get node being edited and init gtk.Entry widget
         node = self.model.get_value(self.model.get_iter(path), self._node_col)
         if node is not None:
             val = node.get_attr(attr)
@@ -630,194 +455,73 @@ class KeepNoteBaseTreeView(Gtk.TreeView):
                 editable.set_text(validator.format(val))
             except:
                 pass
-
         GObject.idle_add(lambda: self.scroll_to_cell(path))
 
     def on_editing_canceled(self, cellrenderer):
-        """Callback for canceled of title editing"""
-        # remember editing state
         self.editing_path = None
 
-    def on_edit_attr(self, cellrenderertext, path, attr, new_text,
-                     validator=TextRendererValidator()):
-        """Callback for completion of title editing"""
-        # remember editing state
+    def on_edit_attr(self, cellrenderertext, path, attr, new_text, validator=TextRendererValidator()):
         self.editing_path = None
-
         new_text = unicode_gtk(new_text)
-
-        # get node being edited
         node = self.model.get_value(self.model.get_iter(path), self._node_col)
         if node is None:
             return
-
-        # determine value from new_text, if invalid, ignore it
         try:
             new_val = validator.parse(new_text)
         except:
             return
-
-        # set new attr and catch errors
         try:
             node.set_attr(attr, new_val)
         except NoteBookError as e:
             self.emit("error", e.msg, e)
-
-        # reselect node
-        # need to get path again because sorting may have changed
-        path = get_path_from_node(self.model, node,
-                                  self.rich_model.get_node_column_pos())
+        path = get_path_from_node(self.model, node, self.rich_model.get_node_column_pos())
         if path is not None:
-            self.set_cursor(path, None)
+            self.set_cursor(path)
             GObject.idle_add(lambda: self.scroll_to_cell(path))
-
         self.emit("edit-node", node, attr, new_val)
 
-    #=============================================
-    # copy and paste
-
     def _on_copy_node(self, widget):
-        """Copy a node onto the clipboard"""
         nodes = self.get_selected_nodes()
         if len(nodes) > 0:
-            clipboard = self.get_clipboard(Gdk.SELECTION_CLIPBOARD)
-
-            targets = [
-                (MIME_NODE_COPY, 0, -1),
-                ("text/html", 0, -1),
-                ("text/plain", 0, -1)
-            ]
-
-            clipboard.set_with_data(targets, self._get_selection_data,
-                                    self._clear_selection_data, nodes)
+            clipboard = Gtk.Clipboard.get_default(self.get_display())
+            content = Gdk.ContentProvider.new_for_value(GObject.Value(str, ";".join([node.get_attr("nodeid") for node in nodes])))
+            clipboard.set_content(content)
 
     def _on_copy_tree(self, widget):
         nodes = self.get_selected_nodes()
         if len(nodes) > 0:
-            clipboard = self.get_clipboard(Gdk.SELECTION_CLIPBOARD)
-
-            targets = [
-                (MIME_TREE_COPY, 0, -1),
-                (MIME_NODE_COPY, 0, -1),
-                ("text/html", 0, -1),
-                ("text/plain", 0, -1)
-            ]
-
-            clipboard.set_with_data(targets, self._get_selection_data,
-                                    self._clear_selection_data, nodes)
+            clipboard = Gtk.Clipboard.get_default(self.get_display())
+            content = Gdk.ContentProvider.new_for_value(GObject.Value(str, ";".join([node.get_attr("nodeid") for node in nodes])))
+            clipboard.set_content(content)
 
     def _on_cut_node(self, widget):
-        """Copy a node onto the clipboard"""
         nodes = self.get_selected_nodes()
         if len(nodes) > 0:
-            clipboard = self.get_clipboard(Gdk.SELECTION_CLIPBOARD)
-
-            targets = [
-                (MIME_NODE_CUT, 0, -1),
-                ("text/html", 0, -1),
-                ("text/plain", 0, -1)
-            ]
-
-            clipboard.set_with_data(targets, self._get_selection_data,
-                                    self._clear_selection_data, nodes)
-
+            clipboard = Gtk.Clipboard.get_default(self.get_display())
+            content = Gdk.ContentProvider.new_for_value(GObject.Value(str, ";".join([node.get_attr("nodeid") for node in nodes])))
+            clipboard.set_content(content)
             self._fade_nodes(nodes)
 
     def _on_paste_node(self, widget):
-        """Paste into the treeview"""
-        clipboard = self.get_clipboard(Gdk.SELECTION_CLIPBOARD)
+        clipboard = Gtk.Clipboard.get_default(self.get_display())
+        clipboard.read_value_async(GObject.TYPE_STRING, 0, None, self._do_paste_nodes)
 
-        targets = clipboard.wait_for_targets()
-        if targets is None:
-            # nothing on clipboard
-            return
-        targets = set(targets)
-
-        if MIME_NODE_CUT in targets:
-            # request KEEPNOTE node objects
-            clipboard.request_contents(MIME_NODE_CUT, self._do_paste_nodes)
-        elif MIME_TREE_COPY in targets:
-            # request KEEPNOTE node objects
-            clipboard.request_contents(MIME_TREE_COPY, self._do_paste_nodes)
-        elif MIME_NODE_COPY in targets:
-            # request KEEPNOTE node objects
-            clipboard.request_contents(MIME_NODE_COPY, self._do_paste_nodes)
-
-    def _get_selection_data(self, clipboard, selection_data, info, nodes):
-        """Callback for when Clipboard needs selection data"""
-        if MIME_NODE_CUT in selection_data.get_target():
-            # set nodes
-            selection_data.set(MIME_NODE_CUT, 8,
-                               ";".join([node.get_attr("nodeid")
-                                         for node in nodes]).encode("utf-8"))
-        elif MIME_TREE_COPY in selection_data.get_target():
-            # set nodes
-            selection_data.set(MIME_TREE_COPY, 8,
-                               ";".join([node.get_attr("nodeid")
-                                         for node in nodes]).encode("utf-8"))
-        elif MIME_NODE_COPY in selection_data.get_target():
-            # set nodes
-            selection_data.set(MIME_NODE_COPY, 8,
-                               ";".join([node.get_attr("nodeid")
-                                         for node in nodes]).encode("utf-8"))
-        elif "text/html" in selection_data.get_target():
-            # set html
-            selection_data.set("text/html", 8,
-                               " ".join(["<a href='%s'>%s</a>" %
-                                         (node.get_url(), node.get_title())
-                                         for node in nodes]).encode("utf-8"))
-        else:
-            # set plain text
-            selection_data.set_text(" ".join([node.get_url()
-                                              for node in nodes]))
-
-    def _do_paste_nodes(self, clipboard, selection_data, data):
-        """Paste nodes into treeview"""
+    def _do_paste_nodes(self, clipboard, result, data):
         if self._notebook is None:
             return
-
-        # find paste location
         selected = self.get_selected_nodes()
-        if len(selected) > 0:
-            parent = selected[0]
-        else:
-            parent = self._notebook
-
-        # find nodes to paste
-        nodeids = selection_data.get_data().decode("utf-8").split(";")
-        nodes = [self._get_node(nodeid) for nodeid in nodeids]
-
-        if selection_data.get_target() == MIME_NODE_CUT:
+        parent = selected[0] if len(selected) > 0 else self._notebook
+        try:
+            value = clipboard.read_value_finish(result)
+            nodeids = value.split(";")
+            nodes = [self._get_node(nodeid) for nodeid in nodeids]
             for node in nodes:
-                try:
-                    if node is not None:
-                        node.move(parent)
-                except Exception as e:
-                    keepnote.log_error(e)
-        elif selection_data.get_target() == MIME_TREE_COPY:
-            for node in nodes:
-                try:
-                    if node is not None:
-                        node.duplicate(parent, recurse=True)
-                except Exception as e:
-                    keepnote.log_error(e)
-        elif selection_data.get_target() == MIME_NODE_COPY:
-            for node in nodes:
-                try:
-                    if node is not None:
-                        node.duplicate(parent)
-                except Exception as e:
-                    keepnote.log_error(e)
-
-    def _clear_selection_data(self, clipboard, data):
-        """Callback for when Clipboard contents are reset"""
-        self._clear_fading()
-
-    #============================================
-    # node fading
+                if node is not None:
+                    node.move(parent)
+        except Exception as e:
+            keepnote.log_error(e)
 
     def _clear_fading(self):
-        """Clear faded nodes"""
         nodes = list(self.rich_model.fades)
         self.rich_model.fades.clear()
         if self._notebook:
@@ -828,9 +532,6 @@ class KeepNoteBaseTreeView(Gtk.TreeView):
         for node in nodes:
             self.rich_model.fades.add(node)
             node.notify_change(False)
-
-    #=============================================
-    # drag and drop
 
     def set_reorder(self, order):
         self._reorder = order
@@ -845,48 +546,29 @@ class KeepNoteBaseTreeView(Gtk.TreeView):
         return self.model.get_value(iters[0], self._node_col)
 
     def get_drag_nodes(self):
-        return [self.model.get_value(it, self._node_col)
-                for it in self.get_selected_iters()]
-
-    # drag and drop callbacks
+        return [self.model.get_value(it, self._node_col) for it in self.get_selected_iters()]
 
     def _on_drag_timer(self):
-        # process scrolling
         self._process_drag_scroll()
         return self._is_dragging
 
     def _process_drag_scroll(self):
-        # get header height
-        header_height = [0]
-
+        header_height = 0
         if self.get_headers_visible():
-            self.forall(lambda w, d: header_height.__setitem__(
-                0, w.get_allocation().height), None)
-
-        # get mouse position in tree coordinates
+            header_height = self.get_column(0).get_area().height
         x, y = self.get_pointer()
-        x, y = self.convert_widget_to_tree_coords(x, y - header_height[0])
-
-        # get visible rect in tree coordinates
+        x, y = self.convert_widget_to_tree_coords(x, y - header_height)
         rect = self.get_visible_rect()
-
         def dist_to_scroll(dist):
-            """Convert a distance outside the widget into a scroll step"""
-            # TODO: put these scroll constants somewhere else
             small_scroll_dist = 30
             small_scroll = 30
             fast_scroll_coeff = small_scroll
-
             if dist < small_scroll_dist:
-                # slow scrolling
                 self._drag_count = 0
                 return small_scroll
             else:
-                # fast scrolling
                 self._drag_count += 1
                 return small_scroll + fast_scroll_coeff * self._drag_count**2
-
-        # test for scroll boundary
         dist = rect.y - y
         if dist > 0:
             self.scroll_to_point(-1, rect.y - dist_to_scroll(dist))
@@ -895,284 +577,101 @@ class KeepNoteBaseTreeView(Gtk.TreeView):
             if dist > 0:
                 self.scroll_to_point(-1, rect.y + dist_to_scroll(dist))
 
-    def _on_drag_begin(self, treeview, drag_context):
-        """Callback for beginning of drag and drop"""
-        self.stop_emission("drag-begin")
+    def _on_drag_prepare(self, source, x, y):
+        iters = self.get_selected_iters()
+        if len(iters) == 0:
+            return None
+        source_path = self.model.get_path(iters[0])
+        return Gdk.ContentProvider.new_for_value(GObject.Value(str, str(source_path)))
 
+    def _on_drag_begin(self, source, drag):
         iters = self.get_selected_iters()
         if len(iters) == 0:
             return
-
-        # use first selected item for icon
         source = iters[0]
-
-        # setup the drag icon
         if self._get_icon:
             pixbuf = self._get_icon(source)
-            pixbuf = pixbuf.scale_simple(40, 40, Gdk.InterpType.BILINEAR)
-            # Note: drag_source_set_icon_pixbuf is deprecated; use drag_source_set_icon_gicon instead
-            # This requires converting pixbuf to GIcon (e.g., using Gio.ThemedIcon)
-            # For simplicity, keeping pixbuf for now (needs further update)
-            self.drag_source_set_icon_pixbuf(pixbuf)
-
-        # clear the destination row
+            pixbuf = pixbuf.scale_simple(40, 40, GdkPixbuf.InterpType.BILINEAR)
+            drag.set_icon(Gdk.Texture.new_for_pixbuf(pixbuf), 0, 0)
         self._dest_row = None
-
         self.cancel_editing()
-
         self._is_dragging = True
         self._drag_count = 0
         GObject.timeout_add(200, self._on_drag_timer)
 
-    def _on_drag_motion(self, treeview, drag_context, x, y, eventtime,
-                        stop_emit=True):
-        """
-        Callback for drag motion.
-        Indicate which drops are allowed (cannot drop into descendant).
-        Also record the destination for later use.
-        """
-        # override gtk's default drag motion code
-        if stop_emit:
-            self.stop_emission("drag-motion")
-
-        # if reordering is disabled then terminate the drag
+    def _on_drag_motion(self, target, x, y, data):
         if self._reorder == REORDER_NONE:
-            return False
-
-        # determine destination row
-        dest_row = treeview.get_dest_row_at_pos(x, y)
-
+            return Gdk.DragAction(0)
+        dest_row = self.get_dest_row_at_pos(x, y)
         if dest_row is not None:
-            # get target info
             target_path, drop_position = dest_row
             target = self.model.get_iter(target_path)
             target_node = self.model.get_value(target, self._node_col)
+            self.set_drag_dest_row(target_path, drop_position)
+            self._dest_row = (target_path, drop_position)
+            return Gdk.DragAction.MOVE
+        return Gdk.DragAction(0)
 
-            # process node drops
-            if "drop_node" in drag_context.list_targets():
-                # get source
-                source_widget = drag_context.get_source_widget()
-                source_nodes = source_widget.get_drag_nodes()
-
-                # determine if drag is allowed
-                allow = True
-                for source_node in source_nodes:
-                    if not self._drop_allowed(source_node, target_node,
-                                              drop_position):
-                        allow = False
-
-                if allow:
-                    self.set_drag_dest_row(target_path, drop_position)
-                    self._dest_row = target_path, drop_position
-                    drag_context.drag_status(Gdk.DragAction.MOVE, eventtime)
-
-            elif "text/uri-list" in drag_context.list_targets():
-                if self._drop_allowed(None, target_node, drop_position):
-                    self.set_drag_dest_row(target_path, drop_position)
-                    self._dest_row = target_path, drop_position
-                    drag_context.drag_status(Gdk.DragAction.COPY, eventtime)
-
-    def _on_drag_drop(self, widget, drag_context, x, y, timestamp):
-        """
-        Callback for drop event
-        """
-        # override gtk's default drag drop code
-        self.stop_emission("drag-drop")
-
-        # if reordering is disabled, reject drop
+    def _on_drag_drop(self, target, value, x, y):
         if self._reorder == REORDER_NONE:
-            drag_context.finish(False, False, timestamp)
+            return False
+        if self._dest_row is None:
+            return False
+        target_path, drop_position = self._dest_row
+        target = self.model.get_iter(target_path)
+        target_node = self.model.get_value(target, self._node_col)
+        new_path = compute_new_path(self.model, target, drop_position)
+        new_parent = self._get_node_from_path(new_path[:-1])
+        index = new_path[-1]
+        source_path = Gtk.TreePath.new_from_string(value)
+        source = self.model.get_iter(source_path)
+        source_node = self.model.get_value(source, self._node_col)
+        if not self._drop_allowed(source_node, target_node, drop_position):
+            return False
+        try:
+            source_node.move(new_parent, index)
+            self.emit("goto-node", source_node)
+            return True
+        except NoteBookError as e:
+            self.emit("error", e.msg, e)
             return False
 
-        # cause get data event to occur
-        if "drop_node" in drag_context.list_targets():
-            self.drag_get_data(drag_context, "drop_node")
-        elif "text/uri-list" in drag_context.list_targets():
-            self.drag_get_data(drag_context, "text/uri-list")
-
-        # accept drop
-        return True
-
-    def _on_drag_end(self, widget, drag_context):
-        """Callback for end of dragging"""
+    def _on_drag_end(self, source, drag, delete):
         self._is_dragging = False
-
-    def _on_drag_data_delete(self, widget, drag_context):
-        """
-        Callback for deleting data due to a 'move' event
-        """
-        # override gtk's delete event
-        self.stop_emission("drag-data-delete")
-
-        # do nothing else, deleting old copy is handled elsewhere
-
-    def _on_drag_data_get(self, widget, drag_context, selection_data,
-                          info, timestamp):
-        """
-        Callback for when data is requested by drag_get_data
-        """
-        # override gtk's data get code
-        self.stop_emission("drag-data-get")
-
-        iters = self.get_selected_iters()
-        if len(iters) > 0:
-            source = iters[0]
-            source_path = self.model.get_path(source)
-            selection_data.set_row_drag_data(self.model, source_path)
-
-    def _on_drag_data_received(self, treeview, drag_context, x, y,
-                               selection_data, info, eventtime):
-        """
-        Callback for when data is received from source widget
-        """
-        # override gtk's data received code
-        self.stop_emission("drag-data-received")
-
-        # NOTE: force one more call to motion, since Windows ignores
-        # cross app drag calls
-        self._on_drag_motion(treeview, drag_context, x, y, eventtime,
-                             stop_emit=False)
-
-        # if no destination, give up. Occurs when drop is not allowed
-        if self._dest_row is None:
-            drag_context.finish(False, False, eventtime)
-            return
-
-        if "drop_node" in drag_context.list_targets():
-            # process node drops
-            self._on_drag_node_received(treeview, drag_context, x, y,
-                                        selection_data, info, eventtime)
-        elif "text/uri-list" in drag_context.list_targets():
-            target_path, drop_position = self._dest_row
-            target = self.model.get_iter(target_path)
-            target_node = self.model.get_value(target, self._node_col)
-
-            if self._drop_allowed(None, target_node, drop_position):
-                new_path = compute_new_path(self.model, target, drop_position)
-                parent = self._get_node_from_path(new_path[:-1])
-
-                uris = parse_utf(selection_data.get_data().decode("utf-8"))
-                uris = [uri for uri in (urllib.parse.unquote(uri.strip())
-                                        for uri in uris.split("\n"))
-                        if len(uri) > 0 and uri[0] != "#"]
-
-                for uri in reversed(uris):
-                    if uri.startswith("file://"):
-                        uri = uri[7:]
-                        if keepnote.get_platform() == "windows":
-                            # remove one more '/' for windows
-                            uri = uri[1:]
-                    self.emit("drop-file", parent, new_path[-1], uri)
-            drag_context.finish(True, False, eventtime)
-        else:
-            # unknown drop type, reject
-            drag_context.finish(False, False, eventtime)
 
     def _get_node_from_path(self, path):
         if len(path) == 0:
-            # TODO: do not use master node (lookup parent instead)
             assert self._master_node is not None
             return self._master_node
         else:
             it = self.model.get_iter(path)
             return self.model.get_value(it, self._node_col)
 
-    def _on_drag_node_received(self, treeview, drag_context, x, y,
-                               selection_data, info, eventtime):
-        """
-        Callback for node received from another widget
-        """
-        # get target
-        target_path, drop_position = self._dest_row
-        target = self.model.get_iter(target_path)
-        target_node = self.model.get_value(target, self._node_col)
-        new_path = compute_new_path(self.model, target, drop_position)
-
-        # get source
-        source_widget = drag_context.get_source_widget()
-        source_nodes = source_widget.get_drag_nodes()
-        if len(source_nodes) == 0:
-            drag_context.finish(False, False, eventtime)
-            return
-
-        # determine new parent and index
-        new_parent_path = new_path[:-1]
-        new_parent = self._get_node_from_path(new_parent_path)
-        index = new_path[-1]
-
-        # move each source node
-        for source_node in source_nodes:
-            # determine if drop is allowed
-            if not self._drop_allowed(source_node, target_node, drop_position):
-                drag_context.finish(False, False, eventtime)
-                continue
-
-            # perform move in notebook model
-            try:
-                source_node.move(new_parent, index)
-                index = new_parent.get_children().index(source_node)
-                # NOTE: we update index in case moving source_node changes
-                # the drop path
-            except NoteBookError as e:
-                # TODO: think about whether finish should always be false
-                drag_context.finish(False, False, eventtime)
-                self.emit("error", e.msg, e)
-                return
-
-        # re-establish selection on source node
-        self.emit("goto-node", source_nodes[0])
-
-        # notify that drag was successful
-        drag_context.finish(True, True, eventtime)
-
     def _drop_allowed(self, source_node, target_node, drop_position):
-        """Determine if drop is allowed"""
-        # source cannot be an ancestor of target
         ptr = target_node
         while ptr is not None:
             if ptr == source_node:
                 return False
             ptr = ptr.get_parent()
-
         drop_into = (drop_position == Gtk.TreeViewDropPosition.INTO_OR_BEFORE or
                      drop_position == Gtk.TreeViewDropPosition.INTO_OR_AFTER)
-
         return (
-            # (1) do not let nodes move out of notebook root
             not (target_node.get_parent() is None and not drop_into) and
-
-            # (2) do not let nodes move into nodes that don't allow children
             not (not target_node.allows_children() and drop_into) and
-
-            # (3) if reorder == FOLDER, ensure drop is either INTO a node
-            #     or new_parent == old_parent
-            not (source_node and
-                 self._reorder == REORDER_FOLDER and not drop_into and
-                 target_node.get_parent() == source_node.get_parent()))
-
+            not (source_node and self._reorder == REORDER_FOLDER and not drop_into and
+                 target_node.get_parent() == source_node.get_parent())
+        )
 
 GObject.type_register(KeepNoteBaseTreeView)
-GObject.signal_new("goto-node", KeepNoteBaseTreeView, GObject.SIGNAL_RUN_LAST,
-                GObject.TYPE_NONE, (object,))
-GObject.signal_new("activate-node", KeepNoteBaseTreeView, GObject.SIGNAL_RUN_LAST,
-                GObject.TYPE_NONE, (object,))
-GObject.signal_new("delete-node", KeepNoteBaseTreeView, GObject.SIGNAL_RUN_LAST,
-                GObject.TYPE_NONE, (object,))
-GObject.signal_new("goto-parent-node", KeepNoteBaseTreeView,
-                GObject.SIGNAL_RUN_LAST, GObject.TYPE_NONE, ())
-GObject.signal_new("copy-clipboard", KeepNoteBaseTreeView,
-                GObject.SIGNAL_RUN_LAST, GObject.TYPE_NONE, ())
-GObject.signal_new("copy-tree-clipboard", KeepNoteBaseTreeView,
-                GObject.SIGNAL_RUN_LAST, GObject.TYPE_NONE, ())
-GObject.signal_new("cut-clipboard", KeepNoteBaseTreeView,
-                GObject.SIGNAL_RUN_LAST, GObject.TYPE_NONE, ())
-GObject.signal_new("paste-clipboard", KeepNoteBaseTreeView,
-                GObject.SIGNAL_RUN_LAST, GObject.TYPE_NONE, ())
-GObject.signal_new("select-nodes", KeepNoteBaseTreeView,
-                GObject.SIGNAL_RUN_LAST, GObject.TYPE_NONE, (object,))
-GObject.signal_new("edit-node", KeepNoteBaseTreeView,
-                GObject.SIGNAL_RUN_LAST, GObject.TYPE_NONE, (object, str, str))
-GObject.signal_new("drop-file", KeepNoteBaseTreeView,
-                GObject.SIGNAL_RUN_LAST, GObject.TYPE_NONE, (object, int, str))
-GObject.signal_new("error", KeepNoteBaseTreeView, GObject.SIGNAL_RUN_LAST,
-                GObject.TYPE_NONE, (str, object,))
+GObject.signal_new("goto-node", KeepNoteBaseTreeView, GObject.SignalFlags.RUN_LAST, None, (object,))
+GObject.signal_new("activate-node", KeepNoteBaseTreeView, GObject.SignalFlags.RUN_LAST, None, (object,))
+GObject.signal_new("delete-node", KeepNoteBaseTreeView, GObject.SignalFlags.RUN_LAST, None, (object,))
+GObject.signal_new("goto-parent-node", KeepNoteBaseTreeView, GObject.SignalFlags.RUN_LAST, None, ())
+GObject.signal_new("copy-clipboard", KeepNoteBaseTreeView, GObject.SignalFlags.RUN_LAST, None, ())
+GObject.signal_new("copy-tree-clipboard", KeepNoteBaseTreeView, GObject.SignalFlags.RUN_LAST, None, ())
+GObject.signal_new("cut-clipboard", KeepNoteBaseTreeView, GObject.SignalFlags.RUN_LAST, None, ())
+GObject.signal_new("paste-clipboard", KeepNoteBaseTreeView, GObject.SignalFlags.RUN_LAST, None, ())
+GObject.signal_new("select-nodes", KeepNoteBaseTreeView, GObject.SignalFlags.RUN_LAST, None, (object,))
+GObject.signal_new("edit-node", KeepNoteBaseTreeView, GObject.SignalFlags.RUN_LAST, None, (object, str, str))
+GObject.signal_new("drop-file", KeepNoteBaseTreeView, GObject.SignalFlags.RUN_LAST, None, (object, int, str))
+GObject.signal_new("error", KeepNoteBaseTreeView, GObject.SignalFlags.RUN_LAST, None, (str, object,))

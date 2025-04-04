@@ -1,7 +1,7 @@
 # Python 3 and PyGObject imports
 import os
 import gi
-gi.require_version('Gtk', '3.0')  # Specify GTK 3.0
+gi.require_version('Gtk', '4.0')
 from gi.repository import Gtk, Gdk, GdkPixbuf
 import keepnote
 from keepnote import unicode_gtk
@@ -15,13 +15,13 @@ import keepnote.gui.extension
 _ = keepnote.translate
 
 def on_browse(parent, title, filename, entry, action=Gtk.FileChooserAction.OPEN):
-    """Callback for selecting file browser associated with a text entry"""
     dialog = Gtk.FileChooserDialog(
         title=title,
         parent=parent,
         action=action,
-        buttons=(_("Cancel"), Gtk.ResponseType.CANCEL, _("Open"), Gtk.ResponseType.OK)
     )
+    dialog.add_button(_("Cancel"), Gtk.ResponseType.CANCEL)
+    dialog.add_button(_("Open"), Gtk.ResponseType.OK)
     dialog.set_transient_for(parent)
     dialog.set_modal(True)
 
@@ -36,7 +36,6 @@ def on_browse(parent, title, filename, entry, action=Gtk.FileChooserAction.OPEN)
     dialog.destroy()
 
 class Section:
-    """A Section in the Options Dialog"""
     def __init__(self, key, dialog, app, label="", icon=None):
         self.key = key
         self.dialog = dialog
@@ -45,23 +44,20 @@ class Section:
 
         self.frame = Gtk.Frame(label=f"<b>{label}</b>")
         self.frame.get_label_widget().set_use_markup(True)
-        self.frame.set_shadow_type(Gtk.ShadowType.NONE)
 
-        self._align = Gtk.Alignment()
-        self._align.set_padding(10, 0, 10, 0)
-        self._align.show()
-        self.frame.add(self._align)
+        self._box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=10)
+        self._box.set_margin_start(10)
+        self._box.set_margin_end(10)
+        self._box.set_margin_top(10)
+        self.frame.set_child(self._box)
 
     def get_default_widget(self):
-        """Returns the default parent widget for a Section"""
-        return self._align
+        return self._box
 
     def load_options(self, app):
-        """Load options from app to UI"""
         pass
 
     def save_options(self, app):
-        """Save options to the app"""
         pass
 
 class GeneralSection(Section):
@@ -73,7 +69,7 @@ class GeneralSection(Section):
         self.xml.add_from_file(get_resource("rc", "keepnote.glade"))
         self.xml.set_translation_domain(keepnote.GETTEXT_DOMAIN)
         self.frame = self.xml.get_object("general_frame")
-        # Manual signal connections
+
         default_notebook_button = self.xml.get_object("default_notebook_button")
         default_notebook_button.connect("clicked", self.on_default_notebook_button_clicked)
 
@@ -84,13 +80,11 @@ class GeneralSection(Section):
         default_radio.connect("toggled", self.on_default_notebook_radio_changed)
 
     def on_default_notebook_radio_changed(self, radio):
-        """Default notebook radio changed"""
         default = self.xml.get_object("default_notebook_radio")
         default_tab = self.xml.get_object("default_notebook_table")
         default_tab.set_sensitive(default.get_active())
 
     def on_autosave_check_toggled(self, widget):
-        """The autosave option controls sensitivity of autosave time"""
         self.xml.get_object("autosave_entry").set_sensitive(widget.get_active())
         self.xml.get_object("autosave_label").set_sensitive(widget.get_active())
 
@@ -98,13 +92,8 @@ class GeneralSection(Section):
         on_browse(self.dialog, _("Choose Default Notebook"), "", self.xml.get_object("default_notebook_entry"))
 
     def on_systray_check_toggled(self, widget):
-        """Systray option controls sensitivity of sub-options"""
         self.xml.get_object("skip_taskbar_check").set_sensitive(widget.get_active())
         self.xml.get_object("minimize_on_start_check").set_sensitive(widget.get_active())
-
-    def on_set_default_notebook_button_clicked(self, widget):
-        if self.notebook:
-            self.xml.get_object("default_notebook_entry").set_text(self.notebook.get_path())
 
     def load_options(self, app):
         win = app.get_current_window()
@@ -161,14 +150,11 @@ class LookAndFeelSection(Section):
     def __init__(self, key, dialog, app, label="", icon="lookandfeel.png"):
         super().__init__(key, dialog, app, label, icon)
         w = self.get_default_widget()
-        v = Gtk.VBox(spacing=5)
-        v.show()
-        w.add(v)
+        v = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=5)
 
         def add_check(label):
             c = Gtk.CheckButton(label=label)
-            c.show()
-            v.pack_start(c, False, False, 0)
+            v.append(c)
             return c
 
         self.treeview_lines_check = add_check(_("show lines in treeview"))
@@ -177,29 +163,23 @@ class LookAndFeelSection(Section):
         self.use_minitoolbar = add_check(_("use minimal toolbar"))
 
         font_size = 10
-        h = Gtk.HBox(spacing=5)
-        h.show()
+        h = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=5)
         l = Gtk.Label(label=_("Application Font Size:"))
-        l.show()
-        h.pack_start(l, False, False, 0)
+        h.append(l)
         self.app_font_size = Gtk.SpinButton.new_with_range(2, 500, 1)
         self.app_font_size.set_value(font_size)
-        self.app_font_size.show()
-        h.pack_start(self.app_font_size, False, False, 0)
-        v.pack_start(h, False, False, 0)
+        h.append(self.app_font_size)
+        v.append(h)
 
-        h = Gtk.HBox(spacing=5)
-        h.show()
+        h = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=5)
         l = Gtk.Label(label=_("Listview Layout:"))
-        l.show()
-        h.pack_start(l, False, False, 0)
-        c = Gtk.ComboBoxText()
-        c.append_text(_("Vertical"))
-        c.append_text(_("Horizontal"))
-        c.show()
-        h.pack_start(c, False, False, 0)
-        v.pack_start(h, False, False, 0)
+        h.append(l)
+        c = Gtk.DropDown.new_from_strings(["Vertical", "Horizontal"])
+        h.append(c)
+        v.append(h)
         self.listview_layout = c
+
+        w.append(v)
 
     def load_options(self, app):
         l = app.pref.get("look_and_feel")
@@ -210,9 +190,9 @@ class LookAndFeelSection(Section):
         self.app_font_size.set_value(l.get("app_font_size"))
 
         if app.pref.get("viewers", "three_pane_viewer", "view_mode", default="") == "horizontal":
-            self.listview_layout.set_active(1)
+            self.listview_layout.set_selected(1)
         else:
-            self.listview_layout.set_active(0)
+            self.listview_layout.set_selected(0)
 
     def save_options(self, app):
         l = app.pref.get("look_and_feel")
@@ -223,44 +203,37 @@ class LookAndFeelSection(Section):
         l["app_font_size"] = self.app_font_size.get_value()
 
         app.pref.set("viewers", "three_pane_viewer", "view_mode",
-                     ["vertical", "horizontal"][self.listview_layout.get_active()])
+                     ["vertical", "horizontal"][self.listview_layout.get_selected()])
 
 class LanguageSection(Section):
     def __init__(self, key, dialog, app, label="", icon=None):
         super().__init__(key, dialog, app, label, icon)
         w = self.get_default_widget()
-        v = Gtk.VBox(spacing=5)
-        v.show()
-        w.add(v)
+        v = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=5)
 
-        h = Gtk.HBox(spacing=5)
-        h.show()
+        h = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=5)
         l = Gtk.Label(label=_("Language:"))
-        l.show()
-        h.pack_start(l, False, False, 0)
-        c = Gtk.ComboBoxText()
-        c.append_text("default")
-        for lang in keepnote.trans.get_langs():
-            c.append_text(lang)
-        c.show()
-        h.pack_start(c, False, False, 0)
-        v.pack_start(h, False, False, 0)
+        h.append(l)
+        c = Gtk.DropDown.new_from_strings(["default"] + keepnote.trans.get_langs())
+        h.append(c)
+        v.append(h)
         self.language_box = c
+
+        w.append(v)
 
     def load_options(self, app):
         lang = app.pref.get("language", default="")
         if lang == "":
-            self.language_box.set_active(0)
+            self.language_box.set_selected(0)
         else:
-            model = self.language_box.get_model()
-            for i, row in enumerate(model):
-                if lang == row[0]:
-                    self.language_box.set_active(i)
+            for i, l in enumerate(["default"] + keepnote.trans.get_langs()):
+                if lang == l:
+                    self.language_box.set_selected(i)
                     break
 
     def save_options(self, app):
-        if self.language_box.get_active() > 0:
-            app.pref.set("language", self.language_box.get_active_text())
+        if self.language_box.get_selected() > 0:
+            app.pref.set("language", self.language_box.get_model().get_string(self.language_box.get_selected()))
         else:
             app.pref.set("language", "")
 
@@ -270,8 +243,7 @@ class HelperAppsSection(Section):
         self.entries = {}
         w = self.get_default_widget()
         self.table = Gtk.Grid()
-        self.table.show()
-        w.add(self.table)
+        w.append(self.table)
 
         try:
             self.icon = keepnote.gui.get_pixbuf(get_icon_filename("system-run"), size=(15, 15))
@@ -291,21 +263,17 @@ class HelperAppsSection(Section):
             prog = app.prog
 
             label = Gtk.Label(label=f"{app_title}:")
-            label.set_justify(Gtk.Justification.RIGHT)
             label.set_halign(Gtk.Align.END)
-            label.show()
             self.table.attach(label, 0, i, 1, 1)
 
             entry = Gtk.Entry()
             entry.set_text(prog)
             entry.set_width_chars(30)
-            entry.show()
             self.entries[key] = entry
             self.table.attach(entry, 1, i, 1, 1)
 
             button = Gtk.Button(label=_("Browse..."))
-            button.set_image(Gtk.Image.new_from_icon_name("document-open", Gtk.IconSize.SMALL_TOOLBAR))
-            button.show()
+            button.set_icon_name("document-open")
             button.connect("clicked", lambda w, k=key, t=app_title: on_browse(self.dialog, _("Choose %s") % t, "", self.entries[k]))
             self.table.attach(button, 2, i, 1, 1)
 
@@ -326,45 +294,41 @@ class DatesSection(Section):
             self.xml.add_from_file(glade_file)
         except Exception as e:
             print(f"Failed to load GLADE file for DatesSection: {e}")
-
-        self.frame = self.xml.get_object("dates_frame")
-        if self.frame is None:
-            print("Error: 'dates_frame' not found in GLADE file")
-            self.frame = Gtk.Frame(label=f"<b>{label}</b>")  # Fallback
+            self.frame = Gtk.Frame(label=f"<b>{label}</b>")
             self.frame.get_label_widget().set_use_markup(True)
-            self.frame.set_shadow_type(Gtk.ShadowType.NONE)
-            align = Gtk.Alignment()
-            align.set_padding(10, 0, 10, 0)
-            align.add(Gtk.Label(label="DatesSection Placeholder"))
-            self.frame.add(align)
+            box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=10)
+            box.set_margin_start(10)
+            box.set_margin_end(10)
+            box.set_margin_top(10)
+            box.append(Gtk.Label(label="DatesSection Placeholder"))
+            self.frame.set_child(box)
+
+        self.frame = self.xml.get_object("dates_frame") or self.frame
 
     def load_options(self, app):
         for name in ["same_day", "same_month", "same_year", "diff_year"]:
-            self.date_xml.get_object(f"date_{name}_entry").set_text(app.pref.get("timestamp_formats", name))
+            self.xml.get_object(f"date_{name}_entry").set_text(app.pref.get("timestamp_formats", name))
 
     def save_options(self, app):
         for name in ["same_day", "same_month", "same_year", "diff_year"]:
-            app.pref.set("timestamp_formats", name, unicode_gtk(self.date_xml.get_object(f"date_{name}_entry").get_text()))
+            app.pref.set("timestamp_formats", name, unicode_gtk(self.xml.get_object(f"date_{name}_entry").get_text()))
 
 class EditorSection(Section):
     def __init__(self, key, dialog, app, label="", icon=None):
         super().__init__(key, dialog, app, label, icon)
         w = self.get_default_widget()
-        v = Gtk.VBox(spacing=5)
-        v.show()
-        w.add(v)
+        v = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=5)
 
-        h = Gtk.HBox(spacing=5)
-        h.show()
+        h = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=5)
         l = Gtk.Label(label=_("Quote format:"))
-        l.show()
-        h.pack_start(l, False, False, 0)
+        h.append(l)
         e = Gtk.Entry()
         e.set_width_chars(40)
-        e.show()
-        h.pack_start(e, False, False, 0)
-        v.pack_start(h, False, False, 0)
+        h.append(e)
+        v.append(h)
         self.quote_format = e
+
+        w.append(v)
 
     def load_options(self, app):
         try:
@@ -383,34 +347,28 @@ class AllNoteBooksSection(Section):
         super().__init__(key, dialog, app, label, icon)
         w = self.get_default_widget()
         l = Gtk.Label(label=_("This section contains options that are saved on a per notebook basis (e.g. notebook-specific font). A subsection will appear for each notebook that is currently opened."))
-        l.set_line_wrap(True)
-        w.add(l)
-        w.show_all()
+        l.set_wrap(True)
+        w.append(l)
 
 class NoteBookSection(Section):
     def __init__(self, key, dialog, app, notebook, label="", icon="folder.png"):
         super().__init__(key, dialog, app, label, icon)
         self.notebook = notebook
-        self.entries = {}
 
         self.notebook_xml = Gtk.Builder()
         self.notebook_xml.add_from_file(get_resource("rc", "keepnote.glade"))
         self.notebook_xml.set_translation_domain(keepnote.GETTEXT_DOMAIN)
         self.frame = self.notebook_xml.get_object("notebook_frame")
-        self.notebook_xml.connect_signals(self)
 
         notebook_font_spot = self.notebook_xml.get_object("notebook_font_spot")
         self.notebook_font_family = FontSelector()
-        notebook_font_spot.add(self.notebook_font_family)
-        self.notebook_font_family.show()
+        notebook_font_spot.append(self.notebook_font_family)
 
         self.notebook_font_size = self.notebook_xml.get_object("notebook_font_size")
         self.notebook_font_size.set_value(10)
         self.notebook_index_dir = self.notebook_xml.get_object("index_dir_entry")
         self.notebook_xml.get_object("index_dir_browse").connect("clicked",
             lambda w: on_browse(self.dialog, _("Choose alternative notebook index directory"), "", self.notebook_index_dir, action=Gtk.FileChooserAction.SELECT_FOLDER))
-
-        self.frame.show_all()
 
     def load_options(self, app):
         if self.notebook:
@@ -433,41 +391,25 @@ class ExtensionsSection(Section):
         self.entries = {}
         self.frame = Gtk.Frame(label="<b>Extensions</b>")
         self.frame.get_label_widget().set_use_markup(True)
-        self.frame.set_shadow_type(Gtk.ShadowType.NONE)
 
-        align = Gtk.Alignment()
-        align.set_padding(10, 0, 10, 0)
-        align.show()
-        self.frame.add(align)
-
-        v = Gtk.VBox(spacing=0)
-        v.show()
-        align.add(v)
+        box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=10)
+        box.set_margin_start(10)
+        box.set_margin_end(10)
+        box.set_margin_top(10)
+        self.frame.set_child(box)
 
         self.sw = Gtk.ScrolledWindow()
         self.sw.set_policy(Gtk.PolicyType.AUTOMATIC, Gtk.PolicyType.AUTOMATIC)
-        self.sw.set_shadow_type(Gtk.ShadowType.IN)
-        self.sw.show()
-        v.pack_start(self.sw, True, True, 0)
+        box.append(self.sw)
 
-        self.extlist = Gtk.VBox(spacing=0)
-        self.extlist.show()
-        self.sw.add(self.extlist)
+        self.extlist = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=0)
+        self.sw.set_child(self.extlist)
 
-        h = Gtk.HBox(spacing=0)
-        h.show()
-        v.pack_start(h, True, True, 0)
-
+        h = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=0)
         self.install_button = Gtk.Button(label="Install new extension")
-        self.install_button.set_relief(Gtk.ReliefStyle.NONE)
-        # Use CSS to set color
-        css_provider = Gtk.CssProvider()
-        css_provider.load_from_data(b"button { color: #0000ff; }")
-        context = self.install_button.get_style_context()
-        context.add_provider(css_provider, Gtk.STYLE_PROVIDER_PRIORITY_APPLICATION)
         self.install_button.connect("clicked", self._on_install)
-        self.install_button.show()
-        h.pack_start(self.install_button, False, True, 0)
+        h.append(self.install_button)
+        box.append(h)
 
         try:
             self.icon = keepnote.gui.get_pixbuf(get_icon_filename("list-add"), size=(15, 15))
@@ -488,8 +430,7 @@ class ExtensionsSection(Section):
             if ext.visible:
                 p = ExtensionWidget(app, ext)
                 p.uninstall_button.connect("clicked", callback(ext))
-                p.show()
-                self.extlist.pack_start(p, True, True, 0)
+                self.extlist.append(p)
 
         maxheight = 270
         w, h = self.extlist.get_preferred_size()
@@ -513,8 +454,9 @@ class ExtensionsSection(Section):
             title=_("Install New Extension"),
             parent=self.dialog,
             action=Gtk.FileChooserAction.OPEN,
-            buttons=(_("Cancel"), Gtk.ResponseType.CANCEL, _("Open"), Gtk.ResponseType.OK)
         )
+        dialog.add_button(_("Cancel"), Gtk.ResponseType.CANCEL)
+        dialog.add_button(_("Open"), Gtk.ResponseType.OK)
         dialog.set_transient_for(self.dialog)
         dialog.set_modal(True)
 
@@ -534,79 +476,49 @@ class ExtensionsSection(Section):
 
         dialog.destroy()
 
-class ExtensionWidget(Gtk.EventBox):
+class ExtensionWidget(Gtk.Box):
     def __init__(self, app, ext):
-        super().__init__()
+        super().__init__(orientation=Gtk.Orientation.VERTICAL, spacing=5)
         self.app = app
         self.enabled = ext.is_enabled()
         self.ext = ext
 
-        # Use CSS to set background color
-        css_provider = Gtk.CssProvider()
-        css_provider.load_from_data(b"eventbox { background-color: #ffffff; }")
-        context = self.get_style_context()
-        context.add_provider(css_provider, Gtk.STYLE_PROVIDER_PRIORITY_APPLICATION)
+        frame = Gtk.Frame(label=f"<b>{ext.name}</b> ({ext.type}/{ext.key})")
+        frame.get_label_widget().set_use_markup(True)
+        self.append(frame)
 
-        frame = Gtk.Frame()
-        frame.set_shadow_type(Gtk.ShadowType.OUT)
-        frame.show()
-        self.add(frame)
-
-        frame2 = Gtk.Frame(label=f"<b>{ext.name}</b> ({ext.type}/{ext.key})")
-        frame2.get_label_widget().set_use_markup(True)
-        frame2.set_shadow_type(Gtk.ShadowType.NONE)
-        frame2.show()
-        frame.add(frame2)
-
-        align = Gtk.Alignment()
-        align.set_padding(10, 10, 10, 10)
-        align.show()
-        frame2.add(align)
-
-        v = Gtk.VBox(spacing=5)
-        v.show()
-        align.add(v)
+        box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=5)
+        box.set_margin_start(10)
+        box.set_margin_end(10)
+        box.set_margin_top(10)
+        box.set_margin_bottom(10)
+        frame.set_child(box)
 
         l = Gtk.Label(label=ext.description)
-        l.set_justify(Gtk.Justification.LEFT)
         l.set_halign(Gtk.Align.START)
-        l.show()
-        v.pack_start(l, True, True, 0)
+        l.set_wrap(True)
+        box.append(l)
 
-        h = Gtk.HBox(spacing=0)
-        h.show()
-        v.pack_start(h, True, True, 0)
-
+        h = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=5)
         self.enable_check = Gtk.CheckButton(label=_("Enabled"))
         self.enable_check.set_active(self.enabled)
-        self.enable_check.show()
         self.enable_check.connect("toggled", lambda w: self._on_enabled(ext))
-        h.pack_start(self.enable_check, False, True, 0)
+        h.append(self.enable_check)
 
         l = Gtk.Label(label="|")
-        l.show()
-        h.pack_start(l, False, True, 0)
+        h.append(l)
 
         self.uninstall_button = Gtk.Button(label=_("Uninstall"))
-        self.uninstall_button.set_relief(Gtk.ReliefStyle.NONE)
         self.uninstall_button.set_sensitive(app.can_uninstall(ext))
-        # Use CSS to set color
-        css_provider = Gtk.CssProvider()
-        css_provider.load_from_data(b"button { color: #0000ff; }")
-        context = self.uninstall_button.get_style_context()
-        context.add_provider(css_provider, Gtk.STYLE_PROVIDER_PRIORITY_APPLICATION)
-        self.uninstall_button.show()
-        h.pack_start(self.uninstall_button, False, True, 0)
+        h.append(self.uninstall_button)
+
+        box.append(h)
 
     def update(self):
         self.enable_check.set_active(self.ext.is_enabled())
 
     def _on_enabled(self, ext):
         self.enabled = self.enable_check.get_active()
-
-
-# In keepnote/gui/dialog_app_options.py
-# Replace only the relevant methods; keep the rest as in your previous version
 
 class ApplicationOptionsDialog:
     def __init__(self, app):
@@ -626,38 +538,30 @@ class ApplicationOptionsDialog:
         self.dialog = self.xml.get_object("app_options_dialog")
         if self.dialog is None:
             raise ValueError("Could not find 'app_options_dialog' in keepnote.glade")
-        self.dialog.connect("delete-event", self._on_delete_event)
-        print("Dialog children at init:", [child.get_name() for child in self.dialog.get_children()])
+        self.dialog.connect("close-request", self._on_close_request)
 
         self.tabs = self.xml.get_object("app_options_tabs")
         if self.tabs is None:
             raise ValueError("Could not find 'app_options_tabs' in keepnote.glade")
 
-        # Manual signal connections with error checking
         cancel_button = self.xml.get_object("cancel_button")
         if cancel_button:
             cancel_button.connect("clicked", self.on_cancel_button_clicked)
-        else:
-            print("Warning: 'cancel_button' not found in GLADE file")
 
         ok_button = self.xml.get_object("ok_button")
         if ok_button:
             ok_button.connect("clicked", self.on_ok_button_clicked)
-        else:
-            print("Warning: 'ok_button' not found in GLADE file")
 
         apply_button = self.xml.get_object("apply_button")
         if apply_button:
             apply_button.connect("clicked", self.on_apply_button_clicked)
-        else:
-            print("Warning: 'apply_button' not found in GLADE file")
 
         self.overview = self.xml.get_object("app_config_treeview")
         if self.overview is None:
             raise ValueError("Could not find 'app_config_treeview' in keepnote.glade")
         self.overview_store = Gtk.TreeStore(str, object, GdkPixbuf.Pixbuf)
         self.overview.set_model(self.overview_store)
-        self.overview.connect("cursor-changed", self.on_overview_select)
+        self.overview.connect("row-activated", self.on_overview_select)
 
         column = Gtk.TreeViewColumn()
         self.overview.append_column(column)
@@ -669,7 +573,6 @@ class ApplicationOptionsDialog:
         column.add_attribute(cell_text, "text", 0)
 
         self.add_default_sections()
-        print("Dialog children after sections:", [child.get_name() for child in self.dialog.get_children()])
 
     def add_section(self, section, parent=None):
         if section.frame is None:
@@ -684,17 +587,14 @@ class ApplicationOptionsDialog:
             it = None
 
         self._sections.append(section)
-        self.tabs.insert_page(section.frame, None, -1)
+        self.tabs.append_page(section.frame)
         section.frame.show()
-        section.frame.queue_resize()
 
         icon = section.icon
         if icon is None:
             icon = "note.png"
         pixbuf = keepnote.gui.get_resource_pixbuf(icon, size=size) if isinstance(icon, str) else icon
 
-        print(f"Appending to overview_store: label={section.label}, section={section}, pixbuf={pixbuf}")
-        print(f"Current column count: {self.overview_store.get_n_columns()}")
         it = self.overview_store.append(it, [section.label, section, pixbuf])
         path = self.overview_store.get_path(it)
         self.overview.expand_to_path(path)
@@ -710,8 +610,7 @@ class ApplicationOptionsDialog:
         self.add_section(HelperAppsSection("helper_apps", self.dialog, self.app, _("Helper Applications")), "general")
         self.add_section(AllNoteBooksSection("notebooks", self.dialog, self.app, _("Notebook Options"), "folder.png"))
         self.add_section(ExtensionsSection("extensions", self.dialog, self.app, _("Extensions")))
-        # Debug: Check dialog children after adding sections
-        print("Dialog children after sections:", [child.get_name() for child in self.dialog.get_children()])
+
     def load_options(self, app):
         for section in self._sections:
             section.load_options(app)
@@ -724,31 +623,6 @@ class ApplicationOptionsDialog:
         for notebook in self.app.iter_notebooks():
             notebook.notify_change(False)
         app.save()
-
-    def add_section(self, section, parent=None):
-        size = (15, 15)
-        if parent:
-            path = self.get_section_path(parent)
-            it = self.overview_store.get_iter(path)
-        else:
-            it = None
-
-        self._sections.append(section)
-        # Corrected to use 3 arguments: child, tab_label, position
-        self.tabs.insert_page(section.frame, None, -1)
-        section.frame.show()
-        section.frame.queue_resize()
-
-        icon = section.icon
-        if icon is None:
-            icon = "note.png"
-        pixbuf = keepnote.gui.get_resource_pixbuf(icon, size=size) if isinstance(icon, str) else icon
-
-        it = self.overview_store.append(it, [section.label, section, pixbuf])
-        path = self.overview_store.get_path(it)
-        self.overview.expand_to_path(path)
-
-        return section
 
     def remove_section(self, key):
         section = self.get_section(key)
@@ -779,36 +653,32 @@ class ApplicationOptionsDialog:
             return None
         return walk(None)
 
-    def on_overview_select(self, overview):
-        path, col = overview.get_cursor()
+    def on_overview_select(self, overview, path, column):
         if path:
             section = self.overview_store[path][1]
-            print(f"Selected path={path}, section={section.key}, column count={self.overview_store.get_n_columns()}")
             self.tabs.set_current_page(self._sections.index(section))
 
-    def on_cancel_button_clicked(self):
+    def on_cancel_button_clicked(self, widget):
         self.dialog.hide()
-        self.finish()
 
-    def on_ok_button_clicked(self):
+    def on_ok_button_clicked(self, widget):
         self.save_options(self.app)
         self.dialog.hide()
-        self.finish()
 
-    def on_apply_button_clicked(self):
+    def on_apply_button_clicked(self, widget):
         self.save_options(self.app)
-        self.finish()
-        self.show(self.parent)
 
-
-    def _on_delete_event(self, widget, event):
+    def _on_close_request(self, widget):
         self.dialog.hide()
-        self.finish()
         return True
 
+    def show(self, parent):
+        self.parent = parent
+        self.dialog.set_transient_for(parent)
+        self.load_options(self.app)
+        self.dialog.show()
 
 if __name__ == "__main__":
-    # Minimal test setup (requires a mock `app` object)
     class MockApp:
         def __init__(self):
             self.pref = keepnote.pref.AppPreferences()

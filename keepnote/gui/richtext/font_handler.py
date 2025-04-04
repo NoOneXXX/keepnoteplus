@@ -1,7 +1,6 @@
-
 import gi
-gi.require_version('Gtk', '3.0')
-# PyGObject imports (GTK 3)
+gi.require_version('Gtk', '4.0')
+# PyGObject imports (GTK 4)
 from gi.repository import Gtk, GObject
 
 # Local imports
@@ -49,7 +48,7 @@ class RichTextBaseFont(object):
                 if tag.get_property("background"):
                     self.bg_color = tag.get_property("background")
 
-        # Apply properties from current tags
+        # Apply properties from current_tags
         for tag in current_tags:
             if hasattr(tag, 'get_property'):
                 if tag.get_property("family"):
@@ -73,7 +72,7 @@ class FontHandler(GObject.GObject):
         - manages "current font" behavior
     """
     __gsignals__ = {
-        "font-change": (GObject.SIGNAL_RUN_LAST, None, (object,)),
+        "font-change": (GObject.SignalFlags.RUN_LAST, None, (object,)),
     }
 
     def __init__(self, textbuffer):
@@ -81,7 +80,7 @@ class FontHandler(GObject.GObject):
 
         self._buf = textbuffer
         self._current_tags = []
-        self._default_attr = None  # GTK 3 does not use TextAttributes
+        self._default_attr = None  # GTK 4 still does not use TextAttributes directly
         self._font_class = RichTextBaseFont
 
         self._insert_mark = self._buf.get_insert()
@@ -219,7 +218,7 @@ class FontHandler(GObject.GObject):
 
     def clear_tag_class(self, tag, start, end):
         """Remove all tags of the same class as 'tag' in region (start, end)"""
-        cls = self._buf.tag_table.get_class_of_tag(tag)
+        cls = self._buf.get_tag_table().get_class_of_tag(tag)
         if cls is not None and cls.exclusive:
             for tag2 in cls.tags:
                 self._buf.remove_tag(tag2, start, end)
@@ -227,7 +226,7 @@ class FontHandler(GObject.GObject):
 
     def clear_current_tag_class(self, tag):
         """Remove all tags of the same class as 'tag' from current tags"""
-        cls = self._buf.tag_table.get_class_of_tag(tag)
+        cls = self._buf.get_tag_table().get_class_of_tag(tag)
         if cls is not None and cls.exclusive:
             self._current_tags = [x for x in self._current_tags
                                   if x not in cls.tags]
@@ -260,5 +259,23 @@ class FontHandler(GObject.GObject):
         if font is None:
             font = self.get_font_class()()
 
-        font.set_font(tags, current_tags, self._buf.tag_table)
+        font.set_font(tags, current_tags, self._buf.get_tag_table())
         return font
+
+# Example usage (optional, for testing)
+if __name__ == "__main__":
+    win = Gtk.Window()
+    textview = Gtk.TextView()
+    buffer = textview.get_buffer()
+    font_handler = FontHandler(buffer)
+
+    # Create some example tags
+    tag_bold = buffer.create_tag("bold", weight=700)
+    tag_italic = buffer.create_tag("italic", style=2)
+    buffer.insert(buffer.get_start_iter(), "Hello, world!", -1)
+    font_handler.apply_tag_selected(tag_bold)
+
+    win.set_child(textview)
+    win.connect("close-request", Gtk.main_quit)
+    win.show()
+    Gtk.main()

@@ -3,8 +3,8 @@ KeepNote
 TagTable and Tags for RichTextBuffer
 """
 import gi
-gi.require_version('Gtk', '3.0')
-# PyGObject imports (GTK 3)
+gi.require_version('Gtk', '4.0')
+# PyGObject imports (GTK 4)
 from gi.repository import Gtk, Pango, Gdk
 
 # RichText imports
@@ -20,10 +20,13 @@ BULLET_FONT_SIZE = 10
 
 def color_to_string(color):
     """Converts a color string to a RGB string (#RRGGBB)"""
-    # In GTK 3, we expect color to be a string like '#RRGGBB'
-    # If color is a Gdk.RGBA, convert it to a hex string
+    # In GTK 4, color can be a string or Gdk.RGBA
     if isinstance(color, Gdk.RGBA):
-        return color.to_string()  # Returns #RRGGBB format
+        # GTK 4's Gdk.RGBA.to_string() returns rgba(r,g,b,a), we want #RRGGBB
+        r = int(color.red * 255)
+        g = int(color.green * 255)
+        b = int(color.blue * 255)
+        return f"#{r:02x}{g:02x}{b:02x}"
     return color  # Assume it's already a string like '#RRGGBB'
 
 def color_tuple_to_string(color):
@@ -45,8 +48,7 @@ def set_text_scale(scale):
     _text_scale = scale
 
 def get_attr_size(attr):
-    # In GTK 3, we don't use TextAttributes; this function is a placeholder
-    # Return a default size or calculate based on context if needed
+    # In GTK 4, TextAttributes are not used; this is a placeholder
     return 10  # Default size in points
 
 class RichTextTagTable(RichTextBaseTagTable):
@@ -195,7 +197,9 @@ class RichTextFGColorTag(RichTextTag):
         self.set_property("foreground", color)
 
     def get_color(self):
-        return color_to_string(self.get_property("foreground-rgba"))
+        # In GTK 4, use foreground-rgba and convert to #RRGGBB
+        rgba = self.get_property("foreground-rgba")
+        return color_to_string(rgba)
 
     @classmethod
     def tag_name(cls, color):
@@ -216,7 +220,9 @@ class RichTextBGColorTag(RichTextTag):
         self.set_property("background", color)
 
     def get_color(self):
-        return color_to_string(self.get_property("background-rgba"))
+        # In GTK 4, use background-rgba and convert to #RRGGBB
+        rgba = self.get_property("background-rgba")
+        return color_to_string(rgba)
 
     @classmethod
     def tag_name(cls, color):
@@ -335,3 +341,22 @@ class RichTextLinkTag(RichTextTag):
     @classmethod
     def is_name(cls, tag_name):
         return tag_name.startswith("link ")
+
+# Example usage (optional, for testing)
+if __name__ == "__main__":
+    win = Gtk.Window()
+    textview = Gtk.TextView()
+    buffer = textview.get_buffer()
+    tag_table = RichTextTagTable()
+    buffer.set_tag_table(tag_table)
+
+    # Add some text and apply tags
+    buffer.insert(buffer.get_start_iter(), "Hello, world!", -1)
+    start, end = buffer.get_bounds()
+    bold_tag = tag_table.lookup("bold")
+    buffer.apply_tag(bold_tag, start, end)
+
+    win.set_child(textview)
+    win.connect("close-request", Gtk.main_quit)
+    win.show()
+    Gtk.main()

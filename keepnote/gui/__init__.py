@@ -8,14 +8,10 @@ import os
 import sys
 import threading
 
-
 from keepnote.sqlitedict import logger
 import gi
-gi.require_version('Gtk', '3.0')
-gi.require_version('GLib', '2.0') # Specify GTK 3.0
-gi.require_version('Gdk', '3.0')  # Add this line
-from gi.repository import Gdk, Gtk, GLib
-from gi.repository import GdkPixbuf
+gi.require_version('Gtk', '4.0')
+from gi.repository import Gtk, GLib, Gdk, GdkPixbuf
 
 # KeepNote imports
 import keepnote
@@ -59,7 +55,6 @@ DEFAULT_COLORS_FLOAT = [
     (.6, 1, 1),
     (.6, .6, 1),
     (1, .6, 1),
-
     # trues
     (1, 0, 0),
     (1, .64, 0),
@@ -68,7 +63,6 @@ DEFAULT_COLORS_FLOAT = [
     (0, 1, 1),
     (0, 0, 1),
     (1, 0, 1),
-
     # darks
     (.5, 0, 0),
     (.5, .32, 0),
@@ -77,7 +71,6 @@ DEFAULT_COLORS_FLOAT = [
     (0, .5, .5),
     (0, 0, .5),
     (.5, 0, .5),
-
     # white, gray, black
     (1, 1, 1),
     (.9, .9, .9),
@@ -100,7 +93,6 @@ DEFAULT_COLORS = [color_int8_to_str(color_float_to_int8(color))
 # Resources
 class PixbufCache(object):
     """A cache for loading pixbufs from the filesystem"""
-
     def __init__(self):
         self._pixbufs = {}
 
@@ -111,14 +103,11 @@ class PixbufCache(object):
         if key in self._pixbufs:
             return self._pixbufs[key]
         else:
-            print(f"-------------->{filename}")
             pixbuf = GdkPixbuf.Pixbuf.new_from_file(filename)
-
             if size:
                 if size != (pixbuf.get_width(), pixbuf.get_height()):
                     pixbuf = pixbuf.scale_simple(size[0], size[1],
-                                                 GdkPixbuf.InterpType.BILINEAR)
-
+                                                GdkPixbuf.InterpType.BILINEAR)
             self._pixbufs[key] = pixbuf
             return pixbuf
 
@@ -138,8 +127,7 @@ is_pixbuf_cached = pixbufs.is_pixbuf_cached
 def get_resource_image(*path_list):
     """Returns Gtk.Image from resource path"""
     filename = get_resource(IMAGE_DIR, *path_list)
-    img = Gtk.Image.new_from_file(filename)
-    return img
+    return Gtk.Image.new_from_file(filename)
 
 def get_resource_pixbuf(*path_list, **options):
     """Returns cached pixbuf from resource path"""
@@ -163,9 +151,9 @@ def init_key_shortcuts():
     """Setup key shortcuts for the window"""
     accel_file = get_accel_file()
     if os.path.exists(accel_file):
-        Gtk.AccelMap.load(accel_file)
+        Gtk.accelerator_parse_from_file(accel_file)  # GTK 4 doesn't have AccelMap
     else:
-        Gtk.AccelMap.save(accel_file)
+        pass  # No direct equivalent in GTK 4 for saving accel map
 
 def set_gtk_style(font_size=10, vsep=0):
     """Set basic GTK style settings using CSS"""
@@ -177,185 +165,115 @@ def set_gtk_style(font_size=10, vsep=0):
     }}
     """
     css_provider.load_from_data(css.encode('utf-8'))
-    Gtk.StyleContext.add_provider_for_screen(
-        Gdk.Screen.get_default(),
+    display = Gdk.Display.get_default()
+    Gtk.StyleContext.add_provider_for_display(
+        display,
         css_provider,
         Gtk.STYLE_PROVIDER_PRIORITY_APPLICATION
     )
 
 def update_file_preview(file_chooser, preview):
     """Preview widget for file choosers"""
-    filename = file_chooser.get_preview_filename()
+    filename = file_chooser.get_filename()
     try:
         pixbuf = GdkPixbuf.Pixbuf.new_from_file_at_size(filename, 128, 128)
-        preview.set_from_pixbuf(pixbuf)
-        have_preview = True
+        preview.set_pixbuf(pixbuf)
+        file_chooser.set_preview_widget_active(True)
     except GLib.GError:
-        have_preview = False
-    file_chooser.set_preview_widget_active(have_preview)
+        file_chooser.set_preview_widget_active(False)
 
 class FileChooserDialog(Gtk.FileChooserDialog):
     def __init__(self, title, parent, action, buttons, app=None, persistent_path=None):
-        super().__init__(title=title, parent=parent, action=action)
-        for button in buttons:
-            self.add_button(button[0], button[1])
-
-        # 清理内容区域，确保单一子控件
-        content_area = self.get_content_area()
-        children = content_area.get_children()
-        if children:
-            for child in children:
-                content_area.remove(child)
-        main_box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=6)
-        content_area.add(main_box)
-        main_box.show()
+        super().__init__(
+            title=title,
+            transient_for=parent,
+            action=action
+        )
+        for label, response in buttons:
+            self.add_button(label, response)
 
         self._app = app
         self._persistent_path = persistent_path
 
     def run(self):
-        response = super().run()
+        response = self.show()
         return response
 
     def get_filename(self):
         return super().get_filename()
 
-# Menu actions
-class UIManager(Gtk.UIManager):
-    """Specialization of UIManager for use in KeepNote"""
-
+# Menu actions (GTK 4 uses Gio.SimpleAction instead of Gtk.Action)
+class UIManager:
+    """Custom UIManager replacement for GTK 4"""
     def __init__(self, force_stock=False):
-        super().__init__()
-        self.connect("connect-proxy", self._on_connect_proxy)
-        self.connect("disconnect-proxy", self._on_disconnect_proxy)
+        self.action_groups = []
         self.force_stock = force_stock
 
     def insert_action_group(self, action_group, pos=-1):
-        """Insert an action group, avoiding duplicates"""
-        existing_groups = [group.get_name() for group in self.get_action_groups()]
-        if action_group.get_name() not in existing_groups:
-            super().insert_action_group(action_group, pos)
-        else:
-            print(f"Action group '{action_group.get_name()}' already exists, skipping insertion")
-
-    def _on_connect_proxy(self, uimanager, action, widget):
-        """Callback for a widget entering management"""
-        if isinstance(action, (Action, ToggleAction)) and action.icon:
-            self.set_icon(widget, action)
-
-    def _on_disconnect_proxy(self, uimanager, action, widget):
-        """Callback for a widget leaving management"""
-        pass
+        if action_group.get_name() not in [ag.get_name() for ag in self.action_groups]:
+            if pos == -1:
+                self.action_groups.append(action_group)
+            else:
+                self.action_groups.insert(pos, action_group)
 
     def set_force_stock(self, force):
-        """Sets the 'force stock icon' option"""
         self.force_stock = force
 
-        for ag in self.get_action_groups():
-            for action in ag.list_actions():
-                for widget in action.get_proxies():
-                    self.set_icon(widget, action)
+    def get_action_groups(self):
+        return self.action_groups
 
-    from gi.repository import Gtk
-
-    def set_icon(self, widget, action):
-        # Assuming 'img' is the image object being set (adjust based on actual code)
-        img = Gtk.Image.new_from_icon_name("gtk-apply", Gtk.IconSize.MENU)  # Example; adjust icon source
-        if isinstance(widget, Gtk.CheckMenuItem):
-            # Clear existing content and add a box with image and label
-            for child in widget.get_children():
-                widget.remove(child)
-            box = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=6)
-            box.pack_start(img, False, False, 0)
-            label = Gtk.Label(label=action.get_label() or "")
-            box.pack_start(label, True, True, 0)
-            widget.add(box)
-            box.show_all()
-        else:
-            # For other widget types that might support set_image (unlikely in this context)
-            try:
-                widget.set_image(img)
-            except AttributeError:
-                pass  # Log this if needed
-
-class Action(Gtk.Action):
+class Action(Gio.SimpleAction):
     def __init__(self, name, stockid=None, label=None,
-                 accel="", tooltip="", func=None,
-                 icon=None):
-        super().__init__(name=name, label=label, tooltip=tooltip, stock_id=stockid)
-        self.func = func
-        self.accel = accel
-        self.icon = icon
-        self.signal = None
-
-        if func:
-            self.signal = self.connect("activate", func)
-
-class ToggleAction(Gtk.ToggleAction):
-    def __init__(self, name, stockid, label=None,
                  accel="", tooltip="", func=None, icon=None):
-        super().__init__(name=name, label=label, tooltip=tooltip, stock_id=stockid)
+        super().__init__(name=name)
         self.func = func
         self.accel = accel
         self.icon = icon
-        self.signal = None
-
+        self.label = label
+        self.tooltip = tooltip
         if func:
-            self.signal = self.connect("toggled", func)
+            self.connect("activate", lambda action, param: func(action))
+
+class ToggleAction(Gio.SimpleAction):
+    def __init__(self, name, stockid=None, label=None,
+                 accel="", tooltip="", func=None, icon=None):
+        super().__init__(name=name, state=GLib.Variant.new_boolean(False))
+        self.func = func
+        self.accel = accel
+        self.icon = icon
+        self.label = label
+        self.tooltip = tooltip
+        if func:
+            self.connect("activate", lambda action, param: func(action))
 
 def add_actions(actiongroup, actions):
-    """Add a list of Action's to an gtk.ActionGroup"""
     for action in actions:
-        actiongroup.add_action_with_accel(action, action.accel)
+        actiongroup.add_action(action)
 
 # Application for GUI
 class KeepNote(keepnote.KeepNote):
     """GUI version of the KeepNote application instance"""
-
     def __init__(self, basedir=None):
         super().__init__(basedir)
-
-        # Window management
         self._current_window = None
         self._windows = []
-
-        # Shared GUI resources
         self._tag_table = richtext_tags.RichTextTagTable()
         self.init_dialogs()
-
-        # Auto save
         self._auto_saving = False
         self._auto_save_registered = False
         self._auto_save_pause = 0
 
     def init(self):
-        """Initialize application from disk"""
         super().init()
 
     def init_dialogs(self):
-        from keepnote.gui import dialog_app_options
-        from keepnote.gui import dialog_node_icon  # 假设存在
-
-        self.app_options_dialog = (
-            keepnote.gui.dialog_app_options.ApplicationOptionsDialog(self))
-        self.node_icon_dialog = (
-            keepnote.gui.dialog_node_icon.NodeIconDialog(self))
-
-        # 验证对话框内容区域，确保只有一个子控件
-        # for dialog in (self.app_options_dialog, self.node_icon_dialog):
-        #     content_area = dialog.get_content_area()
-        #     children = content_area.get_children()
-        #     if len(children) > 1:
-        #         print(f"Warning: Dialog {dialog.get_title()} has multiple children: {children}")
-        #         for child in children[1:]:
-        #             content_area.remove(child)
+        self.app_options_dialog = keepnote.gui.dialog_app_options.ApplicationOptionsDialog(self)
+        self.node_icon_dialog = keepnote.gui.dialog_node_icon.NodeIconDialog(self)
 
     def set_lang(self):
-        """Set language for application"""
         super().set_lang()
 
-    def parse_window_size(self,size_str):
-        """Parse window size string like '(1024, 600)' into a tuple of ints."""
+    def parse_window_size(self, size_str):
         try:
             if not isinstance(size_str, str):
                 return (1024, 600)
@@ -367,89 +285,50 @@ class KeepNote(keepnote.KeepNote):
             return (1024, 600)
 
     def load_preferences(self):
-        """Load information from preferences"""
         super().load_preferences()
-
         p = self.pref
         p.get("autosave_time", default=DEFAULT_AUTOSAVE_TIME)
-
-        set_gtk_style(font_size=p.get("look_and_feel", "app_font_size",
-                                      default=10))
-
+        set_gtk_style(font_size=p.get("look_and_feel", "app_font_size", default=10))
         for window in self._windows:
             window.load_preferences()
-
         for notebook in self._notebooks.values():
-            notebook.enable_fulltext_search(p.get("use_fulltext_search",
-                                                  default=True))
-
+            notebook.enable_fulltext_search(p.get("use_fulltext_search", default=True))
         self.begin_auto_save()
 
     def save_preferences(self):
-        """Save information into preferences"""
         for window in self._windows:
             window.save_preferences()
-
         super().save_preferences()
 
     def get_richtext_tag_table(self):
-        """Returns the application-wide richtext tag table"""
         return self._tag_table
 
     def new_window(self):
-        """Create a new main window"""
         import keepnote.gui.main_window
-
         window = keepnote.gui.main_window.KeepNoteWindow(self)
-        window.connect("delete-event", self._on_window_close)
+        window.connect("close-request", self._on_window_close)
         window.connect("focus-in-event", self._on_window_focus)
         self._windows.append(window)
-
         self.init_extensions_windows([window])
-
-        # 调试窗口层次
-        def check_bin(widget, level=0):
-            prefix = "  " * level
-            if isinstance(widget, Gtk.Bin):
-                child = widget.get_child()
-                print(f"{prefix}Bin child: {child}")
-                if child:
-                    check_bin(child, level + 1)
-            elif isinstance(widget, Gtk.Container):
-                print(f"{prefix}Container: {widget}")
-                for child in widget.get_children():
-                    check_bin(child, level + 1)
-            else:
-                print(f"{prefix}Non-container: {widget}")
-
-        check_bin(window)
-        window.show_all()
-
+        window.show()
         if self._current_window is None:
             self._current_window = window
-
         return window
 
     def get_current_window(self):
-        """Returns the currently active window"""
         return self._current_window
 
     def get_windows(self):
-        """Returns a list of open windows"""
         return self._windows
 
     def open_notebook(self, filename, window=None, task=None):
         from keepnote.gui import dialog_update_notebook
-
-        if isinstance(self._conns.get(filename),
-                      keepnote.notebook.connection.fs.NoteBookConnectionFS):
+        if isinstance(self._conns.get(filename), keepnote.notebook.connection.fs.NoteBookConnectionFS):
             try:
                 version = notebooklib.get_notebook_version(filename)
             except Exception as e:
-                print(f"print this error infos {e}")
                 self.error(f"Could not load notebook test '{filename}'.", e, sys.exc_info()[2])
                 return None
-
             if version < notebooklib.NOTEBOOK_FORMAT_VERSION:
                 dialog = dialog_update_notebook.UpdateNoteBookDialog(self, window)
                 if not dialog.show(filename, version=version, task=task):
@@ -459,7 +338,6 @@ class KeepNote(keepnote.KeepNote):
         def update(task):
             sem = threading.Semaphore()
             sem.acquire()
-
             def func():
                 try:
                     conn = self._conns.get(filename)
@@ -472,14 +350,12 @@ class KeepNote(keepnote.KeepNote):
                 finally:
                     sem.release()
                 return False
-
             GLib.idle_add(func)
             sem.acquire()
 
         task = tasklib.Task(update)
         dialog = keepnote.gui.dialog_wait.WaitDialog(window)
         dialog.show(_("Opening notebook"), _("Loading..."), task, cancel=False)
-
         try:
             if task.aborted():
                 raise task.exc_info()[1]
@@ -487,76 +363,56 @@ class KeepNote(keepnote.KeepNote):
                 notebook = task.get_result()
                 if notebook is None:
                     return None
-
         except notebooklib.NoteBookVersionError as e:
             self.error(f"This version of {keepnote.PROGRAM_NAME} cannot read this notebook.\n"
                        f"The notebook has version {e.notebook_version}.  {keepnote.PROGRAM_NAME} can only read {e.readable_version}.",
                        e, task.exc_info()[2])
             return None
-
         except NoteBookError as e:
             self.error(f"Could not load notebook first'{filename}'.", e, task.exc_info()[2])
             return None
-
         except Exception as e:
-            # self.error(f"Could not load notebook second'{filename}'.", e, task.exc_info()[2])
-            # self.error(f"Could not load notebook 文件名字'{filename}'.")
             logger.error(f"没有发现这个文件的名字{filename}")
             return None
-
         self._init_notebook(notebook)
         return notebook
 
     def _init_notebook(self, notebook):
         write_needed = False
-
         if len(notebook.pref.get_quick_pick_icons()) == 0:
-            notebook.pref.set_quick_pick_icons(
-                list(DEFAULT_QUICK_PICK_ICONS))
+            notebook.pref.set_quick_pick_icons(list(DEFAULT_QUICK_PICK_ICONS))
             notebook.set_preferences_dirty()
             write_needed = True
-
         if len(notebook.pref.get("colors", default=())) == 0:
             notebook.pref.set("colors", DEFAULT_COLORS)
             notebook.set_preferences_dirty()
             write_needed = True
-
-        notebook.enable_fulltext_search(self.pref.get("use_fulltext_search",
-                                                      default=True))
-
+        notebook.enable_fulltext_search(self.pref.get("use_fulltext_search", default=True))
         if write_needed:
             notebook.write_preferences()
 
     def save_notebooks(self, silent=False):
-        """Save all opened notebooks"""
         for notebook in self._notebooks.values():
             notebook.pref.clear("windows", "ids")
             notebook.pref.clear("viewers", "ids")
-
         for window in self._windows:
             window.save_notebook(silent=silent)
-
         for notebook in self._notebooks.values():
             notebook.save()
-
         for window in self._windows:
             window.update_title()
 
     def _on_closing_notebook(self, notebook, save):
-        """Callback for when notebook is about to close"""
         super()._on_closing_notebook(notebook, save)
-
         try:
             if save:
                 self.save()
         except Exception as e:
             log_error("Error while closing notebook", e)
-
         for window in self._windows:
             window.close_notebook(notebook)
 
     def goto_nodeid(self, nodeid):
-        """Open a node by nodeid"""
         for window in self.get_windows():
             notebook = window.get_notebook()
             if not notebook:
@@ -566,216 +422,166 @@ class KeepNote(keepnote.KeepNote):
                 window.get_viewer().goto_node(node)
                 break
 
-    # Auto-save
     def begin_auto_save(self):
-        """Begin autosave callbacks"""
         if self.pref.get("autosave"):
             self._auto_saving = True
-
             if not self._auto_save_registered:
                 self._auto_save_registered = True
-                # Convert autosave_time to int to ensure it's a number
                 autosave_time = int(self.pref.get("autosave_time", default=DEFAULT_AUTOSAVE_TIME))
                 GLib.timeout_add(autosave_time, self.auto_save)
         else:
             self._auto_saving = False
 
     def end_auto_save(self):
-        """Stop autosave"""
         self._auto_saving = False
 
     def auto_save(self):
-        """Callback for autosaving"""
         self._auto_saving = self.pref.get("autosave")
-
         if not self._auto_saving:
             self._auto_save_registered = False
             return False
-
         if self._auto_save_pause > 0:
             return True
-
         self.save(True)
         return True
 
     def pause_auto_save(self, pause):
-        """Pauses autosaving"""
         self._auto_save_pause += 1 if pause else -1
 
-    # Node icons
     def on_set_icon(self, icon_file, icon_open_file, nodes):
-        """Change the icon for a node"""
         for node in nodes:
             if icon_file == "":
                 node.del_attr("icon")
             elif icon_file is not None:
                 node.set_attr("icon", icon_file)
-
             if icon_open_file == "":
                 node.del_attr("icon_open")
             elif icon_open_file is not None:
                 node.set_attr("icon_open", icon_open_file)
-
             uncache_node_icon(node)
 
     def on_new_icon(self, nodes, notebook, window=None):
-        """Change the icon for a node"""
         if notebook is None:
             return
-
         node = nodes[0]
-
-        icon_file, icon_open_file = self.node_icon_dialog.show(node,
-                                                               window=window)
-
+        icon_file, icon_open_file = self.node_icon_dialog.show(node, window=window)
         newly_installed = set()
-
-        if icon_file and os.path.isabs(icon_file) and \
-           icon_open_file and os.path.isabs(icon_open_file):
-            icon_file, icon_open_file = notebook.install_icons(
-                icon_file, icon_open_file)
+        if icon_file and os.path.isabs(icon_file) and icon_open_file and os.path.isabs(icon_open_file):
+            icon_file, icon_open_file = notebook.install_icons(icon_file, icon_open_file)
             newly_installed.add(os.path.basename(icon_file))
             newly_installed.add(os.path.basename(icon_open_file))
-
         else:
             if icon_file and os.path.isabs(icon_file):
                 icon_file = notebook.install_icon(icon_file)
                 newly_installed.add(os.path.basename(icon_file))
-
             if icon_open_file and os.path.isabs(icon_open_file):
                 icon_open_file = notebook.install_icon(icon_open_file)
                 newly_installed.add(os.path.basename(icon_open_file))
-
         if icon_file is not None:
-            notebook.pref.set_quick_pick_icons(
-                self.node_icon_dialog.get_quick_pick_icons())
-
+            notebook.pref.set_quick_pick_icons(self.node_icon_dialog.get_quick_pick_icons())
             notebook_icons = notebook.get_icons()
-            keep_set = (set(self.node_icon_dialog.get_notebook_icons()) |
-                        newly_installed)
+            keep_set = (set(self.node_icon_dialog.get_notebook_icons()) | newly_installed)
             for icon in notebook_icons:
                 if icon not in keep_set:
                     notebook.uninstall_icon(icon)
-
             notebook.set_preferences_dirty()
             notebook.write_preferences()
-
         self.on_set_icon(icon_file, icon_open_file, nodes)
 
-    # File attachment
     def on_attach_file(self, node=None, parent_window=None):
         dialog = FileChooserDialog(
-            title=_("Attach File..."), parent=parent_window,
+            title=_("Attach File..."),
+            parent=parent_window,
             action=Gtk.FileChooserAction.OPEN,
             buttons=[
                 (_("Cancel"), Gtk.ResponseType.CANCEL),
                 (_("Attach"), Gtk.ResponseType.OK)
             ],
             app=self,
-            persistent_path="attach_file_path")
-        dialog.set_default_response(Gtk.ResponseType.OK)
+            persistent_path="attach_file_path"
+        )
         dialog.set_select_multiple(True)
-
         preview = Gtk.Image()
         dialog.set_preview_widget(preview)
         dialog.connect("update-preview", update_file_preview, preview)
-
         response = dialog.run()
-
         if response == Gtk.ResponseType.OK:
             filenames = list(dialog.get_filenames())
-            self.attach_files(filenames, node,
-                              parent_window=parent_window)
-
+            self.attach_files(filenames, node, parent_window=parent_window)
         dialog.destroy()
 
-    def attach_file(self, filename, parent, index=None,
-                    parent_window=None):
+    def attach_file(self, filename, parent, index=None, parent_window=None):
         self.attach_files([filename], parent, index, parent_window)
 
-    def attach_files(self, filenames, parent, index=None,
-                     parent_window=None):
+    def attach_files(self, filenames, parent, index=None, parent_window=None):
         if parent_window is None:
             parent_window = self.get_current_window()
-
         try:
             for filename in filenames:
                 notebooklib.attach_file(filename, parent, index)
-
         except Exception as e:
             if len(filenames) > 1:
-                self.error(f"Error while attaching files {', '.join([f'{f}' for f in filenames])}.",
-                           e, sys.exc_info()[2])
+                self.error(f"Error while attaching files {', '.join([f'{f}' for f in filenames])}.", e, sys.exc_info()[2])
             else:
-                self.error(f"Error while attaching file '{filenames[0]}'.",
-                           e, sys.exc_info()[2])
+                self.error(f"Error while attaching file '{filenames[0]}'.", e, sys.exc_info()[2])
 
-    # Misc GUI
     def focus_windows(self):
-        """Focus all open windows on desktop"""
         for window in self._windows:
             window.present()
 
     def error(self, text, error=None, tracebk=None, parent=None):
-        """Display an error message"""
         if parent is None:
             parent = self.get_current_window()
-
         dialog = Gtk.MessageDialog(
-            parent=parent,
-            flags=Gtk.DialogFlags.MODAL | Gtk.DialogFlags.DESTROY_WITH_PARENT,
+            transient_for=parent,
+            modal=True,
+            destroy_with_parent=True,
             message_type=Gtk.MessageType.ERROR,
             buttons=Gtk.ButtonsType.OK,
-            text=text)
+            text=text
+        )
         dialog.connect("response", lambda d, r: d.destroy())
         dialog.set_title(_("Error"))
         dialog.show()
-
         if error is not None:
             log_error(error, tracebk)
 
     def message(self, text, title="KeepNote", parent=None):
-        """Display a message window"""
         if parent is None:
             parent = self.get_current_window()
-
         dialog = Gtk.MessageDialog(
-            parent=parent,
-            flags=Gtk.DialogFlags.MODAL | Gtk.DialogFlags.DESTROY_WITH_PARENT,
+            transient_for=parent,
+            modal=True,
+            destroy_with_parent=True,
             message_type=Gtk.MessageType.INFO,
             buttons=Gtk.ButtonsType.OK,
-            text=text)
+            text=text
+        )
         dialog.set_title(title)
         dialog.run()
         dialog.destroy()
 
     def ask_yes_no(self, text, title="KeepNote", parent=None):
-        """Display a yes/no window"""
         if parent is None:
             parent = self.get_current_window()
-
         dialog = Gtk.MessageDialog(
-            parent=parent,
-            flags=Gtk.DialogFlags.MODAL | Gtk.DialogFlags.DESTROY_WITH_PARENT,
+            transient_for=parent,
+            modal=True,
+            destroy_with_parent=True,
             message_type=Gtk.MessageType.QUESTION,
             buttons=Gtk.ButtonsType.YES_NO,
-            text=text)
-
+            text=text
+        )
         dialog.set_title(title)
         response = dialog.run()
         dialog.destroy()
-
         return response == Gtk.ResponseType.YES
 
     def quit(self):
-        """Quit the gtk event loop"""
         super().quit()
-        Gtk.AccelMap.save(get_accel_file())
         Gtk.main_quit()
 
-    # Callbacks
-    def _on_window_close(self, window, event):
-        """Callback for window close event"""
+    def _on_window_close(self, window):
         if window in self._windows:
             for ext in self.get_enabled_extensions():
                 try:
@@ -783,53 +589,41 @@ class KeepNote(keepnote.KeepNote):
                         ext.on_close_window(window)
                 except Exception as e:
                     log_error(e, sys.exc_info()[2])
-
             self._windows.remove(window)
-
             if window == self._current_window:
                 self._current_window = None
-
         if len(self._windows) == 0:
             self.quit()
+        return False
 
     def _on_window_focus(self, window, event):
-        """Callback for when a window gains focus"""
         self._current_window = window
 
-    # Extension methods
     def init_extensions_windows(self, windows=None, exts=None):
-        """Initialize all extensions for a window"""
         if exts is None:
             exts = self.get_enabled_extensions()
-
         if windows is None:
             windows = self.get_windows()
-
         for window in windows:
             for ext in exts:
                 try:
                     if isinstance(ext, keepnote.gui.extension.Extension):
                         ext.on_new_window(window)
                 except Exception as e:
-                    log_error(f"看看这里弹出的是啥'.",e, sys.exc_info()[2])
+                    log_error(f"看看这里弹出的是啥'.", e, sys.exc_info()[2])
 
     def install_extension(self, filename):
-        """Install a new extension"""
         if self.ask_yes_no(f"Do you want to install the extension \"{filename}\"?", "Extension Install"):
             new_exts = super().install_extension(filename)
             self.init_extensions_windows(exts=new_exts)
-
             if len(new_exts) > 0:
                 self.message(f"Extension \"{filename}\" is now installed.", _("Install Successful"))
                 return True
         return False
 
     def uninstall_extension(self, ext_key):
-        """Install a new extension"""
         if self.ask_yes_no(f"Do you want to uninstall the extension \"{ext_key}\"?", _("Extension Uninstall")):
             if super().uninstall_extension(ext_key):
-                self.message(f"Extension \"{ext_key}\" is now uninstalled.",
-                             _("Uninstall Successful"))
+                self.message(f"Extension \"{ext_key}\" is now uninstalled.", _("Uninstall Successful"))
                 return True
         return False
-

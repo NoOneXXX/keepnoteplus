@@ -1,11 +1,8 @@
 # Python 3 and PyGObject imports
 import gi
-gi.require_version('Gtk', '3.0')  # Specify GTK 3.0
-gi.require_version('PangoCairo', '1.0')  # Specify PangoCairo 1.0
-gi.require_version('Gdk', '3.0')  # Specify Gdk 3.0
-gi.require_version('GdkPixbuf', '2.0')  # Specify GdkPixbuf 2.0
-gi.require_version('Pango', '1.0')  # Specify Pango 1.0
-gi.require_version('GObject', '2.0')  # Specify GObject 2.0
+gi.require_version('Gtk', '4.0')
+gi.require_version('PangoCairo', '1.0')
+gi.require_version('Pango', '1.0')
 from gi.repository import Gtk, Gdk, GdkPixbuf, Pango, PangoCairo, GObject
 import cairo
 import keepnote
@@ -59,16 +56,16 @@ class ColorTextImage(Gtk.Image):
         self._exposed = False
 
         self.connect("parent-set", self.on_parent_set)
-        self.connect("draw", self.on_draw)
+        self.connect("snapshot", self.on_snapshot)
 
     def on_parent_set(self, widget, old_parent):
         self._exposed = False
 
-    def on_draw(self, widget, cr):
+    def on_snapshot(self, widget, snapshot):
         if not self._exposed:
             self._exposed = True
             self.init_colors()
-        self.do_draw(cr)
+        self.do_draw(snapshot)
         return False
 
     def init_colors(self):
@@ -96,18 +93,16 @@ class ColorTextImage(Gtk.Image):
     def refresh(self):
         if not self._pixbuf:
             return
-        cr = cairo.Context(self._pixbuf)
-        # Fill background
+        surface = cairo.ImageSurface(cairo.FORMAT_ARGB32, self.width, self.height)
+        cr = cairo.Context(surface)
         if self.bg_color:
             Gdk.cairo_set_source_rgba(cr, self.bg_color)
             cr.rectangle(0, 0, self.width, self.height)
             cr.fill()
-        # Draw border
         if self.border:
             cr.set_source_rgb(0, 0, 0)
             cr.rectangle(0, 0, self.width - 1, self.height - 1)
             cr.stroke()
-        # Draw letter
         if self.letter and self.fg_color:
             layout = PangoCairo.create_layout(cr)
             layout.set_text(FONT_LETTER, -1)
@@ -116,7 +111,11 @@ class ColorTextImage(Gtk.Image):
             cr.set_source_rgba(self.fg_color.red, self.fg_color.green, self.fg_color.blue, self.fg_color.alpha)
             cr.move_to(self.marginx, self.marginy)
             PangoCairo.show_layout(cr, layout)
-        self.set_from_pixbuf(self._pixbuf)
+        self.set_from_pixbuf(GdkPixbuf.Pixbuf.new_from_data(surface.get_data(), GdkPixbuf.Colorspace.RGB, True, 8, self.width, self.height, surface.get_stride()))
+
+    def do_draw(self, snapshot):
+        texture = Gdk.Texture.new_for_pixbuf(self._pixbuf)
+        snapshot.append_texture(texture, Gdk.Rectangle(x=0, y=0, width=self.width, height=self.height))
 
 # ColorMenu class
 class ColorMenu(Gtk.Menu):
@@ -127,12 +126,12 @@ class ColorMenu(Gtk.Menu):
         self.posj = 0
         self.color_items = []
 
-        no_color = Gtk.MenuItem(label="_Default Color")
+        no_color = Gtk.MenuItem.new_with_label("_Default Color")
         no_color.connect("activate", self.on_no_color)
         self.attach(no_color, 0, self.width, 0, 1)
         no_color.show()
 
-        new_color = Gtk.MenuItem(label="_New Color...")
+        new_color = Gtk.MenuItem.new_with_label("_New Color...")
         new_color.connect("activate", self.on_new_color)
         self.attach(new_color, 0, self.width, 1, 2)
         new_color.show()
@@ -146,6 +145,7 @@ class ColorMenu(Gtk.Menu):
     def on_new_color(self, menu):
         dialog = ColorSelectionDialog("Choose color")
         dialog.set_modal(True)
+        dialog.show()
         if dialog.run() == Gtk.ResponseType.OK:
             color = dialog.get_rgba()
             color_str = color_int16_to_str((int(color.red * 65535), int(color.green * 65535), int(color.blue * 65535)))
@@ -188,11 +188,11 @@ class ColorMenu(Gtk.Menu):
         item = Gtk.MenuItem()
         img = ColorTextImage(15, 15, False)
         img.set_bg_color(color)
-        item.add(img)
+        item.set_child(img)
         item.connect("activate", lambda w: self.emit("set-color", color))
         self.attach(item, j, j + 1, i, i + 1)
         self.color_items.append(item)
-        item.show_all()
+        item.show()
 
 GObject.type_register(ColorMenu)
 GObject.signal_new("set-color", ColorMenu, GObject.SignalFlags.RUN_LAST, None, (GObject.TYPE_PYOBJECT,))
@@ -200,9 +200,9 @@ GObject.signal_new("set-colors", ColorMenu, GObject.SignalFlags.RUN_LAST, None, 
 GObject.signal_new("get-colors", ColorMenu, GObject.SignalFlags.RUN_LAST, None, ())
 
 # ColorTool base class
-class ColorTool(Gtk.MenuToolButton):
-    def __init__(self,default):
-        super().__init__(label="")
+class ColorTool(Gtk.MenuButton):
+    def __init__(self, default):
+        super().__init__()
         self.icon = None
         self.color = None
         self.colors = DEFAULT_COLORS
@@ -212,10 +212,9 @@ class ColorTool(Gtk.MenuToolButton):
         self.menu = ColorMenu([])
         self.menu.connect("set-color", self.on_set_color)
         self.menu.connect("set-colors", self.on_set_colors)
-        self.set_menu(self.menu)
+        self.set_popover(self.menu)
 
-        self.connect("clicked", self.use_color)
-        self.connect("show-menu", self.on_show_menu)
+        self.connect("activate", self.use_color)
 
     def on_set_color(self, menu, color):
         raise NotImplementedError("Must be implemented by subclass")
@@ -255,6 +254,7 @@ class FgColorTool(ColorTool):
         self.icon.set_fg_color(default)
         self.icon.set_bg_color("#ffffff")
         super().__init__(default)
+        self.set_child(self.icon)
 
     def on_set_color(self, menu, color):
         if color is None:
@@ -272,6 +272,7 @@ class BgColorTool(ColorTool):
         self.icon = ColorTextImage(width, height, False, True)
         self.icon.set_bg_color(default)
         super().__init__(default)
+        self.set_child(self.icon)
 
     def on_set_color(self, menu, color):
         if color is None:
@@ -289,43 +290,31 @@ class ColorSelectionDialog(Gtk.ColorChooserDialog):
         super().__init__(title=title)
         self.set_use_alpha(False)
 
-        # Create a single VBox to hold all content
         main_vbox = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=5)
-        self.get_content_area().pack_start(main_vbox, True, True, 0)
-        main_vbox.show()
+        self.get_content_area().append(main_vbox)
 
-        # Add the palette label
         label = Gtk.Label(label=_("Palette:"))
-        label.set_alignment(0, 0.5)
-        main_vbox.pack_start(label, False, False, 0)
-        label.show()
+        label.set_halign(Gtk.Align.START)
+        main_vbox.append(label)
 
-        # Add the palette
         self.palette = ColorPalette(DEFAULT_COLORS)
         self.palette.connect("pick-color", self.on_pick_palette_color)
-        main_vbox.pack_start(self.palette, False, False, 0)
-        self.palette.show()
+        main_vbox.append(self.palette)
 
-        # Add the button box
-        hbox = Gtk.HButtonBox()
-        main_vbox.pack_start(hbox, False, False, 0)
-        hbox.show()
+        hbox = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=6)
+        main_vbox.append(hbox)
 
-        # Add buttons to hbox
-        new_button = Gtk.Button(label="New", stock=Gtk.STOCK_NEW)
+        new_button = Gtk.Button(label="New")
         new_button.connect("clicked", self.on_new_color)
-        hbox.pack_start(new_button, False, False, 0)
-        new_button.show()
+        hbox.append(new_button)
 
-        delete_button = Gtk.Button(label="Delete", stock=Gtk.STOCK_DELETE)
+        delete_button = Gtk.Button(label="Delete")
         delete_button.connect("clicked", self.on_delete_color)
-        hbox.pack_start(delete_button, False, False, 0)
-        delete_button.show()
+        hbox.append(delete_button)
 
-        reset_button = Gtk.Button(label="_Reset", stock=Gtk.STOCK_UNDO)
+        reset_button = Gtk.Button(label="_Reset")
         reset_button.connect("clicked", self.on_reset_colors)
-        hbox.pack_start(reset_button, False, False, 0)
-        reset_button.show()
+        hbox.append(reset_button)
 
         self.connect("notify::rgba", self.on_color_changed)
 
@@ -357,27 +346,23 @@ class ColorSelectionDialog(Gtk.ColorChooserDialog):
         self.palette.set_color(color_str)
 
 # ColorPalette class
-class ColorPalette(Gtk.IconView):
+class ColorPalette(Gtk.FlowBox):
     def __init__(self, colors=DEFAULT_COLORS, nrows=1, ncols=7):
         super().__init__()
         self._model = Gtk.ListStore(GdkPixbuf.Pixbuf, GObject.TYPE_STRING)
         self._cell_size = [30, 20]
 
-        self.set_model(self._model)
-        self.set_reorderable(True)
-        self.set_columns(ncols)
-        self.set_spacing(0)
+        self.set_max_children_per_line(ncols)
         self.set_column_spacing(0)
         self.set_row_spacing(0)
-        self.set_item_padding(1)
-        self.set_margin(1)
-        self.set_pixbuf_column(0)
+        self.set_homogeneous(True)
 
-        self.connect("selection-changed", self._on_selection_changed)
+        self.connect("child-activated", self._on_selection_changed)
         self.set_colors(colors)
 
     def clear_colors(self):
-        self._model.clear()
+        for child in self.get_children():
+            self.remove(child)
 
     def set_colors(self, colors):
         self.clear_colors()
@@ -394,37 +379,51 @@ class ColorPalette(Gtk.IconView):
         pixbuf = GdkPixbuf.Pixbuf.new(GdkPixbuf.Colorspace.RGB, True, 8, width, height)
         self._draw_color(pixbuf, color, 0, 0, width, height)
         self._model.append([pixbuf, color])
+        image = Gtk.Image.new_from_pixbuf(pixbuf)
+        self.append(image)
 
     def remove_selected(self):
-        for path in self.get_selected_items():
-            self._model.remove(self._model.get_iter(path))
+        selected = self.get_selected_children()
+        if selected:
+            path = self._model.get_path(self._model.get_iter_first())
+            for i, child in enumerate(self.get_children()):
+                if child in selected:
+                    self._model.remove(self._model.get_iter(path[i]))
+                    self.remove(child)
+                    break
 
     def new_color(self, color):
         self.append_color(color)
         n = self._model.iter_n_children()
-        self.select_path(Gtk.TreePath.new_from_indices([n - 1]))
+        self.select_child(self.get_child_at_index(n - 1))
 
     def set_color(self, color):
         width, height = self._cell_size
-        it = self._get_selected_iter()
-        if it:
-            pixbuf = self._model.get_value(it, 0)
+        selected = self.get_selected_children()
+        if selected:
+            child = selected[0]
+            pixbuf = GdkPixbuf.Pixbuf.new(GdkPixbuf.Colorspace.RGB, True, 8, width, height)
             self._draw_color(pixbuf, color, 0, 0, width, height)
-            self._model.set_value(it, 1, color)
+            child.get_first_child().set_from_pixbuf(pixbuf)
+            it = self._model.get_iter_first()
+            for i, c in enumerate(self.get_children()):
+                if c == child:
+                    self._model.set_value(it, 1, color)
+                    break
+                it = self._model.iter_next(it)
 
-    def _get_selected_iter(self):
-        for path in self.get_selected_items():
-            return self._model.get_iter(path)
-        return None
-
-    def _on_selection_changed(self, view):
-        it = self._get_selected_iter()
-        if it:
-            color = self._model.get_value(it, 1)
-            self.emit("pick-color", color)
+    def _on_selection_changed(self, flowbox, child):
+        it = self._model.get_iter_first()
+        for i, c in enumerate(self.get_children()):
+            if c == child:
+                color = self._model.get_value(it, 1)
+                self.emit("pick-color", color)
+                break
+            it = self._model.iter_next(it)
 
     def _draw_color(self, pixbuf, color, x, y, width, height):
-        cr = cairo.Context(pixbuf)
+        surface = cairo.ImageSurface(cairo.FORMAT_ARGB32, width, height)
+        cr = cairo.Context(surface)
         rgba = Gdk.RGBA()
         rgba.parse(color)
         Gdk.cairo_set_source_rgba(cr, rgba)
@@ -433,6 +432,7 @@ class ColorPalette(Gtk.IconView):
         cr.set_source_rgb(0, 0, 0)
         cr.rectangle(x, y, width - 1, height - 1)
         cr.stroke()
+        pixbuf.get_pixels()[:] = surface.get_data()
 
 GObject.type_register(ColorPalette)
 GObject.signal_new("pick-color", ColorPalette, GObject.SignalFlags.RUN_LAST, None, (GObject.TYPE_STRING,))
@@ -440,12 +440,12 @@ GObject.signal_new("pick-color", ColorPalette, GObject.SignalFlags.RUN_LAST, Non
 # Example usage (optional)
 if __name__ == "__main__":
     win = Gtk.Window()
-    toolbar = Gtk.Toolbar()
+    box = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL)
     fg_tool = FgColorTool(20, 20, "#000000")
     bg_tool = BgColorTool(20, 20, "#ffffff")
-    toolbar.insert(fg_tool, -1)
-    toolbar.insert(bg_tool, -1)
-    win.add(toolbar)
+    box.append(fg_tool)
+    box.append(bg_tool)
+    win.set_child(box)
     win.connect("destroy", Gtk.main_quit)
-    win.show_all()
+    win.show()
     Gtk.main()
