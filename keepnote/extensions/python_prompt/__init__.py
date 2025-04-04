@@ -1,101 +1,80 @@
 """
-
     KeepNote
     Python prompt extension
-
 """
 
-#
-#  KeepNote
-#  Copyright (c) 2008-2009 Matt Rasmussen
-#  Author: Matt Rasmussen <rasmus@alum.mit.edu>
-#
-# This program is free software; you can redistribute it and/or modify
-# it under the terms of the GNU General Public License as published by
-# the Free Software Foundation; version 2 of the License.
-#
-# This program is distributed in the hope that it will be useful,
-# but WITHOUT ANY WARRANTY; without even the implied warranty of
-# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-# GNU General Public License for more details.
-#
-# You should have received a copy of the GNU General Public License
-# along with this program; if not, write to the Free Software
-# Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301, USA.
-#
-
-
-# python imports
+# Python imports
 import gettext
 import time
 import os
 import sys
 _ = gettext.gettext
 
-
-# keepnote imports
+# KeepNote imports
 import keepnote
 from keepnote.gui import extension
+from keepnote.gui import dialog_app_options
 
+# PyGObject imports for GTK 4
+import gi
+gi.require_version('Gtk', '4.0')
+from gi.repository import Gtk, Gio
 
-# pygtk imports
-try:
-    import pygtk
-    pygtk.require('2.0')
-    import gtk
-
-    from keepnote.gui import dialog_app_options
-
-except ImportError:
-    # do not fail on gtk import error,
-    # extension should be usable for non-graphical uses
-    pass
-
-
+# Add the current directory to sys.path to import dialog_python
 sys.path.append(os.path.dirname(__file__))
 from . import dialog_python
 
 
-class Extension (extension.Extension):
+class Extension(extension.Extension):
 
     def __init__(self, app):
         """Initialize extension"""
-        
         extension.Extension.__init__(self, app)
-
 
     def get_depends(self):
         return [("keepnote", ">=", (0, 7, 1))]
 
-        
     #================================
     # UI setup
 
     def on_add_ui(self, window):
+        # Add "Python Prompt" action
+        action = Gio.SimpleAction.new("python-prompt", None)
+        action.connect("activate", lambda action, param: self.on_python_prompt(window))
+        window.add_action(action)
 
-        # add menu options
-        self.add_action(window, "Python Prompt...", "Python Prompt...",
-                        lambda w: self.on_python_prompt(window))
+        # Add menu items using GMenu
+        app = window.get_application()
+        menu = app.get_menubar()
+        if not menu:
+            menu = Gio.Menu()
+            app.set_menubar(menu)
 
-        self.add_ui(window,
-                """
-                <ui>
-                <menubar name="main_menu_bar">
-                   <menu action="Tools">
-                      <placeholder name="Extensions">
-                        <menuitem action="Python Prompt..."/>
-                      </placeholder>
-                   </menu>
-                </menubar>
-                </ui>
-                """)
+        tools_menu = None
+        for i in range(menu.get_n_items()):
+            if menu.get_item_attribute_value(i, "label").get_string() == "_Tools":
+                tools_menu = menu.get_item_link(i, "submenu")
+                break
 
+        if not tools_menu:
+            tools_menu = Gio.Menu()
+            menu.append_submenu("_Tools", tools_menu)
+
+        extensions_menu = None
+        for i in range(tools_menu.get_n_items()):
+            if tools_menu.get_item_attribute_value(i, "label") == "Extensions":
+                extensions_menu = tools_menu.get_item_link(i, "submenu")
+                break
+
+        if not extensions_menu:
+            extensions_menu = Gio.Menu()
+            tools_menu.append_submenu("Extensions", extensions_menu)
+
+        extensions_menu.append("Python Prompt...", "win.python-prompt")
 
     #================================
     # actions
 
-
     def on_python_prompt(self, window):
-
         dialog = dialog_python.PythonDialog(window)
         dialog.show()

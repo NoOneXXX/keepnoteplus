@@ -219,6 +219,8 @@ class ThreePaneViewer(Viewer):
         if self._notebook:
             info = self._notebook.pref.get("viewers", "ids", self._viewerid, define=True)
             nodes = [node for node in (self._notebook.get_node_by_id(i) for i in info.get("selected_treeview_nodes", [])) if node is not None]
+            if not nodes:  # If no saved selection, select the root node
+                nodes = [self._notebook]  # Select the notebook root
             self.treeview.select_nodes(nodes)
             nodes = [node for node in (self._notebook.get_node_by_id(i) for i in info.get("selected_listview_nodes", [])) if node is not None]
             self.listview.select_nodes(nodes)
@@ -285,6 +287,7 @@ class ThreePaneViewer(Viewer):
             self._app.run_external_app("image_viewer", filename)
 
     def _on_tree_select(self, treeview, nodes):
+        print(f"Tree select triggered with nodes: {[node.get_title() for node in nodes]}")
         if self._treeview_sel_nodes == nodes:
             return
         self._treeview_sel_nodes = nodes

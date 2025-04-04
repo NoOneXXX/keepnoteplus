@@ -119,7 +119,6 @@ o.add_option("-p", "--port", dest="port",
              type="int",
              help="use a specified port for listening to commands")
 
-
 # =============================================================================
 
 def start_error_log(show_errors):
@@ -169,7 +168,7 @@ def setup_threading():
     """Initialize threading environment"""
     print("Setting up threading...")
     try:
-        from gi.repository import Gdk, GLib
+        from gi.repository import GLib
     except ImportError as e:
         print(f"Failed to import gi.repository: {e}")
         raise
@@ -180,26 +179,22 @@ def setup_threading():
             return True  # Repeat timer
 
         GLib.timeout_add(400, sleeper)
-    else:
-        Gdk.threads_init()
 
 
 def gui_exec(function, *args, **kwargs):
     """Execute a function in the GUI thread"""
     print("Executing in GUI thread...")
-    from gi.repository import Gdk, GLib
+    from gi.repository import GLib
 
     sem = threading.Semaphore()
     sem.acquire()
 
     def idle_func():
-        Gdk.threads_enter()
         try:
             function(*args, **kwargs)
             return False
         finally:
             sem.release()
-            Gdk.threads_leave()
 
     GLib.idle_add(idle_func)
     sem.acquire()
@@ -209,7 +204,7 @@ def start_gui(argv, options, args, cmd_exec):
     print("Starting GUI...")
     try:
         import keepnote.gui
-        from gi.repository import Gtk
+        from gi.repository import Gtk, Gio
     except ImportError as e:
         print(f"Failed to import GUI modules: {e}")
         raise
@@ -217,15 +212,16 @@ def start_gui(argv, options, args, cmd_exec):
     setup_threading()
 
     app = keepnote.gui.KeepNote(basedir)
-    app.init()
+    gtk_app = Gtk.Application(application_id="org.keepnote")
     cmd_exec.set_app(app)
-    need_gui = execute_command(app, argv)
 
-    if need_gui:
-        print("Starting GTK main loop...")
-        Gtk.main()
-    else:
-        print("No GUI needed, exiting...")
+    def on_activate(gtk_app):
+        need_gui = execute_command(app, argv)
+        if not need_gui:
+            gtk_app.quit()
+
+    gtk_app.connect("activate", on_activate)
+    gtk_app.run()
 
 
 def start_non_gui(argv, options, args, cmd_exec):

@@ -10,11 +10,11 @@ import os
 import sys
 import time
 
-# PyGObject imports for GTK 3
+# PyGObject imports for GTK 4
 import gi
 
-gi.require_version('Gtk', '3.0')
-from gi.repository import GObject
+gi.require_version('Gtk', '4.0')
+from gi.repository import GLib
 
 # KeepNote imports
 import keepnote
@@ -57,7 +57,7 @@ class Extension(keepnote.gui.extension.Extension):
                        metavar="PATH",
                        help="add an extension path for this session"),
             AppCommand("quit", lambda app, args:
-            GObject.idle_add(app.quit),
+            GLib.idle_add(app.quit),
                        help="close all KeepNote windows"),
 
             # notebook commands
@@ -107,7 +107,7 @@ class Extension(keepnote.gui.extension.Extension):
 
     def on_minimize_windows(self, app, args):
         for window in app.get_windows():
-            window.iconify()
+            window.minimize()
 
     def on_toggle_windows(self, app, args):
         for window in app.get_windows():

@@ -200,18 +200,15 @@ class FileChooserDialog(Gtk.FileChooserDialog):
         for button in buttons:
             self.add_button(button[0], button[1])
 
-        # 添加以下代码，确保不重复添加控件
+        # 清理内容区域，确保单一子控件
         content_area = self.get_content_area()
         children = content_area.get_children()
-        if len(children) > 1:
-            print(f"Warning: FileChooserDialog has multiple children: {children}")
-            for child in children[1:]:
+        if children:
+            for child in children:
                 content_area.remove(child)
-
-        # 添加自定义控件（如果需要）
-        # box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL)
-        # content_area.add(box)
-        # content_area.show_all()
+        main_box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=6)
+        content_area.add(main_box)
+        main_box.show()
 
         self._app = app
         self._persistent_path = persistent_path
@@ -259,26 +256,27 @@ class UIManager(Gtk.UIManager):
                 for widget in action.get_proxies():
                     self.set_icon(widget, action)
 
+    from gi.repository import Gtk
+
     def set_icon(self, widget, action):
-        """Sets the icon for a managed widget"""
-        if not isinstance(action, (Action, ToggleAction)):
-            return
-
-        if isinstance(widget, Gtk.MenuItem):
-            if self.force_stock and action.get_property("stock-id"):
-                img = Gtk.Image.new_from_icon_name(action.get_property("stock-id"),
-                                                   Gtk.IconSize.MENU)
+        # Assuming 'img' is the image object being set (adjust based on actual code)
+        img = Gtk.Image.new_from_icon_name("gtk-apply", Gtk.IconSize.MENU)  # Example; adjust icon source
+        if isinstance(widget, Gtk.CheckMenuItem):
+            # Clear existing content and add a box with image and label
+            for child in widget.get_children():
+                widget.remove(child)
+            box = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=6)
+            box.pack_start(img, False, False, 0)
+            label = Gtk.Label(label=action.get_label() or "")
+            box.pack_start(label, True, True, 0)
+            widget.add(box)
+            box.show_all()
+        else:
+            # For other widget types that might support set_image (unlikely in this context)
+            try:
                 widget.set_image(img)
-            elif action.icon:
-                img = Gtk.Image.new_from_pixbuf(get_resource_pixbuf(action.icon))
-                widget.set_image(img)
-
-        elif isinstance(widget, Gtk.ToolButton):
-            if self.force_stock and action.get_property("stock-id"):
-                widget.set_icon_name(action.get_property("stock-id"))
-            elif action.icon:
-                img = Gtk.Image.new_from_pixbuf(get_resource_pixbuf(action.icon))
-                widget.set_icon_widget(img)
+            except AttributeError:
+                pass  # Log this if needed
 
 class Action(Gtk.Action):
     def __init__(self, name, stockid=None, label=None,
@@ -408,6 +406,23 @@ class KeepNote(keepnote.KeepNote):
         self._windows.append(window)
 
         self.init_extensions_windows([window])
+
+        # 调试窗口层次
+        def check_bin(widget, level=0):
+            prefix = "  " * level
+            if isinstance(widget, Gtk.Bin):
+                child = widget.get_child()
+                print(f"{prefix}Bin child: {child}")
+                if child:
+                    check_bin(child, level + 1)
+            elif isinstance(widget, Gtk.Container):
+                print(f"{prefix}Container: {widget}")
+                for child in widget.get_children():
+                    check_bin(child, level + 1)
+            else:
+                print(f"{prefix}Non-container: {widget}")
+
+        check_bin(window)
         window.show_all()
 
         if self._current_window is None:

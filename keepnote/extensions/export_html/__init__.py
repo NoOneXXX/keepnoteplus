@@ -27,10 +27,12 @@ from keepnote import tarfile
 from keepnote.gui import extension, FileChooserDialog
 from keepnote import safefile
 
-# PyGObject imports for GTK 3
+# PyGObject imports for GTK 4
 import gi
-gi.require_version('Gtk', '3.0')
-from gi.repository import Gtk, GObject
+
+gi.require_version('Gtk', '4.0')
+from gi.repository import Gtk, Gio
+
 
 class Extension(extension.Extension):
 
@@ -46,23 +48,39 @@ class Extension(extension.Extension):
     def on_add_ui(self, window):
         """Initialize extension for a particular window"""
 
-        # add menu options
-        self.add_action(window, "ExportHTML", "_HTML...",
-                        lambda w: self.on_export_notebook(
-                            window, window.get_notebook()))
+        # add menu options using actions
+        action = Gio.SimpleAction.new("export-html", None)
+        action.connect("activate", lambda action, param: self.on_export_notebook(window, window.get_notebook()))
+        window.add_action(action)
 
-        self.add_ui(window,
-            """
-            <ui>
-            <menubar name="main_menu_bar">
-               <menu action="File">
-                  <menu action="Export">
-                     <menuitem action="ExportHTML"/>
-                  </menu>
-               </menu>
-            </menubar>
-            </ui>
-            """)
+        # add menu items using GMenu
+        app = window.get_application()
+        menu = app.get_menubar()
+        if not menu:
+            menu = Gio.Menu()
+            app.set_menubar(menu)
+
+        file_menu = None
+        for i in range(menu.get_n_items()):
+            if menu.get_item_attribute_value(i, "label").get_string() == "_File":
+                file_menu = menu.get_item_link(i, "submenu")
+                break
+
+        if not file_menu:
+            file_menu = Gio.Menu()
+            menu.append_submenu("_File", file_menu)
+
+        export_menu = None
+        for i in range(file_menu.get_n_items()):
+            if file_menu.get_item_attribute_value(i, "label") == "Export":
+                export_menu = file_menu.get_item_link(i, "submenu")
+                break
+
+        if not export_menu:
+            export_menu = Gio.Menu()
+            file_menu.append_submenu("Export", export_menu)
+
+        export_menu.append("_HTML...", "win.export-html")
 
     def on_export_notebook(self, window, notebook):
         """Callback from gui for exporting a notebook"""
@@ -73,8 +91,8 @@ class Extension(extension.Extension):
         dialog = FileChooserDialog(
             "Export Notebook", window,
             action=Gtk.FileChooserAction.SAVE,
-            buttons=("Cancel", Gtk.ResponseType.CANCEL,
-                     "Export", Gtk.ResponseType.OK),
+            buttons=(("Cancel", Gtk.ResponseType.CANCEL),
+                     ("Export", Gtk.ResponseType.OK)),
             app=self.app,
             persistent_path="archive_notebook_path")
 
@@ -134,10 +152,12 @@ class Extension(extension.Extension):
         else:
             export_notebook(notebook, filename, None)
 
+
 def truncate_filename(filename, maxsize=100):
     if len(filename) > maxsize:
-        filename = "..." + filename[-(maxsize-3):]
+        filename = "..." + filename[-(maxsize - 3):]
     return filename
+
 
 def relpath(path, start):
     path = os.path.normpath(path)
@@ -159,6 +179,7 @@ def relpath(path, start):
     rel2.extend(reversed(rel))
     return "/".join(rel2)
 
+
 def nodeid2html_link(notebook, path, nodeid):
     note = notebook.get_node_by_id(nodeid)
     if note:
@@ -170,6 +191,7 @@ def nodeid2html_link(notebook, path, nodeid):
         return urllib.parse.quote(newpath.encode("utf8"))
     else:
         return ""
+
 
 def translate_links(notebook, path, node):
     def walk(node):
@@ -186,6 +208,7 @@ def translate_links(notebook, path, node):
             walk(child)
 
     walk(node)
+
 
 def write_index(notebook, node, path):
     rootpath = node.get_path()
@@ -224,7 +247,7 @@ def write_index(notebook, node, path):
 {
     padding-left: 20px;
     display: none;
-    
+
     visibility: hidden;
     display: none;
 }
@@ -324,9 +347,11 @@ font-weight: bold;
                     walk(child)
 
                 out.write("</div>\n")
+
         walk(node)
 
         out.write("""</body></html>""")
+
 
 def export_notebook(notebook, filename, task):
     """Export notebook to HTML
@@ -349,10 +374,12 @@ def export_notebook(notebook, filename, task):
 
     # first count # of files
     nnodes = [0]
+
     def walk(node):
         nnodes[0] += 1
         for child in node.get_children():
             walk(child)
+
     walk(notebook)
 
     task.set_message(("text", "Exporting %d notes..." % nnodes[0]))

@@ -24,10 +24,10 @@ from keepnote import tarfile
 from keepnote.gui import extension
 from keepnote.gui import dialog_app_options
 
-# PyGObject imports for GTK 3
+# PyGObject imports for GTK 4
 import gi
-gi.require_version('Gtk', '3.0')
-from gi.repository import Gtk, GObject
+gi.require_version('Gtk', '4.0')
+from gi.repository import Gtk, Gio
 
 class Extension(extension.Extension):
 
@@ -130,42 +130,40 @@ class Extension(extension.Extension):
 
     def on_add_ui(self, window):
         """Initialize extension for a particular window"""
-        self.add_action(window, "NewFile", "New _File",
-                        lambda w: None)
+        # Add "New File" action
+        action = Gio.SimpleAction.new("new-file", None)
+        action.connect("activate", lambda action, param: None)
+        window.add_action(action)
 
-        # Access the menu bar via Gtk.Builder
-        try:
-            menu_bar = window.builder.get_object("main_menu_bar")
-            if menu_bar is None:
-                raise AttributeError("Could not find 'main_menu_bar' in Glade file")
-        except AttributeError:
-            # Fallback if builder is not directly accessible
-            # self.app.error("Cannot access main_menu_bar; extension UI setup failed")
-            print("Cannot access main_menu_bar; extension UI setup failed")
-            return
+        # Add menu items using GMenu
+        app = window.get_application()
+        menu = app.get_menubar()
+        if not menu:
+            menu = Gio.Menu()
+            app.set_menubar(menu)
 
         file_menu = None
-        for item in menu_bar.get_children():
-            if item.get_label() == "_File":
-                file_menu = item
+        for i in range(menu.get_n_items()):
+            if menu.get_item_attribute_value(i, "label").get_string() == "_File":
+                file_menu = menu.get_item_link(i, "submenu")
                 break
 
-        if file_menu:
-            new_menu = None
-            for item in file_menu.get_submenu().get_children():
-                if item.get_label() == "New":
-                    new_menu = item.get_submenu()
-                    break
-            if not new_menu:
-                new_menu = Gtk.Menu()
-                new_item = Gtk.MenuItem(label="New")
-                new_item.set_submenu(new_menu)
-                file_menu.get_submenu().append(new_item)
+        if not file_menu:
+            file_menu = Gio.Menu()
+            menu.append_submenu("_File", file_menu)
 
-            new_file_item = Gtk.MenuItem(label="New _File")
-            new_file_item.show()
-            new_menu.append(new_file_item)
-            self.set_new_file_menu(window, new_file_item)
+        new_menu = None
+        for i in range(file_menu.get_n_items()):
+            if file_menu.get_item_attribute_value(i, "label") == "New":
+                new_menu = file_menu.get_item_link(i, "submenu")
+                break
+
+        if not new_menu:
+            new_menu = Gio.Menu()
+            file_menu.append_submenu("New", new_menu)
+
+        new_menu.append("New _File", "win.new-file")
+        self.set_new_file_menus(window)
 
     #=================================
     # Options UI setup
@@ -213,58 +211,50 @@ class Extension(extension.Extension):
 
     def set_new_file_menus(self, window):
         """Set the new file menus in the file menu"""
-        try:
-            menu_bar = window.builder.get_object("main_menu_bar")
-            if menu_bar is None:
-                raise AttributeError("Could not find 'main_menu_bar' in Glade file")
-        except AttributeError:
-            self.app.error("Cannot access main_menu_bar; menu update failed")
+        app = window.get_application()
+        menu = app.get_menubar()
+        if not menu:
             return
 
         file_menu = None
-        for item in menu_bar.get_children():
-            if item.get_label() == "_File":
-                file_menu = item
+        for i in range(menu.get_n_items()):
+            if menu.get_item_attribute_value(i, "label").get_string() == "_File":
+                file_menu = menu.get_item_link(i, "submenu")
                 break
 
-        menu = None
-        if file_menu:
-            for item in file_menu.get_submenu().get_children():
-                if item.get_label() == "New":
-                    for subitem in item.get_submenu().get_children():
-                        if subitem.get_label() == "New _File":
-                            menu = subitem
-                            break
-        if menu:
-            self.set_new_file_menu(window, menu)
+        if not file_menu:
+            return
+
+        new_menu = None
+        for i in range(file_menu.get_n_items()):
+            if file_menu.get_item_attribute_value(i, "label") == "New":
+                new_menu = file_menu.get_item_link(i, "submenu")
+                break
+
+        if new_menu:
+            for i in range(new_menu.get_n_items()):
+                if new_menu.get_item_attribute_value(i, "label").get_string() == "New _File":
+                    submenu = Gio.Menu()
+                    for file_type in self._file_types:
+                        action_name = f"new-file-{file_type.name.lower().replace(' ', '-')}"
+                        action = Gio.SimpleAction.new(action_name, None)
+                        action.connect("activate", lambda action, param, ft=file_type: self.on_new_file(window, ft))
+                        window.add_action(action)
+                        submenu.append(f"New {file_type.name}", f"win.{action_name}")
+
+                    submenu.append(None, None)  # Separator
+                    action = Gio.SimpleAction.new("add-new-file-type", None)
+                    action.connect("activate", lambda action, param: self.on_new_file_type(window))
+                    window.add_action(action)
+                    submenu.append("Add New File Type", "win.add-new-file-type")
+
+                    new_menu.remove(i)
+                    new_menu.insert_submenu(i, "New _File", submenu)
+                    break
 
     def set_new_file_menu(self, window, menu):
         """Set the new file submenu"""
-        if menu.get_submenu() is None:
-            submenu = Gtk.Menu()
-            submenu.show()
-            menu.set_submenu(submenu)
-        submenu = menu.get_submenu()
-
-        # Clear existing items
-        for child in submenu.get_children():
-            submenu.remove(child)
-
-        # Populate with file types
-        for file_type in self._file_types:
-            item = Gtk.MenuItem(label="New %s" % file_type.name)
-            item.connect("activate", lambda w, ft=file_type: self.on_new_file(window, ft))
-            item.show()
-            submenu.append(item)
-
-        item = Gtk.SeparatorMenuItem()
-        item.show()
-        submenu.append(item)
-
-        item = Gtk.MenuItem(label="Add New File Type")
-        item.connect("activate", lambda w: self.on_new_file_type(window))
-        item.show()
-        submenu.append(item)
+        pass  # Handled in set_new_file_menus with GMenu
 
     #===============================
     # Actions
@@ -297,24 +287,24 @@ class NewFileSection(dialog_app_options.Section):
 
         # Setup UI
         w = self.get_default_widget()
-        h = Gtk.HBox(spacing=5)
-        w.add(h)
+        h = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=5)
+        w.append(h)
 
         # Left column (file type list)
-        v = Gtk.VBox(spacing=5)
-        h.pack_start(v, False, True, 0)
+        v = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=5)
+        h.append(v)
 
-        self.filetype_store = Gtk.ListStore(str, object)
+        self.filetype_store = Gtk.ListStore.new([str, object])
         self.filetype_listview = Gtk.TreeView(model=self.filetype_store)
         self.filetype_listview.set_headers_visible(False)
         self.filetype_listview.get_selection().connect("changed", self.on_listview_select)
 
         sw = Gtk.ScrolledWindow()
         sw.set_policy(Gtk.PolicyType.AUTOMATIC, Gtk.PolicyType.AUTOMATIC)
-        sw.set_shadow_type(Gtk.ShadowType.IN)
-        sw.add(self.filetype_listview)
+        sw.set_has_frame(True)
+        sw.set_child(self.filetype_listview)
         sw.set_size_request(160, 200)
-        v.pack_start(sw, False, True, 0)
+        v.append(sw)
 
         column = Gtk.TreeViewColumn()
         self.filetype_listview.append_column(column)
@@ -323,26 +313,26 @@ class NewFileSection(dialog_app_options.Section):
         column.add_attribute(cell_text, 'text', 0)
 
         # Add/del buttons
-        h2 = Gtk.HBox(spacing=5)
-        v.pack_start(h2, False, True, 0)
+        h2 = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=5)
+        v.append(h2)
 
         button = Gtk.Button(label="New")
         button.connect("clicked", self.on_new_filetype)
-        h2.pack_start(button, True, True, 0)
+        h2.append(button)
 
         button = Gtk.Button(label="Delete")
         button.connect("clicked", self.on_delete_filetype)
-        h2.pack_start(button, True, True, 0)
+        h2.append(button)
 
         # Right column (file type editor)
-        v = Gtk.VBox(spacing=5)
-        h.pack_start(v, False, True, 0)
+        v = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=5)
+        h.append(v)
 
         table = Gtk.Grid()
         table.set_row_spacing(5)
         table.set_column_spacing(5)
         self.filetype_editor = table
-        v.pack_start(table, False, True, 0)
+        v.append(table)
 
         label = Gtk.Label(label="File type name:")
         table.attach(label, 0, 0, 1, 1)
@@ -363,12 +353,10 @@ class NewFileSection(dialog_app_options.Section):
         table.attach(self.example_file, 1, 2, 1, 1)
 
         button = Gtk.Button(label=_("Browse..."))
-        button.set_image(Gtk.Image.new_from_icon_name("document-open", Gtk.IconSize.SMALL_TOOLBAR))
+        button.set_icon_name("document-open")
         button.connect("clicked", lambda w: dialog_app_options.on_browse(
-            w.get_toplevel(), "Choose Example New File", "", self.example_file))
+            w.get_root(), "Choose Example New File", "", self.example_file))
         table.attach(button, 1, 3, 1, 1)
-
-        w.show_all()
 
         self.set_filetypes()
         self.set_filetype_editor(None)
@@ -399,7 +387,7 @@ class NewFileSection(dialog_app_options.Section):
             for filetype in self._filetypes:
                 self.filetype_store.append([filetype.name, filetype])
         else:
-            self.filetype_store = Gtk.ListStore(str, object)
+            self.filetype_store = Gtk.ListStore.new([str, object])
             self.filetype_listview.set_model(self.filetype_store)
 
     def set_filetype_editor(self, filetype):
@@ -437,7 +425,7 @@ class NewFileSection(dialog_app_options.Section):
     def on_new_filetype(self, button):
         self._filetypes.append(FileType("New File Type", "untitled", ""))
         self.set_filetypes()
-        self.filetype_listview.set_cursor((len(self._filetypes)-1,))
+        self.filetype_listview.set_cursor(len(self._filetypes)-1)
 
     def on_delete_filetype(self, button):
         model, it = self.filetype_listview.get_selection().get_selected()

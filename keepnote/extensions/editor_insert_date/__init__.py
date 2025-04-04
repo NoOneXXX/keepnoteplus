@@ -16,10 +16,10 @@ from keepnote.gui import extension
 from keepnote import safefile
 from keepnote.gui.dialog_app_options import ApplicationOptionsDialog, Section
 
-# PyGObject imports for GTK 3
+# PyGObject imports for GTK 4
 import gi
-gi.require_version('Gtk', '3.0')
-from gi.repository import Gtk, GObject
+gi.require_version('Gtk', '4.0')
+from gi.repository import Gtk, Gio
 
 class Extension(extension.Extension):
 
@@ -67,28 +67,61 @@ class Extension(extension.Extension):
 
     def on_add_ui(self, window):
         # listen to focus events from the window
-        self._set_focus_id[window] = window.connect("set-focus", self._on_focus)
+        self._set_focus_id[window] = window.connect("notify::focus-widget", self._on_focus)
 
-        # add menu options
-        self.add_action(window, "InsertDate", "Insert _Date",
-                        lambda w: self.insert_date(window))
+        # add menu options using actions
+        action = Gio.SimpleAction.new("insert-date", None)
+        action.connect("activate", lambda action, param: self.insert_date(window))
+        window.add_action(action)
 
-        self.add_ui(window,
-                """
-                <ui>
-                <menubar name="main_menu_bar">
-                   <menu action="Edit">
-                      <placeholder name="Viewer">
-                         <placeholder name="Editor">
-                           <placeholder name="Extension">
-                             <menuitem action="InsertDate"/>
-                           </placeholder>
-                         </placeholder>
-                      </placeholder>
-                   </menu>
-                </menubar>
-                </ui>
-                """)
+        # add menu items using GMenu
+        app = window.get_application()
+        menu = app.get_menubar()
+        if not menu:
+            menu = Gio.Menu()
+            app.set_menubar(menu)
+
+        edit_menu = None
+        for i in range(menu.get_n_items()):
+            if menu.get_item_attribute_value(i, "label").get_string() == "_Edit":
+                edit_menu = menu.get_item_link(i, "submenu")
+                break
+
+        if not edit_menu:
+            edit_menu = Gio.Menu()
+            menu.append_submenu("_Edit", edit_menu)
+
+        viewer_menu = None
+        for i in range(edit_menu.get_n_items()):
+            if edit_menu.get_item_attribute_value(i, "label") == "Viewer":
+                viewer_menu = edit_menu.get_item_link(i, "submenu")
+                break
+
+        if not viewer_menu:
+            viewer_menu = Gio.Menu()
+            edit_menu.append_submenu("Viewer", viewer_menu)
+
+        editor_menu = None
+        for i in range(viewer_menu.get_n_items()):
+            if viewer_menu.get_item_attribute_value(i, "label") == "Editor":
+                editor_menu = viewer_menu.get_item_link(i, "submenu")
+                break
+
+        if not editor_menu:
+            editor_menu = Gio.Menu()
+            viewer_menu.append_submenu("Editor", editor_menu)
+
+        extension_menu = None
+        for i in range(editor_menu.get_n_items()):
+            if editor_menu.get_item_attribute_value(i, "label") == "Extension":
+                extension_menu = editor_menu.get_item_link(i, "submenu")
+                break
+
+        if not extension_menu:
+            extension_menu = Gio.Menu()
+            editor_menu.append_submenu("Extension", extension_menu)
+
+        extension_menu.append("Insert _Date", "win.insert-date")
 
     def on_remove_ui(self, window):
         extension.Extension.on_remove_ui(self, window)
@@ -112,9 +145,9 @@ class Extension(extension.Extension):
     #================================
     # actions
 
-    def _on_focus(self, window, widget):
+    def _on_focus(self, window, pspec):
         """Callback for focus change in window"""
-        self._widget_focus[window] = widget
+        self._widget_focus[window] = window.get_focus()
 
     def insert_date(self, window):
         """Insert a date in the editor of a window"""
@@ -135,13 +168,13 @@ class EditorInsertDateSection(Section):
         self.ext = ext
 
         w = self.get_default_widget()
-        v = Gtk.VBox(spacing=5)
-        w.add(v)
+        v = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=5)
+        w.append(v)
 
         table = Gtk.Grid()
         table.set_row_spacing(5)
         table.set_column_spacing(5)
-        v.pack_start(table, False, True, 0)
+        v.append(table)
 
         label = Gtk.Label(label="Date format:")
         table.attach(label, 0, 0, 1, 1)
@@ -154,18 +187,16 @@ class EditorInsertDateSection(Section):
         help_button.connect("clicked", self.on_help_clicked)
         table.attach(help_button, 1, 1, 1, 1)
 
-        w.show_all()
-
     def on_help_clicked(self, button):
         """Show a dialog with date format examples"""
         dialog = Gtk.MessageDialog(
             transient_for=self.dialog,
-            flags=Gtk.DialogFlags.MODAL,
             message_type=Gtk.MessageType.INFO,
             buttons=Gtk.ButtonsType.OK,
             text="Date Format Examples"
         )
-        dialog.format_secondary_text(
+        dialog.set_deletable(True)
+        dialog.set_secondary_text(
             "Use the following codes in the date format:\n"
             "%Y - Year (e.g., 2025)\n"
             "%m - Month (01-12)\n"

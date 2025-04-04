@@ -5,26 +5,6 @@
     Low-level Create-Read-Update-Delete (CRUD) interface for notebooks.
 
 """
-
-#
-#  KeepNote
-#  Copyright (c) 2008-2011 Matt Rasmussen
-#  Author: Matt Rasmussen <rasmus@alum.mit.edu>
-#
-# This program is free software; you can redistribute it and/or modify
-# it under the terms of the GNU General Public License as published by
-# the Free Software Foundation; version 2 of the License.
-#
-# This program is distributed in the hope that it will be useful,
-# but WITHOUT ANY WARRANTY; without even the implied warranty of
-# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-# GNU General Public License for more details.
-#
-# You should have received a copy of the GNU General Public License
-# along with this program; if not, write to the Free Software
-# Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301, USA.
-#
-
 """
 Strategy for detecting unmanaged notebook modifications, which I also 
 call tampering.
@@ -71,14 +51,10 @@ UPDATE: Perhaps at this time unmanaged changes to payload files are not
 
 # python imports
 import gettext
-import mimetypes
 import os
-import sys
 import shutil
 import re
-import traceback
-from os.path import join, isdir, isfile
-from os import listdir
+from os.path import join
 
 # xml imports
 from xml.sax.saxutils import escape

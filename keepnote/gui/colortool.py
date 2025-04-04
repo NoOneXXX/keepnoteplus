@@ -201,9 +201,9 @@ GObject.signal_new("get-colors", ColorMenu, GObject.SignalFlags.RUN_LAST, None, 
 
 # ColorTool base class
 class ColorTool(Gtk.MenuToolButton):
-    def __init__(self, icon, default):
-        super().__init__(icon=icon, label="")
-        self.icon = icon
+    def __init__(self,default):
+        super().__init__(label="")
+        self.icon = None
         self.color = None
         self.colors = DEFAULT_COLORS
         self.default = default
@@ -254,7 +254,7 @@ class FgColorTool(ColorTool):
         self.icon = ColorTextImage(width, height, True, True)
         self.icon.set_fg_color(default)
         self.icon.set_bg_color("#ffffff")
-        super().__init__(self.icon, default)
+        super().__init__(default)
 
     def on_set_color(self, menu, color):
         if color is None:
@@ -271,7 +271,7 @@ class BgColorTool(ColorTool):
     def __init__(self, width, height, default):
         self.icon = ColorTextImage(width, height, False, True)
         self.icon.set_bg_color(default)
-        super().__init__(self.icon, default)
+        super().__init__(default)
 
     def on_set_color(self, menu, color):
         if color is None:
@@ -289,21 +289,29 @@ class ColorSelectionDialog(Gtk.ColorChooserDialog):
         super().__init__(title=title)
         self.set_use_alpha(False)
 
-        vbox = self.get_content_area()
+        # Create a single VBox to hold all content
+        main_vbox = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=5)
+        self.get_content_area().pack_start(main_vbox, True, True, 0)
+        main_vbox.show()
+
+        # Add the palette label
         label = Gtk.Label(label=_("Palette:"))
         label.set_alignment(0, 0.5)
-        vbox.pack_start(label, False, False, 0)
+        main_vbox.pack_start(label, False, False, 0)
         label.show()
 
+        # Add the palette
         self.palette = ColorPalette(DEFAULT_COLORS)
         self.palette.connect("pick-color", self.on_pick_palette_color)
-        vbox.pack_start(self.palette, False, False, 0)
+        main_vbox.pack_start(self.palette, False, False, 0)
         self.palette.show()
 
+        # Add the button box
         hbox = Gtk.HButtonBox()
-        vbox.pack_start(hbox, False, False, 0)
+        main_vbox.pack_start(hbox, False, False, 0)
         hbox.show()
 
+        # Add buttons to hbox
         new_button = Gtk.Button(label="New", stock=Gtk.STOCK_NEW)
         new_button.connect("clicked", self.on_new_color)
         hbox.pack_start(new_button, False, False, 0)

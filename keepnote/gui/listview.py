@@ -137,7 +137,8 @@ class KeepNoteListView(basetreeview.KeepNoteBaseTreeView):
 
     def set_model(self, model):
         basetreeview.KeepNoteBaseTreeView.set_model(self, model)
-        self.model.connect("sort-column-changed", self._sort_column_changed)
+        if model:
+            self.model.connect("sort-column-changed", self._sort_column_changed)
 
     def setup_columns(self):
         self.clear_columns()
@@ -171,8 +172,10 @@ class KeepNoteListView(basetreeview.KeepNoteBaseTreeView):
 
         # 设置默认排序
         order_col = self.rich_model.get_column_by_name("order")
-        if order_col:
+        if order_col and self.model and self.rich_model.get_n_columns() > 0:
             self.model.set_sort_column_id(order_col.pos, Gtk.SortType.ASCENDING)
+        else:
+            print("Warning: Skipping sort setup - model not fully initialized")
         self.set_reorder(basetreeview.REORDER_ALL)
 
         self._columns_set = True
@@ -242,9 +245,12 @@ class KeepNoteListView(basetreeview.KeepNoteBaseTreeView):
             col = self.rich_model.get_column(col_id)
 
         if col is None:
-            self.model.set_sort_column_id(
-                self.rich_model.get_column_by_name("order").pos,
-                Gtk.SortType.ASCENDING)
+            order_col = self.rich_model.get_column_by_name("order")
+            if order_col and self.model and self.rich_model.get_n_columns() > 0:
+                self.model.set_sort_column_id(order_col.pos, Gtk.SortType.ASCENDING)
+                self.set_reorder(basetreeview.REORDER_ALL)
+            else:
+                print("Warning: Skipping reorder - model not fully initialized")
             self.set_reorder(basetreeview.REORDER_ALL)
         else:
             self.set_reorder(basetreeview.REORDER_FOLDER)
@@ -311,6 +317,7 @@ class KeepNoteListView(basetreeview.KeepNoteBaseTreeView):
     #====================================================
     # actions
     def view_nodes(self, nodes, nested=True):
+        print(f"List view_nodes called with nodes: {[node.get_title() for node in nodes]}")
         if len(nodes) > 1:
             nested = False
 

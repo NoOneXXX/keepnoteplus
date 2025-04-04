@@ -1,5 +1,3 @@
-
-
 # Python imports
 import codecs
 from itertools import chain
@@ -11,16 +9,18 @@ import urllib.parse
 import uuid
 from xml.sax.saxutils import escape
 import gi
-gi.require_version('Gtk', '3.0')
-# PyGObject imports (GTK 3)
-from gi.repository import Gtk, Gdk, Pango, GObject
+from gi.overrides import GdkPixbuf
+
+gi.require_version('Gtk', '4.0')
+# PyGObject imports (GTK 4)
+from gi.repository import Gtk, Gdk, Pango
 
 # Textbuffer_tools imports
 from .textbuffer_tools import \
     iter_buffer_contents, iter_buffer_anchors, sanitize_text
 
 # Richtextbuffer imports
-from .richtextbuffer import ignore_tag,RichTextBuffer,RichTextImage
+from .richtextbuffer import ignore_tag, RichTextBuffer, RichTextImage
 
 # Tag imports
 from .richtext_tags import \
@@ -49,9 +49,9 @@ from keepnote import translate as _
 DEFAULT_FONT = "Sans 10"
 TEXTVIEW_MARGIN = 5
 if keepnote.get_platform() == "darwin":
-    CLIPBOARD_NAME = Gdk.SELECTION_PRIMARY
+    CLIPBOARD_NAME = "primary"
 else:
-    CLIPBOARD_NAME = Gdk.SELECTION_CLIPBOARD
+    CLIPBOARD_NAME = "clipboard"
 RICHTEXT_ID = -3  # Application-defined integer for the clipboard
 CONTEXT_MENU_ACCEL_PATH = "<main>/richtext_context_menu"
 QUOTE_FORMAT = 'from <a href="%u">%t</a>:<br/>%s'
@@ -88,13 +88,15 @@ def parse_font(fontstr):
     return " ".join(tokens), mods, size
 
 def parse_utf(text):
-    if (text[:2] in (codecs.BOM_UTF16_BE, codecs.BOM_UTF16_LE) or
-            (len(text) > 1 and text[1] == '\x00') or
-            (len(text) > 3 and text[3] == '\x00')):
-        return text.decode("utf16")
-    else:
-        text = text.replace("\x00", "")
-        return str(text, "utf8")
+    if isinstance(text, bytes):
+        if (text[:2] in (codecs.BOM_UTF16_BE, codecs.BOM_UTF16_LE) or
+                (len(text) > 1 and text[1] == 0) or
+                (len(text) > 3 and text[3] == 0)):
+            return text.decode("utf16")
+        else:
+            text = text.replace(b"\x00", b"")
+            return text.decode("utf8")
+    return text
 
 def parse_ie_html_format(text):
     """Extract HTML from IE's 'HTML Format' clipboard data"""
@@ -223,7 +225,6 @@ class RichTextIO(object):
             self._load_images(textbuffer, filename)
             if textview:
                 textview.set_buffer(textbuffer)
-                textview.show_all()
             ret = True
         textbuffer.unblock_signals()
         if textview:
@@ -274,19 +275,12 @@ class RichTextDragDrop(object):
 
     def find_acceptable_target(self, targets):
         for target in self._acceptable_targets:
-            if target in [t.name() for t in targets]:
+            if target in targets:
                 return target
         return None
 
 class RichTextView(Gtk.TextView):
     """A RichText editor widget"""
-    __gsignals__ = {
-        "modified": (GObject.SIGNAL_RUN_LAST, None, (bool,)),
-        "font-change": (GObject.SIGNAL_RUN_LAST, None, (object,)),
-        "child-activated": (GObject.SIGNAL_RUN_LAST, None, (object,)),
-        "visit-url": (GObject.SIGNAL_RUN_LAST, None, (str,)),
-    }
-
     def __init__(self, textbuffer=None):
         super().__init__()
         self._textbuffer = None
@@ -322,11 +316,11 @@ class RichTextView(Gtk.TextView):
         self.connect("button-press-event", self.on_button_press)
 
         # Drag and drop
-        self.connect("drag-data-received", self.on_drag_data_received)
-        self.connect("drag-motion", self.on_drag_motion)
-        self.connect("drag-data-get", self.on_drag_data_get)
-        targets = [Gtk.TargetEntry.new(t, 0, i) for i, t in enumerate(MIME_IMAGES + ["text/uri-list"])]
-        self.drag_dest_set(Gtk.DestDefaults.ALL, targets, Gdk.DragAction.COPY)
+        controller = Gtk.DropTarget.new(type=str, actions=Gdk.DragAction.COPY)
+        controller.set_formats(Gdk.ContentFormats.new(MIME_IMAGES + ["text/uri-list"] + MIME_HTML + MIME_TEXT))
+        controller.connect("drop", self.on_drop)
+        controller.connect("motion", self.on_drag_motion)
+        self.add_controller(controller)
 
         # Clipboard
         self.connect("copy-clipboard", lambda w: self._on_copy())
@@ -346,12 +340,10 @@ class RichTextView(Gtk.TextView):
         item = Gtk.MenuItem.new_with_label("Cut")
         item.connect("activate", lambda w: self.emit("cut-clipboard"))
         self._image_menu.append(item)
-        item.show()
 
         item = Gtk.MenuItem.new_with_label("Copy")
         item.connect("activate", lambda w: self.emit("copy-clipboard"))
         self._image_menu.append(item)
-        item.show()
 
         item = Gtk.MenuItem.new_with_label("Delete")
         def func(widget):
@@ -359,7 +351,6 @@ class RichTextView(Gtk.TextView):
                 self._textbuffer.delete_selection(True, True)
         item.connect("activate", func)
         self._image_menu.append(item)
-        item.show()
 
     def set_buffer(self, textbuffer):
         if self._textbuffer:
@@ -400,16 +391,17 @@ class RichTextView(Gtk.TextView):
     def on_key_press_event(self, textview, event):
         if self._textbuffer is None:
             return False
-        if event.keyval == Gdk.KEY_ISO_Left_Tab:
+        keyval = event.get_keyval()[1]  # GTK 4 returns a tuple (success, keyval)
+        if keyval == Gdk.KEY_ISO_Left_Tab:
             if self._textbuffer.get_selection_bounds():
                 self.unindent()
                 return True
-        if event.keyval == Gdk.KEY_Tab:
+        if keyval == Gdk.KEY_Tab:
             it = self._textbuffer.get_iter_at_mark(self._textbuffer.get_insert())
             if self._textbuffer.starts_par(it) or self._textbuffer.get_selection_bounds():
                 self.indent()
                 return True
-        if event.keyval == Gdk.KEY_Delete:
+        if keyval == Gdk.KEY_Delete:
             it = self._textbuffer.get_iter_at_mark(self._textbuffer.get_insert())
             if (not self._textbuffer.get_selection_bounds() and
                 self._textbuffer.starts_par(it) and
@@ -428,16 +420,16 @@ class RichTextView(Gtk.TextView):
             indent, par_type = self._textbuffer.get_indent()
             if indent > 0:
                 self.unindent()
-                self.stop_emission("backspace")
+                self.stop_emission_by_name("backspace")
 
     # Callbacks
     def on_button_press(self, widget, event):
-        if event.button == 1 and event.type == Gdk.EventType._2BUTTON_PRESS:
+        if event.get_button()[1] == 1 and event.get_event_type() == Gdk.EventType.DOUBLE_BUTTON_PRESS:
             x, y = self.window_to_buffer_coords(Gtk.TextWindowType.TEXT,
-                                                int(event.x), int(event.y))
+                                                int(event.get_position()[1]), int(event.get_position()[2]))
             it = self.get_iter_at_location(x, y)
             if self.click_iter(it):
-                self.stop_emission("button-press-event")
+                self.stop_emission_by_name("button-press-event")
 
     def click_iter(self, it=None):
         if not self._textbuffer:
@@ -451,54 +443,55 @@ class RichTextView(Gtk.TextView):
         return False
 
     # Drag and drop
-    def on_drag_motion(self, textview, drag_context, x, y, timestamp):
+    def on_drag_motion(self, controller, x, y):
         if not self._textbuffer:
-            return
-        target = self.dragdrop.find_acceptable_target(drag_context.list_targets())
+            return False
+        target = self.dragdrop.find_acceptable_target(controller.get_formats().get_mime_types())
         if target:
-            drag_context.set_allowed_targets([Gdk.Atom.intern(target, False)])
+            return True
+        return False
 
-    def on_drag_data_received(self, widget, drag_context, x, y, selection_data, info, eventtime):
+    def on_drop(self, controller, value, x, y):
         if not self._textbuffer:
-            return
-        target = self.dragdrop.find_acceptable_target(drag_context.list_targets())
+            return False
+        target = self.dragdrop.find_acceptable_target(controller.get_formats().get_mime_types())
         if target in MIME_IMAGES:
-            pixbuf = selection_data.get_pixbuf()
+            pixbuf = controller.get_value(Gdk.Pixbuf)
             if pixbuf is not None:
                 image = RichTextImage()
                 image.set_from_pixbuf(pixbuf)
                 self.insert_image(image)
-                drag_context.finish(True, True, eventtime)
-                self.stop_emission("drag-data-received")
+                return True
         elif target == "text/uri-list":
-            uris = parse_utf(selection_data.get_data())
+            uris = parse_utf(value)
             uris = [xx for xx in (uri.strip() for uri in uris.split("\n"))
                     if len(xx) > 0 and xx[0] != "#"]
             links = ['<a href="%s">%s</a> ' % (uri, uri) for uri in uris]
             self.insert_html("<br />".join(links))
+            return True
         elif target in MIME_HTML:
-            html = parse_utf(selection_data.get_data())
+            html = parse_utf(value)
             self.insert_html(html)
+            return True
         elif target in MIME_TEXT:
-            self._textbuffer.insert_at_cursor(selection_data.get_text())
-
-    def on_drag_data_get(self, widget, drag_context, selection_data, info, timestamp):
-        pass  # Not implemented for simplicity
+            self._textbuffer.insert_at_cursor(value)
+            return True
+        return False
 
     # Copy and Paste
     def _on_copy(self):
-        clipboard = Gtk.Clipboard.get(CLIPBOARD_NAME)
-        self.stop_emission('copy-clipboard')
+        clipboard = self.get_clipboard()
+        self.stop_emission_by_name('copy-clipboard')
         self.copy_clipboard(clipboard)
 
     def _on_cut(self):
-        clipboard = Gtk.Clipboard.get(CLIPBOARD_NAME)
-        self.stop_emission('cut-clipboard')
+        clipboard = self.get_clipboard()
+        self.stop_emission_by_name('cut-clipboard')
         self.cut_clipboard(clipboard, self.get_editable())
 
     def _on_paste(self):
-        clipboard = Gtk.Clipboard.get(CLIPBOARD_NAME)
-        self.stop_emission('paste-clipboard')
+        clipboard = self.get_clipboard()
+        self.stop_emission_by_name('paste-clipboard')
         self.paste_clipboard(clipboard, None, self.get_editable())
 
     def copy_clipboard(self, clipboard):
@@ -513,10 +506,10 @@ class RichTextView(Gtk.TextView):
             ("title", self._current_title),
             ("url", self._current_url)])
         if len(contents) == 1 and contents[0][0] == "anchor" and isinstance(contents[0][2][0], RichTextImage):
-            clipboard.set_text("Image copied", -1)  # Simplified for now
+            clipboard.set("Image copied")
         else:
             text = start.get_text(end)
-            clipboard.set_text(text, -1)
+            clipboard.set(text)
 
     def cut_clipboard(self, clipboard, default_editable):
         if not self._textbuffer:
@@ -530,19 +523,19 @@ class RichTextView(Gtk.TextView):
         it = self._textbuffer.get_iter_at_mark(self._textbuffer.get_insert())
         if not self._textbuffer.is_insert_allowed(it):
             return
-        clipboard.request_text(self._do_paste_text)
+        clipboard.read_text_async(None, self._do_paste_text)
 
     def paste_clipboard_as_text(self):
-        clipboard = Gtk.Clipboard.get(CLIPBOARD_NAME)
+        clipboard = self.get_clipboard()
         if not self._textbuffer:
             return
         it = self._textbuffer.get_iter_at_mark(self._textbuffer.get_insert())
         if not self._textbuffer.is_insert_allowed(it):
             return
-        clipboard.request_text(self._do_paste_text)
+        clipboard.read_text_async(None, self._do_paste_text)
 
     def paste_clipboard_as_quote(self, plain_text=False):
-        clipboard = Gtk.Clipboard.get(CLIPBOARD_NAME)
+        clipboard = self.get_clipboard()
         quote_format = self._quote_format
         if not self._textbuffer:
             return
@@ -583,7 +576,8 @@ class RichTextView(Gtk.TextView):
         self._textbuffer.insert_contents(after)
         self._textbuffer.end_user_action()
 
-    def _do_paste_text(self, clipboard, text, data):
+    def _do_paste_text(self, clipboard, task):
+        text = clipboard.read_text_finish(task)
         if text is None:
             return
         self._textbuffer.begin_user_action()
@@ -624,15 +618,12 @@ class RichTextView(Gtk.TextView):
         pos = 3
         item = Gtk.MenuItem.new_with_label(_("Paste As Plain Text"))
         item.connect("activate", lambda item: self.paste_clipboard_as_text())
-        item.show()
         menu.insert(item, pos)
         item = Gtk.MenuItem.new_with_label(_("Paste As Quote"))
         item.connect("activate", lambda item: self.paste_clipboard_as_quote())
-        item.show()
         menu.insert(item, pos+1)
         item = Gtk.MenuItem.new_with_label(_("Paste As Plain Text Quote"))
         item.connect("activate", lambda item: self.paste_clipboard_as_quote(plain_text=True))
-        item.show()
         menu.insert(item, pos+2)
         menu.set_accel_path(self._accel_path)
         if self._accel_group:
@@ -641,21 +632,20 @@ class RichTextView(Gtk.TextView):
     def _on_child_popup_menu(self, textbuffer, child, button, activate_time):
         self._image_menu.set_child(child)
         if isinstance(child, RichTextImage):
-            self._image_menu.popup(None, None, None, None, button, activate_time)
+            self._image_menu.popup_at_pointer(None)
             self._image_menu.show()
+
+    def _on_child_added(self, textbuffer, child):
+        self._add_children()
+
+    def _on_child_activated(self, textbuffer, child):
+        self.emit("child-activated", child)
 
     def get_image_menu(self):
         return self._image_menu
 
     def get_popup_menu(self):
         return self._popup_menu
-
-    # Child events
-    def _on_child_added(self, textbuffer, child):
-        self._add_children()
-
-    def _on_child_activated(self, textbuffer, child):
-        self.emit("child-activated", child)
 
     # Actions
     def _add_children(self):
@@ -892,10 +882,9 @@ class RichTextView(Gtk.TextView):
         try:
             f = Pango.FontDescription(font)
             f.set_size(int(f.get_size() * get_text_scale()))
-            context = self.get_style_context()
             provider = Gtk.CssProvider()
             provider.load_from_data(f"*{{\nfont: {font};\n}}".encode('utf-8'))
-            context.add_provider(provider, Gtk.STYLE_PROVIDER_PRIORITY_APPLICATION)
+            self.get_style_context().add_provider(provider, Gtk.STYLE_PROVIDER_PRIORITY_APPLICATION)
         except:
             pass
 

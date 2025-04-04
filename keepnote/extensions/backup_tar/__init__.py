@@ -20,10 +20,10 @@ from keepnote import tasklib
 from keepnote import tarfile
 from keepnote.gui import extension
 
-# GTK3 imports
+# GTK4 imports
 from gi import require_version
-require_version('Gtk', '3.0')
-from gi.repository import Gtk, GObject, Gdk
+require_version('Gtk', '4.0')
+from gi.repository import Gtk, Gio, Gdk
 
 class Extension(extension.Extension):
 
@@ -37,44 +37,44 @@ class Extension(extension.Extension):
 
     def on_add_ui(self, window):
         """Initialize extension for a particular window"""
-        self.add_action(window, "Backup Notebook", "_Backup Notebook...",
-                        lambda w: self.on_archive_notebook(window, window.get_notebook()))
-        self.add_action(window, "Restore Notebook", "R_estore Notebook...",
-                        lambda w: self.on_restore_notebook(window))
+        # Add actions for the application
+        action = Gio.SimpleAction.new("backup-notebook", None)
+        action.connect("activate", lambda action, param: self.on_archive_notebook(window, window.get_notebook()))
+        window.add_action(action)
 
-        # Access the menu bar by traversing the window's children
-        menu_bar = None
-        for child in window.get_children():
-            if isinstance(child, Gtk.MenuBar):
-                menu_bar = child
+        action = Gio.SimpleAction.new("restore-notebook", None)
+        action.connect("activate", lambda action, param: self.on_restore_notebook(window))
+        window.add_action(action)
+
+        # Add menu items using GMenu
+        app = window.get_application()
+        menu = app.get_menubar()
+        if not menu:
+            menu = Gio.Menu()
+            app.set_menubar(menu)
+
+        file_menu = None
+        for i in range(menu.get_n_items()):
+            if menu.get_item_attribute_value(i, "label").get_string() == "_File":
+                file_menu = menu.get_item_link(i, "submenu")
                 break
 
-        if menu_bar:
-            file_menu = None
-            for item in menu_bar.get_children():
-                if item.get_label() == "_File":
-                    file_menu = item
-                    break
+        if not file_menu:
+            file_menu = Gio.Menu()
+            menu.append_submenu("_File", file_menu)
 
-            if file_menu:
-                extensions_menu = None
-                for item in file_menu.get_submenu().get_children():
-                    if item.get_label() == "Extensions":
-                        extensions_menu = item.get_submenu()
-                        break
-                if not extensions_menu:
-                    extensions_menu = Gtk.Menu()
-                    extensions_item = Gtk.MenuItem(label="Extensions")
-                    extensions_item.set_submenu(extensions_menu)
-                    file_menu.get_submenu().append(extensions_item)
+        extensions_menu = None
+        for i in range(file_menu.get_n_items()):
+            if file_menu.get_item_attribute_value(i, "label").get_string() == "Extensions":
+                extensions_menu = file_menu.get_item_link(i, "submenu")
+                break
 
-                backup_item = Gtk.MenuItem(label="_Backup Notebook...")
-                backup_item.connect("activate", lambda w: self.on_archive_notebook(window, window.get_notebook()))
-                restore_item = Gtk.MenuItem(label="R_estore Notebook...")
-                restore_item.connect("activate", lambda w: self.on_restore_notebook(window))
-                extensions_menu.append(backup_item)
-                extensions_menu.append(restore_item)
-                extensions_menu.show_all()
+        if not extensions_menu:
+            extensions_menu = Gio.Menu()
+            file_menu.append_submenu("Extensions", extensions_menu)
+
+        extensions_menu.append("_Backup Notebook...", "win.backup-notebook")
+        extensions_menu.append("R_estore Notebook...", "win.restore-notebook")
 
     def on_archive_notebook(self, window, notebook):
         """Callback for archiving a notebook"""
@@ -83,12 +83,13 @@ class Extension(extension.Extension):
 
         dialog = Gtk.FileChooserDialog(
             title="Backup Notebook",
-            parent=window,
+            transient_for=window,
             action=Gtk.FileChooserAction.SAVE,
-            buttons=(Gtk.STOCK_CANCEL, Gtk.ResponseType.CANCEL,
-                     "Backup", Gtk.ResponseType.OK)
+            buttons=(
+                ("Cancel", Gtk.ResponseType.CANCEL),
+                ("Backup", Gtk.ResponseType.OK)
+            )
         )
-        dialog.set_transient_for(window)
         path = self.app.get_default_path("archive_notebook_path")
         if os.path.exists(path):
             filename = notebooklib.get_unique_filename(
@@ -129,12 +130,13 @@ class Extension(extension.Extension):
         """Callback for restoring a notebook from an archive"""
         dialog = Gtk.FileChooserDialog(
             title="Choose Archive To Restore",
-            parent=window,
+            transient_for=window,
             action=Gtk.FileChooserAction.OPEN,
-            buttons=(Gtk.STOCK_CANCEL, Gtk.ResponseType.CANCEL,
-                     "Restore", Gtk.ResponseType.OK)
+            buttons=(
+                ("Cancel", Gtk.ResponseType.CANCEL),
+                ("Restore", Gtk.ResponseType.OK)
+            )
         )
-        dialog.set_transient_for(window)
 
         file_filter = Gtk.FileFilter()
         file_filter.add_pattern("*.tar.gz")
@@ -158,12 +160,13 @@ class Extension(extension.Extension):
         # Choose new notebook name
         dialog = Gtk.FileChooserDialog(
             title="Choose New Notebook Name",
-            parent=window,
+            transient_for=window,
             action=Gtk.FileChooserAction.SAVE,
-            buttons=(Gtk.STOCK_CANCEL, Gtk.ResponseType.CANCEL,
-                     "New", Gtk.ResponseType.OK)
+            buttons=(
+                ("Cancel", Gtk.ResponseType.CANCEL),
+                ("New", Gtk.ResponseType.OK)
+            )
         )
-        dialog.set_transient_for(window)
 
         file_filter = Gtk.FileFilter()
         file_filter.add_pattern("*.nbk")
@@ -245,10 +248,6 @@ class Extension(extension.Extension):
             window.open_notebook(notebook_filename)
         else:
             restore_notebook(archive_filename, notebook_filename, True, None)
-
-# The remaining functions (truncate_filename, archive_notebook, restore_notebook, archive_notebook_zip)
-# remain largely unchanged as they don’t directly interact with GTK.
-# They are included here for completeness:
 
 def truncate_filename(filename, maxsize=100):
     if len(filename) > maxsize:
@@ -353,8 +352,6 @@ def restore_notebook(filename, path, rename, task=None):
 
     task.finish()
 
-# Note: archive_notebook_zip is omitted here as it’s not used in the main flow, but it would require
-# similar logic updates if adapted for GTK3 usage.
 def on_archive_notebook(self, window, notebook):
     """Callback for archiving a notebook"""
     if notebook is None:
@@ -362,12 +359,13 @@ def on_archive_notebook(self, window, notebook):
 
     dialog = Gtk.FileChooserDialog(
         title="Backup Notebook",
-        parent=window,
+        transient_for=window,
         action=Gtk.FileChooserAction.SAVE,
-        buttons=(Gtk.STOCK_CANCEL, Gtk.ResponseType.CANCEL,
-                 "Backup", Gtk.ResponseType.OK)
+        buttons=(
+            ("Cancel", Gtk.ResponseType.CANCEL),
+            ("Backup", Gtk.ResponseType.OK)
+        )
     )
-    dialog.set_transient_for(window)
     path = self.app.get_default_path("archive_notebook_path")
     if os.path.exists(path):
         filename = notebooklib.get_unique_filename(
@@ -420,7 +418,6 @@ def on_archive_notebook(self, window, notebook):
     elif response == Gtk.ResponseType.CANCEL:
         dialog.destroy()
         return False
-
 
 def archive_notebook_zip(self, notebook, filename, window=None):
     """Wrapper for archive_notebook_zip function"""

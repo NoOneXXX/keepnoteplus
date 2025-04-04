@@ -1,9 +1,8 @@
-
 import sys
 import gi
-gi.require_version('Gtk', '3.0')
+gi.require_version('Gtk', '4.0')
 # PyGObject imports
-from gi.repository import Gtk, Gdk, Pango, GObject
+from gi.repository import Gtk, Gdk, Pango
 
 # KeepNote imports
 import keepnote
@@ -39,7 +38,7 @@ class Stream:
 
 
 class PythonDialog:
-    """Python dialog for KeepNote using PyGObject (GTK 3)"""
+    """Python dialog for KeepNote using PyGObject (GTK 4)"""
 
     def __init__(self, main_window):
         self.main_window = main_window
@@ -51,25 +50,25 @@ class PythonDialog:
         # Create text tags for styling
         self.error_tag = Gtk.TextTag.new("error")
         self.error_tag.set_property("foreground", "red")
-        self.error_tag.set_property("weight", Pango.Weight.BOLD.value)
+        self.error_tag.set_property("weight", Pango.Weight.BOLD)
 
         self.info_tag = Gtk.TextTag.new("info")
         self.info_tag.set_property("foreground", "blue")
-        self.info_tag.set_property("weight", Pango.Weight.BOLD.value)
+        self.info_tag.set_property("weight", Pango.Weight.BOLD)
 
     def show(self):
         # Setup environment
         self.env = {"app": self.app, "window": self.main_window, "info": self.print_info}
 
         # Create dialog
-        self.dialog = Gtk.Window(type=Gtk.WindowType.TOPLEVEL)
-        self.dialog.connect("delete-event", lambda d, r: self.dialog.destroy())
+        self.dialog = Gtk.Window()
+        self.dialog.connect("close-request", lambda d: self.dialog.destroy())
         self.dialog.set_default_size(400, 400)
         self.dialog.ptr = self  # Store reference (unchanged from original)
 
         # Vertical paned layout
         self.vpaned = Gtk.Paned(orientation=Gtk.Orientation.VERTICAL)
-        self.dialog.add(self.vpaned)
+        self.dialog.set_child(self.vpaned)
         self.vpaned.set_position(200)
 
         # Editor buffer
@@ -77,40 +76,42 @@ class PythonDialog:
         self.editor.connect("key-press-event", self.on_key_press_event)
         # Set font using CSS
         css_provider = Gtk.CssProvider()
-        css_provider.load_from_data(b"""
+        css_provider.load_from_data("""
         * {
             font-family: "Courier New", monospace;
             font-size: 10pt;
         }
-        """)
-        context = self.editor.get_style_context()
-        context.add_provider(css_provider, Gtk.STYLE_PROVIDER_PRIORITY_APPLICATION)
+        """.encode('utf-8'))
+        self.editor.add_css_class("monospace")
+        self.editor.get_style_context().add_provider(css_provider, Gtk.STYLE_PROVIDER_PRIORITY_APPLICATION)
 
         sw = Gtk.ScrolledWindow()
         sw.set_policy(Gtk.PolicyType.AUTOMATIC, Gtk.PolicyType.AUTOMATIC)
-        sw.set_shadow_type(Gtk.ShadowType.IN)
-        sw.add(self.editor)
-        self.vpaned.pack1(sw, resize=True, shrink=False)
+        sw.set_has_frame(True)
+        sw.set_child(self.editor)
+        self.vpaned.set_start_child(sw)
+        self.vpaned.set_resize_start_child(True)
 
         # Output buffer
         self.output = Gtk.TextView()
         self.output.set_wrap_mode(Gtk.WrapMode.WORD)
         # Set font using CSS
         css_provider = Gtk.CssProvider()
-        css_provider.load_from_data(b"""
+        css_provider.load_from_data("""
         * {
             font-family: "Courier New", monospace;
             font-size: 10pt;
         }
-        """)
-        context = self.output.get_style_context()
-        context.add_provider(css_provider, Gtk.STYLE_PROVIDER_PRIORITY_APPLICATION)
+        """.encode('utf-8'))
+        self.output.add_css_class("monospace")
+        self.output.get_style_context().add_provider(css_provider, Gtk.STYLE_PROVIDER_PRIORITY_APPLICATION)
 
         sw = Gtk.ScrolledWindow()
         sw.set_policy(Gtk.PolicyType.AUTOMATIC, Gtk.PolicyType.AUTOMATIC)
-        sw.set_shadow_type(Gtk.ShadowType.IN)
-        sw.add(self.output)
-        self.vpaned.pack2(sw, resize=True, shrink=False)
+        sw.set_has_frame(True)
+        sw.set_child(self.output)
+        self.vpaned.set_end_child(sw)
+        self.vpaned.set_resize_end_child(True)
 
         # Add tags to output buffer's tag table
         tag_table = self.output.get_buffer().get_tag_table()
@@ -118,13 +119,13 @@ class PythonDialog:
         tag_table.add(self.info_tag)
 
         # Show dialog
-        self.dialog.show_all()
+        self.dialog.present()
         self.output_text("Press Ctrl+Enter to execute. Ready...\n", "info")
 
     def on_key_press_event(self, textview, event):
         """Callback for key press events"""
-        keyval = event.keyval
-        state = event.state
+        keyval = event.get_keyval()[1]  # GTK 4 returns a tuple (success, keyval)
+        state = event.get_state()
 
         if keyval == Gdk.KEY_Return and state & Gdk.ModifierType.CONTROL_MASK:
             # Execute code on Ctrl+Enter
@@ -216,4 +217,4 @@ if __name__ == "__main__":
     win = app.new_window()
     dialog = PythonDialog(win)
     dialog.show()
-    Gtk.main()
+    app.run()
