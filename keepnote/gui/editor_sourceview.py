@@ -1,11 +1,11 @@
 # Python 3 and PyGObject imports
 import gi
-gi.require_version('Gtk', '3.0')  # Specify GTK 3.0
-from gi.repository import Gtk, GObject
+gi.require_version('Gtk', '4.0')  # Specify GTK 4.0
+from gi.repository import Gtk
 
-# Try to import gtksourceview2 (now gtksourceview4 for GTK 3)
+# Try to import gtksourceview5 (for GTK 4)
 try:
-    gi.require_version('GtkSource', '4')  # Use version 4 for GTK 3 compatibility
+    gi.require_version('GtkSource', '5')  # Use version 5 for GTK 4 compatibility
     from gi.repository import GtkSource
     SourceView = GtkSource.View
     SourceBuffer = GtkSource.Buffer
@@ -55,15 +55,13 @@ class TextEditor(KeepNoteEditor):
         # Scrollbars
         self._sw = Gtk.ScrolledWindow()
         self._sw.set_policy(Gtk.PolicyType.AUTOMATIC, Gtk.PolicyType.AUTOMATIC)
-        self._sw.set_shadow_type(Gtk.ShadowType.IN)
-        self._sw.add(self._textview)
-        self.pack_start(self._sw, True, True, 0)
+        self._sw.set_has_frame(True)  # Replaces set_shadow_type
+        self._sw.set_child(self._textview)  # Changed from add to set_child
+        self.append(self._sw)  # Changed from pack_start to append
 
         # Menus and find dialog are commented out in the original code
         # self.editor_menus = EditorMenus(self._app, self)
         # self.find_dialog = dialog_find.KeepNoteFindDialog(self)
-
-        self.show_all()
 
     def set_notebook(self, notebook):
         """Set notebook for editor"""
@@ -223,12 +221,10 @@ class TextEditor(KeepNoteEditor):
             except KeepNoteError as e:
                 self.emit("error", e.msg, e)
 
-class EditorMenus(GObject.GObject):
+class EditorMenus:
     """Menus for the TextEditor"""
 
     def __init__(self, app, editor):
-        super().__init__()
-
         self._app = app
         self._editor = editor
         self._action_group = None
@@ -249,25 +245,15 @@ class EditorMenus(GObject.GObject):
 
     # Toolbar and menus
     def add_ui(self, window):
-        self._action_group = Gtk.ActionGroup(name="Editor")
-        self._uis = []
-        add_actions(self._action_group, self.get_actions())
-        window.get_uimanager().insert_action_group(self._action_group, 0)
-
-        for s in self.get_ui():
-            self._uis.append(window.get_uimanager().add_ui_from_string(s))
-        window.get_uimanager().ensure_update()
-
-        self.setup_menu(window, window.get_uimanager())
+        # Note: Gtk.UIManager is deprecated in GTK 4. This method needs to be reimplemented
+        # using a different approach, such as GMenu or manual widget creation.
+        print("Warning: add_ui needs to be reimplemented for GTK 4 (Gtk.UIManager is deprecated)")
+        pass
 
     def remove_ui(self, window):
-        for ui in reversed(self._uis):
-            window.get_uimanager().remove_ui(ui)
-        self._uis = []
-        window.get_uimanager().ensure_update()
-
-        window.get_uimanager().remove_action_group(self._action_group)
-        self._action_group = None
+        # Similarly, this method needs to be reimplemented for GTK 4.
+        print("Warning: remove_ui needs to be reimplemented for GTK 4 (Gtk.UIManager is deprecated)")
+        pass
 
     def get_actions(self):
         def BothAction(name1, *args):
@@ -341,7 +327,6 @@ class EditorMenus(GObject.GObject):
         return ui
 
     def setup_menu(self, window, uimanager):
-        self.spell_check_toggle = uimanager.get_widget("/main_menu_bar/Tools/Viewer/Spell Check")
-        self.spell_check_toggle.set_sensitive(self._editor.get_textview().can_spell_check())
-        self.spell_check_toggle.set_active(window.get_app().pref.get(
-            "editors", "general", "spell_check", default=True))
+        # Note: This method needs to be reimplemented for GTK 4 due to the removal of Gtk.UIManager
+        print("Warning: setup_menu needs to be reimplemented for GTK 4")
+        pass

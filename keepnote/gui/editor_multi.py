@@ -1,6 +1,6 @@
 # Python 3 and PyGObject imports
 import gi
-gi.require_version('Gtk', '3.0')  # Specify GTK 3.0
+gi.require_version('Gtk', '4.0')  # Specify GTK 4.0
 from gi.repository import Gtk
 
 # KeepNote imports
@@ -16,7 +16,6 @@ class MultiEditor(KeepNoteEditor):
 
     def __init__(self, app):
         super().__init__(app)
-        self.show_all()
 
         self._notebook = None
         self._nodes = []
@@ -55,14 +54,13 @@ class MultiEditor(KeepNoteEditor):
 
         # Start up new editor, if it exists
         if self._editor:
-            self.pack_start(self._editor, True, True, 0)
-            self._editor.show()
-            self._connect_signals(self._editor)
+            self.append(self._editor)  # Changed from pack_start to append
             self._editor.set_notebook(self._notebook)
             if self._window:
                 self._editor.add_ui(self._window)
             self._editor.load_preferences(self._app.pref)
             self._editor.view_nodes(self._nodes)
+            self._connect_signals(self._editor)
 
     def get_editor(self):
         """Get the current child editor"""

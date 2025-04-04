@@ -1,7 +1,7 @@
 # Python 3 and PyGObject imports
 import time
 import gi
-gi.require_version('Gtk', '3.0')  # Specify GTK 3.0
+gi.require_version('Gtk', '4.0')  # Specify GTK 4.0
 from gi.repository import Gtk, GLib
 
 # KeepNote imports
@@ -12,47 +12,52 @@ class WaitDialog:
     def __init__(self, parent_window):
         self.parent_window = parent_window
         self._task = None
-        self.xml = None
+        self.builder = None
         self.dialog = None
         self.text = None
         self.progressbar = None
+        self._timeout_id = None
 
     def show(self, title, message, task, cancel=True):
-        # Load the Glade file
-        self.xml = Gtk.Builder()
-        self.xml.add_from_file(get_resource("rc", "keepnote.glade"))
-        self.xml.set_translation_domain(keepnote.GETTEXT_DOMAIN)
-        self.dialog = self.xml.get_object("wait_dialog")
-        self.dialog.connect("delete-event", self._on_close)
+        # Load the UI file (replacing Glade with a GTK 4 UI file)
+        self.builder = Gtk.Builder()
+        self.builder.add_from_file(get_resource("rc", "keepnote.ui"))  # Update to .ui file
+        self.builder.set_translation_domain(keepnote.GETTEXT_DOMAIN)
+        self.dialog = self.builder.get_object("wait_dialog")
+        self.dialog.connect("close-request", self._on_close)
         self.dialog.set_transient_for(self.parent_window)
 
         # Get widgets
-        self.text = self.xml.get_object("wait_text_label")
-        self.progressbar = self.xml.get_object("wait_progressbar")
+        self.text = self.builder.get_object("wait_text_label")
+        self.progressbar = self.builder.get_object("wait_progressbar")
 
-        # Connect signals
-        self.xml.connect_signals(self)
+        # Connect cancel button
+        cancel_button = self.builder.get_object("wait_cancel_button")
+        cancel_button.connect("clicked", self.on_cancel_button_clicked)
 
-        # 添加检查
+        # Check content area for unexpected children
         content_area = self.dialog.get_content_area()
-        children = content_area.get_children()
-        if len(children) > 1:
-            print(f"Warning: WaitDialog has multiple children: {children}")
-            for child in children[1:]:
+        children = content_area.get_first_child()
+        child_list = []
+        while children:
+            child_list.append(children)
+            children = children.get_next_sibling()
+        if len(child_list) > 1:
+            print(f"Warning: WaitDialog has multiple children: {child_list}")
+            for child in child_list[1:]:
                 content_area.remove(child)
 
         # Set initial values
         self.dialog.set_title(title)
-        self.text.set_text(message)
+        self.text.set_label(message)
         self._task = task
         self._task.change_event.add(self._on_task_update)
 
         # Enable/disable cancel button
-        cancel_button = self.xml.get_object("wait_cancel_button")
         cancel_button.set_sensitive(cancel)
 
         # Show the dialog and start the task
-        self.dialog.show()
+        self.dialog.present()
         self._task.run()
         self._on_idle()
         self.dialog.run()
@@ -60,6 +65,9 @@ class WaitDialog:
 
         # Clean up
         self._task.change_event.remove(self._on_task_update)
+        if self._timeout_id:
+            GLib.source_remove(self._timeout_id)
+            self._timeout_id = None
 
     def _on_idle(self):
         """Idle function to update the UI"""
@@ -92,25 +100,25 @@ class WaitDialog:
 
             # Update text
             if texts:
-                self.text.set_text(texts[-1][1])
+                self.text.set_label(texts[-1][1])
             if details:
                 self.progressbar.set_text(details[-1][1])
 
             return True  # Continue the timeout
 
-        # Use GLib.timeout_add instead of gobject.timeout_add
-        GLib.timeout_add(update_rate, gui_update)
+        # Use GLib.timeout_add to update the UI
+        self._timeout_id = GLib.timeout_add(update_rate, gui_update)
 
     def _on_task_update(self):
         """Callback for task updates (currently a no-op)"""
         pass
 
-    def _on_close(self, window, event):
+    def _on_close(self, window):
         """Handle dialog close event"""
         self._task.stop()
         return True  # Prevent default close behavior
 
     def on_cancel_button_clicked(self, button):
         """Attempt to stop the task when the cancel button is clicked"""
-        self.text.set_text("Canceling...")
+        self.text.set_label("Canceling...")
         self._task.stop()

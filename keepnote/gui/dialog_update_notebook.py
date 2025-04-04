@@ -2,7 +2,7 @@
 import sys
 import shutil
 import gi
-gi.require_version('Gtk', '3.0')  # Specify GTK 3.0
+gi.require_version('Gtk', '4.0')  # Specify GTK 4.0
 from gi.repository import Gtk
 
 # KeepNote imports
@@ -25,42 +25,43 @@ class UpdateNoteBookDialog:
     def __init__(self, app, main_window):
         self.main_window = main_window
         self.app = app
-        self.xml = None
+        self.builder = None
         self.dialog = None
         self.text = None
         self.saved = None
 
     def show(self, notebook_filename, version=None, task=None):
         """Show the dialog to update the notebook"""
-        # Load the Glade file
-        self.xml = Gtk.Builder()
-        self.xml.add_from_file(get_resource("rc", "keepnote.glade"))
-        self.xml.set_translation_domain(keepnote.GETTEXT_DOMAIN)
-        self.dialog = self.xml.get_object("update_notebook_dialog")
-        # 添加错误处理，确保 dialog 存在
+        # Load the UI file (replacing Glade with a GTK 4 UI file)
+        self.builder = Gtk.Builder()
+        self.builder.add_from_file(get_resource("rc", "keepnote.ui"))  # Update to .ui file
+        self.builder.set_translation_domain(keepnote.GETTEXT_DOMAIN)
+        self.dialog = self.builder.get_object("update_notebook_dialog")
+        # Add error handling to ensure dialog exists
         if self.dialog is None:
-            print("Error: update_notebook_dialog not found in keepnote.glade")
+            print("Error: update_notebook_dialog not found in keepnote.ui")
             return False
 
-        self.dialog.connect("response", lambda d, r: self.dialog.response(r))
         self.dialog.set_transient_for(self.main_window)
 
         # Get widgets
-        self.text = self.xml.get_object("update_message_label")
-        self.saved = self.xml.get_object("save_backup_check")
+        self.text = self.builder.get_object("update_message_label")
+        self.saved = self.builder.get_object("save_backup_check")
 
-        # Connect signals
-        self.xml.connect_signals(self)
+        # Connect dialog buttons (assuming the .ui file defines these)
+        self.builder.get_object("cancel_button").connect("clicked", lambda w: self.dialog.response(Gtk.ResponseType.CANCEL))
+        self.builder.get_object("ok_button").connect("clicked", lambda w: self.dialog.response(Gtk.ResponseType.OK))
 
         # Determine the notebook version
         if version is None:
             version = notebooklib.get_notebook_version(notebook_filename)
 
         # Set the message text
-        self.text.set_text(MESSAGE_TEXT % (version, notebooklib.NOTEBOOK_FORMAT_VERSION))
+        self.text.set_label(MESSAGE_TEXT % (version, notebooklib.NOTEBOOK_FORMAT_VERSION))
 
         # Run the dialog
         ret = False
+        self.dialog.present()
         response = self.dialog.run()
 
         if response == Gtk.ResponseType.OK:
@@ -114,6 +115,7 @@ class UpdateNoteBookDialog:
             persistent_path="new_notebook_path"
         )
 
+        dialog.present()
         response = dialog.run()
         new_filename = dialog.get_filename()
         dialog.destroy()

@@ -1,6 +1,6 @@
 # Python 3 and PyGObject imports
 import gi
-gi.require_version('Gtk', '3.0')  # Specify GTK 3.0
+gi.require_version('Gtk', '4.0')  # Specify GTK 4.0
 from gi.repository import Gtk
 
 # KeepNote imports
@@ -22,18 +22,18 @@ class NewImageDialog:
         dialog = Gtk.Dialog(
             title=_("New Image"),
             transient_for=self.main_window,
-            flags=Gtk.DialogFlags.MODAL | Gtk.DialogFlags.DESTROY_WITH_PARENT,
-            buttons=(
-                Gtk.STOCK_CANCEL, Gtk.ResponseType.REJECT,
-                Gtk.STOCK_OK, Gtk.ResponseType.ACCEPT
-            )
+            modal=True
         )
 
-        # Create a grid (replacing gtk.Table)
+        # Add buttons using the new GTK 4 API
+        dialog.add_button(_("_Cancel"), Gtk.ResponseType.CANCEL)
+        dialog.add_button(_("_OK"), Gtk.ResponseType.OK)
+
+        # Create a grid
         grid = Gtk.Grid()
         grid.set_row_spacing(6)
         grid.set_column_spacing(6)
-        dialog.get_content_area().pack_start(grid, False, True, 0)
+        dialog.get_content_area().append(grid)
 
         # Format label and entry
         label = Gtk.Label(label=_("format:"))
@@ -56,14 +56,12 @@ class NewImageDialog:
         self.height_entry = Gtk.Entry()
         grid.attach(self.height_entry, 1, 2, 1, 1)
 
-        # Show all widgets
-        grid.show_all()
-
         # Run the dialog and get the response
+        dialog.present()
         response = dialog.run()
 
-        # Optionally, you can retrieve the values if needed
-        if response == Gtk.ResponseType.ACCEPT:
+        # Retrieve the values if needed
+        if response == Gtk.ResponseType.OK:
             format_value = self.format_entry.get_text()
             width_value = self.width_entry.get_text()
             height_value = self.height_entry.get_text()

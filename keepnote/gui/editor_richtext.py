@@ -2,10 +2,10 @@
 import os
 import re
 import gi
+from gi.overrides import GdkPixbuf
 
-
-gi.require_version('Gtk', '3.0')  # Specify GTK 3.0
-from gi.repository import Gtk, Gdk, GObject
+gi.require_version('Gtk', '4.0')  # Specify GTK 4.0
+from gi.repository import Gtk, Gdk
 
 # KeepNote imports
 import keepnote
@@ -146,16 +146,16 @@ class RichTextEditor(KeepNoteEditor):
         # Scrollbars
         self._sw = Gtk.ScrolledWindow()
         self._sw.set_policy(Gtk.PolicyType.AUTOMATIC, Gtk.PolicyType.AUTOMATIC)
-        self._sw.set_shadow_type(Gtk.ShadowType.IN)
-        self._sw.add(self._textview)
-        self.pack_start(self._sw, True, True, 0)
+        self._sw.set_has_frame(True)  # Replaces set_shadow_type
+        self._sw.set_child(self._textview)  # Changed from add to set_child
+        self.append(self._sw)  # Changed from pack_start to append
 
         # Link editor
         self._link_editor = LinkEditor()
         self._link_editor.set_textview(self._textview)
         self._link_editor.set_search_nodes(self._search_nodes)
         self.connect("font-change", self._link_editor.on_font_change)
-        self.pack_start(self._link_editor, False, True, 0)
+        self.append(self._link_editor)  # Changed from pack_start to append
 
         self.make_image_menu(self._textview.get_image_menu())
 
@@ -165,8 +165,6 @@ class RichTextEditor(KeepNoteEditor):
 
         # Find dialog
         self.find_dialog = dialog_find.KeepNoteFindDialog(self)
-
-        self.show_all()
 
     def set_notebook(self, notebook):
         """Set notebook for editor"""
@@ -444,10 +442,11 @@ class RichTextEditor(KeepNoteEditor):
         dialog = FileChooserDialog(
             _("Insert Image From File"), self.get_toplevel(),
             action=Gtk.FileChooserAction.OPEN,
-            buttons=(_("Cancel"), Gtk.ResponseType.CANCEL, _("Insert"), Gtk.ResponseType.OK),
             app=self._app,
             persistent_path="insert_image_path"
         )
+        dialog.add_button(_("_Cancel"), Gtk.ResponseType.CANCEL)
+        dialog.add_button(_("_Insert"), Gtk.ResponseType.OK)
 
         # Add image filters
         filter = Gtk.FileFilter()
@@ -472,6 +471,7 @@ class RichTextEditor(KeepNoteEditor):
         dialog.set_preview_widget(preview)
         dialog.connect("update-preview", update_file_preview, preview)
 
+        dialog.present()
         response = dialog.run()
         if response == Gtk.ResponseType.OK:
             filename = unicode_gtk(dialog.get_filename())
@@ -546,11 +546,13 @@ class RichTextEditor(KeepNoteEditor):
         dialog = FileChooserDialog(
             _("Save Image As..."), self.get_toplevel(),
             action=Gtk.FileChooserAction.SAVE,
-            buttons=(_("Cancel"), Gtk.ResponseType.CANCEL, _("Save"), Gtk.ResponseType.OK),
             app=self._app,
             persistent_path="save_image_path"
         )
+        dialog.add_button(_("_Cancel"), Gtk.ResponseType.CANCEL)
+        dialog.add_button(_("_Save"), Gtk.ResponseType.OK)
         dialog.set_default_response(Gtk.ResponseType.OK)
+        dialog.present()
         response = dialog.run()
 
         if response == Gtk.ResponseType.OK:
@@ -568,28 +570,23 @@ class RichTextEditor(KeepNoteEditor):
         """Image context menu"""
         menu.set_accel_path(CONTEXT_MENU_ACCEL_PATH)
         item = Gtk.SeparatorMenuItem()
-        item.show()
         menu.append(item)
 
         item = Gtk.MenuItem(label=_("_View Image..."))
         item.connect("activate", self._on_view_image)
-        item.get_child().set_markup_with_mnemonic(_("<b>_View Image...</b>"))
-        item.show()
+        item.get_child().set_label(_("<b>_View Image...</b>"))  # Changed from set_markup_with_mnemonic
         menu.append(item)
 
         item = Gtk.MenuItem(label=_("_Edit Image..."))
         item.connect("activate", self._on_edit_image)
-        item.show()
         menu.append(item)
 
         item = Gtk.MenuItem(label=_("_Resize Image..."))
         item.connect("activate", self._on_resize_image)
-        item.show()
         menu.append(item)
 
         item = Gtk.MenuItem(label=_("_Save Image As..."))
         item.connect("activate", self._on_save_image_as)
-        item.show()
         menu.append(item)
 
 class FontUI:
@@ -608,10 +605,8 @@ class FontUI:
         else:
             self.unblock = unblock
 
-class EditorMenus(GObject.GObject):
+class EditorMenus:
     def __init__(self, app, editor):
-        super().__init__()
-
         self._editor = editor
         self._app = app
         self._action_group = None
@@ -694,6 +689,7 @@ class EditorMenus(GObject.GObject):
         font = self._editor.get_textview().get_font()
         dialog = Gtk.FontChooserDialog(title=_("Choose Font"))
         dialog.set_font(f"{font.family} {font.size}")
+        dialog.present()
         response = dialog.run()
 
         if response == Gtk.ResponseType.OK:
@@ -715,28 +711,16 @@ class EditorMenus(GObject.GObject):
 
     # Toolbar and menus
     def add_ui(self, window):
-        self._action_group = Gtk.ActionGroup(name="Editor")
-        self._uis = []
-        add_actions(self._action_group, self.get_actions())
-        window.get_uimanager().insert_action_group(self._action_group, 0)
-
-        for s in self.get_ui():
-            self._uis.append(window.get_uimanager().add_ui_from_string(s))
-        window.get_uimanager().ensure_update()
-
-        self.setup_menu(window, window.get_uimanager())
+        # Note: Gtk.UIManager is deprecated in GTK 4. This method needs to be reimplemented
+        # using a different approach, such as GMenu or manual widget creation.
+        # For now, we'll comment out the implementation and note the need for refactoring.
+        print("Warning: add_ui needs to be reimplemented for GTK 4 (Gtk.UIManager is deprecated)")
+        pass
 
     def remove_ui(self, window):
-        for ui in self._font_ui_signals:
-            ui.widget.disconnect(ui.signal)
-        self._font_ui_signals = []
-
-        for ui in reversed(self._uis):
-            window.get_uimanager().remove_ui(ui)
-        self._uis = []
-
-        window.get_uimanager().remove_action_group(self._action_group)
-        self._action_group = None
+        # Similarly, this method needs to be reimplemented for GTK 4.
+        print("Warning: remove_ui needs to be reimplemented for GTK 4 (Gtk.UIManager is deprecated)")
+        pass
 
     def get_actions(self):
         def BothAction(name1, *args):
@@ -838,33 +822,35 @@ class EditorMenus(GObject.GObject):
               </placeholder>
             </placeholder>
           </menu>
-          <placeholder name="Viewer">
-            <placeholder name="Editor">
+          <placeholder name Ascendantly
+            <placeholder name="Viewer">
+              <placeholder name="Editor">
                 <menu action="Format">
-                <menuitem action="Bold"/>
-                <menuitem action="Italic"/>
-                <menuitem action="Underline"/>
-                <menuitem action="Strike"/>
-                <menuitem action="Monospace"/>
-                <menuitem action="Link"/>
-                <menuitem action="No Wrapping"/>
-                <separator/>
-                <menuitem action="Left Align"/>
-                <menuitem action="Center Align"/>
-                <menuitem action="Right Align"/>
-                <menuitem action="Justify Align"/>
-                <menuitem action="Bullet List"/>
-                <menuitem action="Indent More"/>
-                <menuitem action="Indent Less"/>
-                <separator/>
-                <menuitem action="Increase Font Size"/>
-                <menuitem action="Decrease Font Size"/>
-                <menuitem action="Apply Text Color"/>
-                <menuitem action="Apply Background Color"/>
-                <menuitem action="Choose Font"/>
-              </menu>
+                  <menuitem action="Bold"/>
+                  <menuitem action="Italic"/>
+                  <menuitem action="Underline"/>
+                  <menuitem action="Strike"/>
+                  <menuitem action="Monospace"/>
+                  <menuitem action="Link"/>
+                  <menuitem action="No Wrapping"/>
+                  <separator/>
+                  <menuitem action="Left Align"/>
+                  <menuitem action="Center Align"/>
+                  <menuitem action="Right Align"/>
+                  <menuitem action="Justify Align"/>
+                  <menuitem action="Bullet List"/>
+                  <menuitem action="Indent More"/>
+                  <menuitem action="Indent Less"/>
+                  <separator/>
+                  <menuitem action="Increase Font Size"/>
+                  <menuitem action="Decrease Font Size"/>
+                  <menuitem action="Apply Text Color"/>
+                  <menuitem action="Apply Background Color"/>
+                  <menuitem action="Choose Font"/>
+                </menu>
+              </placeholder>
             </placeholder>
-          </placeholder>
+          </menu>
           <menu action="Go">
             <placeholder name="Viewer">
               <placeholder name="Editor">
@@ -935,136 +921,14 @@ class EditorMenus(GObject.GObject):
         return ui
 
     def setup_font_toggle(self, uimanager, path, stock=False, update_func=lambda ui, font: None):
-        action = uimanager.get_action(path)
-        if not action:
-            return None
-
-        proxies = action.get_proxies()
-        if not proxies:
-            return None
-
-        widget = proxies[0]
-
-        def block():
-            action.handler_block(action.signal)
-            action.block_activate()
-
-        def unblock():
-            action.handler_unblock(action.signal)
-            action.unblock_activate()
-
-        ui = FontUI(action, action.signal, update_func, block=block, unblock=unblock)
-        self._font_ui_signals.append(ui)
-        return ui
+        # Note: This method needs to be reimplemented for GTK 4 due to the removal of Gtk.UIManager
+        print("Warning: setup_font_toggle needs to be reimplemented for GTK 4")
+        return None
 
     def setup_menu(self, window, uimanager):
-        def update_toggle(ui, active):
-            if ui.widget.get_proxies():
-                widget = ui.widget.get_proxies()[0]
-                widget.set_active(active)
-
-        def replace_widget(path, widget):
-            w = uimanager.get_widget(path)
-            if w:
-                self._removed_widgets.append(w.get_child())
-                w.remove(w.get_child())
-                w.add(widget)
-                widget.show()
-                w.set_homogeneous(False)
-
-        self.setup_font_toggle(
-            uimanager, "/main_tool_bar/Viewer/Editor/Bold Tool",
-            update_func=lambda ui, font: update_toggle(ui, font.mods["bold"]))
-        self.setup_font_toggle(
-            uimanager, "/main_tool_bar/Viewer/Editor/Italic Tool",
-            update_func=lambda ui, font: update_toggle(ui, font.mods["italic"]))
-        self.setup_font_toggle(
-            uimanager, "/main_tool_bar/Viewer/Editor/Underline Tool",
-            update_func=lambda ui, font: update_toggle(ui, font.mods["underline"]))
-        self.setup_font_toggle(
-            uimanager, "/main_tool_bar/Viewer/Editor/Strike Tool",
-            update_func=lambda ui, font: update_toggle(ui, font.mods["strike"]))
-        self.setup_font_toggle(
-            uimanager, "/main_tool_bar/Viewer/Editor/Monospace Tool",
-            update_func=lambda ui, font: update_toggle(ui, font.mods["tt"]))
-        self.setup_font_toggle(
-            uimanager, "/main_tool_bar/Viewer/Editor/Link Tool",
-            update_func=lambda ui, font: update_toggle(ui, font.link is not None))
-        self.setup_font_toggle(
-            uimanager, "/main_tool_bar/Viewer/Editor/No Wrapping Tool",
-            update_func=lambda ui, font: update_toggle(ui, font.mods["nowrap"]))
-        self.setup_font_toggle(
-            uimanager, "/main_tool_bar/Viewer/Editor/Left Align Tool",
-            update_func=lambda ui, font: update_toggle(ui, font.justify == "left"))
-        self.setup_font_toggle(
-            uimanager, "/main_tool_bar/Viewer/Editor/Center Align Tool",
-            update_func=lambda ui, font: update_toggle(ui, font.justify == "center"))
-        self.setup_font_toggle(
-            uimanager, "/main_tool_bar/Viewer/Editor/Right Align Tool",
-            update_func=lambda ui, font: update_toggle(ui, font.justify == "right"))
-        self.setup_font_toggle(
-            uimanager, "/main_tool_bar/Viewer/Editor/Justify Align Tool",
-            update_func=lambda ui, font: update_toggle(ui, font.justify == "fill"))
-        self.setup_font_toggle(
-            uimanager, "/main_tool_bar/Viewer/Editor/Bullet List Tool",
-            update_func=lambda ui, font: update_toggle(ui, font.par_type == "bullet"))
-
-        # Family combo
-        font_family_combo = FontSelector()
-        font_family_combo.set_size_request(150, 25)
-        replace_widget("/main_tool_bar/Viewer/Editor/Font Selector Tool", font_family_combo)
-        font_family_id = font_family_combo.connect("changed", self._on_family_set)
-        self._font_ui_signals.append(
-            FontUI(font_family_combo, font_family_id,
-                   update_func=lambda ui, font: ui.widget.set_family(font.family)))
-
-        # Font size
-        DEFAULT_FONT_SIZE = 10
-        font_size_button = Gtk.SpinButton(adjustment=Gtk.Adjustment(value=DEFAULT_FONT_SIZE, lower=2, upper=500, step_increment=1))
-        font_size_button.set_size_request(-1, 25)
-        font_size_button.set_value(DEFAULT_FONT_SIZE)
-        font_size_button.set_editable(False)
-        replace_widget("/main_tool_bar/Viewer/Editor/Font Size Tool", font_size_button)
-
-        font_size_id = font_size_button.connect("value-changed",
-                                                lambda w: self._on_font_size_change(font_size_button.get_value()))
-        self._font_ui_signals.append(
-            FontUI(font_size_button, font_size_id,
-                   update_func=lambda ui, font: ui.widget.set_value(font.size)))
-
-        def on_new_colors(notebook, colors):
-            if self._editor.get_notebook() == notebook:
-                self.fg_color_button.set_colors(colors)
-                self.bg_color_button.set_colors(colors)
-        self._app.get_listeners("colors_changed").add(on_new_colors)
-
-        # Init colors
-        notebook = self._editor.get_notebook()
-        if notebook:
-            colors = notebook.pref.get("colors", default=DEFAULT_COLORS)
-        else:
-            colors = DEFAULT_COLORS
-
-        # Font fg color
-        self.fg_color_button = FgColorTool(14, 15, "#000000")
-        self.fg_color_button.set_colors(colors)
-        self.fg_color_button.set_homogeneous(False)
-        self.fg_color_button.connect("set-color", lambda w, color: self._on_color_set("fg", self.fg_color_button, color))
-        self.fg_color_button.connect("set-colors", lambda w, colors: self._on_colors_set(colors))
-        replace_widget("/main_tool_bar/Viewer/Editor/Font Fg Color Tool", self.fg_color_button)
-
-        # Font bg color
-        self.bg_color_button = BgColorTool(14, 15, "#ffffff")
-        self.bg_color_button.set_colors(colors)
-        self.bg_color_button.set_homogeneous(False)
-        self.bg_color_button.connect("set-color", lambda w, color: self._on_color_set("bg", self.bg_color_button, color))
-        self.bg_color_button.connect("set-colors", lambda w, colors: self._on_colors_set(colors))
-        replace_widget("/main_tool_bar/Viewer/Editor/Font Bg Color Tool", self.bg_color_button)
-
-        # Get spell check toggle
-        self.spell_check_toggle = uimanager.get_widget("/main_menu_bar/Tools/Viewer/Spell Check")
-        self.spell_check_toggle.set_sensitive(self._editor.get_textview().can_spell_check())
-        self.spell_check_toggle.set_active(window.get_app().pref.get("editors", "general", "spell_check", default=True))
+        # Note: This method needs to be reimplemented for GTK 4 due to the removal of Gtk.UIManager
+        print("Warning: setup_menu needs to be reimplemented for GTK 4")
+        pass
 
 class ComboToolItem(Gtk.ToolItem):
     def __init__(self):
@@ -1077,14 +941,13 @@ class ComboToolItem(Gtk.ToolItem):
         self.combobox = Gtk.ComboBoxText.new_with_entry()
         for text in ['a', 'b', 'c', 'd', 'e', 'f']:
             self.combobox.append_text(text)
-        self.combobox.show()
-        self.add(self.combobox)
+        self.set_child(self.combobox)  # Changed from add to set_child
 
     def set_tooltip(self, tooltips, tip_text=None, tip_private=None):
-        super().set_tooltip_text(tip_text)
+        self.set_tooltip_text(tip_text)  # Changed from super().set_tooltip_text
         self.combobox.set_tooltip_text(tip_text)
 
-class ComboToolAction(Gtk.Action):
+class ComboToolAction(Action):
     def __init__(self, name, label, tooltip, stock_id):
         super().__init__(name=name, label=label, tooltip=tooltip, stock_id=stock_id)
 

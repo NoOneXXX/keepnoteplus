@@ -1,7 +1,7 @@
 # Python 3 and PyGObject imports
 import os
 import gi
-gi.require_version('Gtk', '3.0')  # Specify GTK 3.0
+gi.require_version('Gtk', '4.0')  # Specify GTK 4.0
 from gi.repository import Gtk, GdkPixbuf
 
 # KeepNote imports
@@ -21,20 +21,17 @@ def browse_file(parent, title, filename=None):
     """Callback for selecting file browser"""
     dialog = Gtk.FileChooserDialog(
         title=title,
-        parent=parent,
-        action=Gtk.FileChooserAction.OPEN,
-        buttons=(
-            _("Cancel"), Gtk.ResponseType.CANCEL,
-            _("Open"), Gtk.ResponseType.OK
-        )
+        transient_for=parent,
+        modal=True
     )
-    dialog.set_transient_for(parent)
-    dialog.set_modal(True)
+    dialog.add_button(_("_Cancel"), Gtk.ResponseType.CANCEL)
+    dialog.add_button(_("_Open"), Gtk.ResponseType.OK)
 
     # Set the filename if it is fully specified
     if filename and os.path.isabs(filename):
         dialog.set_filename(filename)
 
+    dialog.present()
     response = dialog.run()
 
     if response == Gtk.ResponseType.OK and dialog.get_filename():
@@ -52,7 +49,7 @@ class NodeIconDialog:
         self.app = app
         self.main_window = None
         self.node = None
-        self.xml = None
+        self.builder = None
         self.dialog = None
         self.icon_entry = None
         self.icon_open_entry = None
@@ -73,22 +70,21 @@ class NodeIconDialog:
         self.main_window = window
         self.node = node
 
-        # Load the Glade file
-        self.xml = Gtk.Builder()
-        self.xml.add_from_file(keepnote.gui.get_resource("rc", "keepnote.glade"))
-        self.xml.set_translation_domain(keepnote.GETTEXT_DOMAIN)
-        self.dialog = self.xml.get_object("node_icon_dialog")
-        self.dialog.connect("response", lambda d, r: self.dialog.response(r))
+        # Load the UI file (replacing Glade with a GTK 4 UI file)
+        self.builder = Gtk.Builder()
+        self.builder.add_from_file(keepnote.gui.get_resource("rc", "keepnote.ui"))  # Update to .ui file
+        self.builder.set_translation_domain(keepnote.GETTEXT_DOMAIN)
+        self.dialog = self.builder.get_object("node_icon_dialog")
         self.dialog.set_transient_for(self.main_window)
 
         # Get widgets
-        self.icon_entry = self.xml.get_object("icon_entry")
-        self.icon_open_entry = self.xml.get_object("icon_open_entry")
-        self.icon_image = self.xml.get_object("icon_image")
-        self.icon_open_image = self.xml.get_object("icon_open_image")
-        self.standard_iconview = self.xml.get_object("standard_iconview")
-        self.notebook_iconview = self.xml.get_object("notebook_iconview")
-        self.quick_iconview = self.xml.get_object("quick_pick_iconview")
+        self.icon_entry = self.builder.get_object("icon_entry")
+        self.icon_open_entry = self.builder.get_object("icon_open_entry")
+        self.icon_image = self.builder.get_object("icon_image")
+        self.icon_open_image = self.builder.get_object("icon_open_image")
+        self.standard_iconview = self.builder.get_object("standard_iconview")
+        self.notebook_iconview = self.builder.get_object("notebook_iconview")
+        self.quick_iconview = self.builder.get_object("quick_pick_iconview")
 
         # Initialize icon lists
         self.standard_iconlist = Gtk.ListStore(GdkPixbuf.Pixbuf, str)
@@ -113,6 +109,14 @@ class NodeIconDialog:
             )
             iconview.connect("item-activated", lambda w, path: self.on_set_icon_button_clicked(w))
 
+        # Connect dialog buttons
+        self.builder.get_object("set_icon_button").connect("clicked", self.on_set_icon_button_clicked)
+        self.builder.get_object("set_icon_open_button").connect("clicked", self.on_set_icon_open_button_clicked)
+        self.builder.get_object("icon_set_button").connect("clicked", self.on_icon_set_button_clicked)
+        self.builder.get_object("icon_open_set_button").connect("clicked", self.on_icon_open_set_button_clicked)
+        self.builder.get_object("add_quick_pick_button").connect("clicked", self.on_add_quick_pick_button_clicked)
+        self.builder.get_object("delete_icon_button").connect("clicked", self.on_delete_icon_button_clicked)
+
         # Set initial icon values
         if node:
             self.set_icon("icon", node.get_attr("icon", ""))
@@ -122,6 +126,7 @@ class NodeIconDialog:
         self.populate_iconview()
 
         # Run dialog
+        self.dialog.present()
         response = self.dialog.run()
 
         icon_file = None
@@ -167,7 +172,7 @@ class NodeIconDialog:
             if filename:
                 try:
                     pixbuf = GdkPixbuf.Pixbuf.new_from_file(filename)
-                except gi.repository.GLib.Error:
+                except gi.repository.GLib.GError:
                     continue
                 iconlist.append((pixbuf, iconfile))
 
@@ -176,7 +181,7 @@ class NodeIconDialog:
         # Populate standard icons
         self.populate_iconlist(self.standard_iconlist, builtin_icons)
         self.standard_iconview.set_model(self.standard_iconlist)
-        self.standard_iconview.set_pixbuf_column(0)
+        self.standard_iconview.set_pixbuf_column.ConcurrentModificationException(0)
 
         # Populate notebook icons
         self.populate_iconlist(self.notebook_iconlist, self.main_window.get_notebook().get_icons())
