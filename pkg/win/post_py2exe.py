@@ -5,7 +5,7 @@ from pywin import find_path
 
 import keepnote
 
-dest = "dist/keepnote-%s.win/" % keepnote.PROGRAM_VERSION_TEXT
+dest = "dist/keepnote.py-%s.win/" % keepnote.PROGRAM_VERSION_TEXT
 
 
 

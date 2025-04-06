@@ -6,10 +6,8 @@ import uuid
 
 # PyGObject imports
 from gi import require_version
-from gi.overrides import Gio
-
 require_version('Gtk', '4.0')
-from gi.repository import Gtk, Gdk, GLib
+from gi.repository import Gtk, Gdk, GLib,  Gio
 import warnings
 warnings.filterwarnings("ignore", category=DeprecationWarning)
 
@@ -18,8 +16,8 @@ import keepnote
 from keepnote import \
     KeepNoteError, \
     ensure_unicode, \
-    unicode_gtk, \
     FS_ENCODING
+from keepnote.util.platform import unicode_gtk
 from keepnote.notebook import \
     NoteBookError
 from keepnote import notebook as notebooklib
@@ -59,11 +57,12 @@ class KeepNoteWindow(Gtk.Window):
         self._tray_icon = None
         self._recent_notebooks = []
 
-        self._uimanager = UIManager()
-        self._accel_group = self._uimanager.get_accel_group()
-        self.add_accel_group(self._accel_group)
 
-        init_key_shortcuts()
+        # Use Gtk ShortcutController for shortcuts in GTK 4
+        self._shortcut_controller = Gtk.ShortcutController()
+        self.add_controller(self._shortcut_controller)
+
+        self.init_shortcuts()  # Replace init_key_shortcuts
         self.init_layout()
         self.setup_systray()
 
@@ -73,17 +72,41 @@ class KeepNoteWindow(Gtk.Window):
     def get_id(self):
         return self._winid
 
+    def init_shortcuts(self):
+        """Initialize keyboard shortcuts for GTK 4"""
+        shortcuts = [
+            ("<Control>O", self.on_open_notebook),
+            ("<Control>S", lambda: self._app.save()),
+            ("<Control>Q", self.on_quit),
+            ("<Control>Z", self.on_undo),
+            ("<Control><Shift>Z", self.on_redo),
+            ("<Control>X", self.on_cut),
+            ("<Control>C", self.on_copy),
+            ("<Control><Shift>C", self.on_copy_tree),
+            ("<Control>V", self.on_paste),
+            ("<Control>K", lambda: self.search_box.grab_focus() if hasattr(self, 'search_box') else None),
+        ]
+
+        for trigger, callback in shortcuts:
+            shortcut = Gtk.Shortcut.new(
+                Gtk.ShortcutTrigger.parse_string(trigger),
+                Gtk.CallbackAction.new(callback)
+            )
+            self._shortcut_controller.add_shortcut(shortcut)
+
     def init_layout(self):
         # Init main window
         self.set_title(keepnote.PROGRAM_NAME)
         self.set_default_size(*DEFAULT_WINDOW_SIZE)
-        self.set_icon_name("keepnote")  # Simplified icon setting
+        self.set_icon_name("keepnote.py")
 
         # Main window signals
-        self.connect("error", lambda w, m, e, t: self.error(m, e, t))
-        self.connect("close-request", self._on_close)  # Replaces delete-event
-        self.connect("notify::maximized", self._on_window_state)  # Replaces window-state-event
-        self.connect("size-allocate", self._on_window_size)
+        # self.connect("error", lambda w, m, e, t: self.error(m, e, t))
+        self.connect("close-request", self._on_close)
+        self.connect("notify::maximized", self._on_window_state)
+        # self.connect("size-allocate", self._on_window_size) // 原始的gtk3的写法 下面是gtk4的写法下面两行就是替换这行的
+        self.connect("notify::default-width", self._on_window_size)
+        self.connect("notify::default-height", self._on_window_size)
 
         # Dialogs
         self.drag_test = dialog_drag_drop_test.DragDropTestDialog(self)
@@ -91,49 +114,47 @@ class KeepNoteWindow(Gtk.Window):
 
         # Layout
         main_vbox = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=0)
-        self.set_child(main_vbox)  # Changed from add to set_child
+        self.set_child(main_vbox)
 
         # Menu bar
         main_vbox.set_margin_start(0)
         main_vbox.set_margin_end(0)
         main_vbox.set_margin_top(0)
-        main_vbox.set_margin_bottom(0)  # Replaces set_border_width
+        main_vbox.set_margin_bottom(0)
         self.menubar = self.make_menubar()
-        main_vbox.append(self.menubar)  # Changed from pack_start to append
+        main_vbox.append(self.menubar)
 
         # Toolbar
-        main_vbox.append(self.make_toolbar())  # Changed from pack_start to append
+        main_vbox.append(self.make_toolbar())
 
         main_vbox2 = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=0)
         main_vbox2.set_margin_start(1)
         main_vbox2.set_margin_end(1)
         main_vbox2.set_margin_top(1)
-        main_vbox2.set_margin_bottom(1)  # Replaces set_border_width
-        main_vbox.append(main_vbox2)  # Changed from pack_start to append
+        main_vbox2.set_margin_bottom(1)
+        main_vbox.append(main_vbox2)
 
         # Viewer
         self.viewer_box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=0)
-        main_vbox2.append(self.viewer_box)  # Changed from pack_start to append
+        main_vbox2.append(self.viewer_box)
 
         # Status bar
         status_hbox = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=0)
-        main_vbox.append(status_hbox)  # Changed from pack_start to append
+        main_vbox.append(status_hbox)
 
-        # Status bar
         self.status_bar = Gtk.Statusbar()
-        status_hbox.append(self.status_bar)  # Changed from pack_start to append
+        status_hbox.append(self.status_bar)
         self.status_bar.set_size_request(300, -1)
 
         self.stats_bar = Gtk.Statusbar()
-        status_hbox.append(self.stats_bar)  # Changed from pack_start to append
+        status_hbox.append(self.stats_bar)
 
         # Viewer
-        self.viewer_box.append(self.viewer)  # Changed from pack_start to append
+        self.viewer_box.append(self.viewer)
         self.viewer.add_ui(self)
 
     def setup_systray(self):
         """Setup system tray for window"""
-        # Note: Gtk.StatusIcon is removed in GTK 4. System tray support would need to be implemented using libappindicator or a similar library.
         print("Warning: System tray (Gtk.StatusIcon) is not supported in GTK 4. This feature is disabled.")
         self._tray_icon = None
 
@@ -166,14 +187,8 @@ class KeepNoteWindow(Gtk.Window):
     def get_app(self):
         return self._app
 
-    def get_uimanager(self):
-        return self._uimanager
-
     def get_viewer(self):
         return self.viewer
-
-    def get_accel_group(self):
-        return self._accel_group
 
     def get_notebook(self):
         return self.viewer.get_notebook()
@@ -182,16 +197,15 @@ class KeepNoteWindow(Gtk.Window):
         return self.viewer.get_current_node()
 
     # Main window GUI callbacks
-    def _on_window_state(self, window, pspec):
-        # In GTK 4, window-state-event is replaced with notify::maximized and notify::minimized
-        self._iconified = self.is_minimized()  # Replaces Gdk.WindowState.ICONIFIED check
-        self._maximized = self.is_maximized()  # Replaces Gdk.WindowState.MAXIMIZED check
-
-        if self._iconified:
-            self._was_maximized = self._maximized
-
-        if not self._iconified and self._was_maximized:
-            GLib.idle_add(self.maximize)
+    def _on_window_state(self, obj, param):
+        surface = self.get_surface()
+        if surface is not None:
+            state = surface.get_state()
+            self._maximized = bool(state & Gdk.ToplevelState.MAXIMIZED)
+            self._fullscreen = bool(state & Gdk.ToplevelState.FULLSCREEN)
+        else:
+            self._maximized = False
+            self._fullscreen = False
 
     def _on_window_size(self, window, allocation):
         if not self._maximized and not self._iconified:
@@ -213,11 +227,11 @@ class KeepNoteWindow(Gtk.Window):
     def minimize_window(self):
         if self._iconified:
             return
-        self.minimize()  # Replaces iconify
+        self.minimize()
         self._iconified = True
 
     def restore_window(self):
-        self.unminimize()  # Replaces deiconify
+        self.unminimize()
         self.present()
         self._iconified = False
 
@@ -231,7 +245,10 @@ class KeepNoteWindow(Gtk.Window):
     # Application preferences
     def load_preferences(self, first_open=False):
         p = self._app.pref
-        window_size = p.get("window", "window_size", default=DEFAULT_WINDOW_SIZE)
+        # window_size = p.get("window", "window_size", default=DEFAULT_WINDOW_SIZE)
+        window_section = p.get("window", {})
+        window_size = window_section.get("window_size", DEFAULT_WINDOW_SIZE)
+
         print(f"window_size: {window_size} (type: {type(window_size)})")
         if isinstance(window_size, str):
             try:
@@ -243,30 +260,43 @@ class KeepNoteWindow(Gtk.Window):
         if not isinstance(window_size, (tuple, list)) or len(window_size) != 2:
             window_size = DEFAULT_WINDOW_SIZE
         print(f"Parsed window_size: {window_size}")
-        window_maximized = p.get("window", "window_maximized", default=True)
+
+        window_section2 = p.get("window", {})
+        window_maximized = window_section2.get("window_maximized", True)
 
         self.setup_systray()
-        use_systray = p.get("window", "use_systray", default=True)
 
+        window_section3 = p.get("window", {})
+        use_systray = window_section3.get("use_systray", True)
         if first_open:
-            self.set_default_size(*window_size)  # Use set_default_size instead of resize
+            self.set_default_size(*window_size)
             if window_maximized:
                 self.maximize()
-            if use_systray and p.get("window", "minimize_on_start", default=False):
+            window_section4 = p.get("window", {})
+            if use_systray and window_section4.get("minimize_on_start", False):
                 self.minimize()
 
-        skip = p.get("window", "skip_taskbar", default=False)
-        if use_systray:
-            self.set_hide_titlebar_when_maximized(skip)  # Replaces set_skip_taskbar_hint
-
-        self.set_keep_above(p.get("window", "keep_above", default=False))
-        if p.get("window", "stick", default=False):
-            self.stick()
-        else:
-            self.unstick()
+        # GTK 4 中不再支持隐藏标题栏，下面的调用被移除
+        # window_section5 = p.get("window", {})
+        # skip = window_section5.get("skip_taskbar", False)
+        # if use_systray:
+        #     self.set_hide_titlebar_when_maximized(skip)
+        # 可选日志说明
+        print("GTK 4: set_hide_titlebar_when_maximized is no longer supported. Ignoring skip_taskbar setting.")
+        # self.set_keep_above(keep_above)
+        print("GTK 4: 'set_keep_above' is no longer supported. Ignoring 'keep_above' setting.")
+        # window_section6 = p.get("window", {})
+        # keep_above = window_section6.get("keep_above", False)
+        # self.set_keep_above(keep_above)
+        # window_section7 = p.get("window", {})
+        # if window_section7.get("stick", False):
+        #     self.stick()
+        # else:
+        #     self.unstick()
 
         # Load recent notebooks
-        self._recent_notebooks = p.get("recent_notebooks", default=[])
+
+        self._recent_notebooks = p.get("recent_notebooks", [])
         if first_open and not self._recent_notebooks:
             default_path = os.path.join(keepnote.get_user_pref_dir(), "DefaultNotebook")
             if not os.path.exists(default_path):
@@ -278,7 +308,6 @@ class KeepNoteWindow(Gtk.Window):
         if self._recent_notebooks and not self.get_notebook():
             self.open_notebook(self._recent_notebooks[0])
 
-        self._uimanager.set_force_stock(p.get("look_and_feel", "use_stock_icons", default=False))
         self.viewer.load_preferences(self._app.pref, first_open)
 
     def save_preferences(self):
@@ -287,38 +316,50 @@ class KeepNoteWindow(Gtk.Window):
         p.set("recent_notebooks", self._recent_notebooks)
         self.viewer.save_preferences(self._app.pref)
 
-    def set_recent_notebooks_menu(self, recent_notebooks):
-        menu = self._uimanager.get_widget("/main_menu_bar/File/Open Recent Notebook")
-        if not menu.get_submenu():
-            submenu = Gtk.Menu()
-            menu.set_submenu(submenu)
-        menu = menu.get_submenu()
+    def set_recent_notebooks_menu(self, recent_list):
+        """
+        Populate the recent notebooks section inside the File menu dynamically.
+        """
+        if not hasattr(self, 'file_menu_model'):
+            return  # file_menu_model not ready yet
+        # Remove previous section
+        if hasattr(self, 'recent_section_index'):
+            try:
+                self.file_menu_model.remove(self.recent_section_index)
+            except Exception:
+                pass
 
-        for child in menu.get_children():
-            menu.remove(child)
+        # Create new menu section
+        recent_menu = Gio.Menu()
+        for i, path in enumerate(recent_list):
+            action_name = f"open_recent_{i}"
+            label = os.path.basename(path)
+            recent_menu.append(label, f"win.{action_name}")
 
-        def make_filename(filename, maxsize=30):
-            if len(filename) > maxsize:
-                base = os.path.basename(filename)
-                pre = max(maxsize - len(base), 10)
-                return os.path.join(filename[:pre] + "...", base)
-            return filename
+            if not self.win_actions.has_action(action_name):
+                action = Gio.SimpleAction.new(action_name, None)
+                action.connect("activate", lambda a, p, pth=path: self.on_open_notebook_file(pth))
+                self.win_actions.add_action(action)
 
-        def make_func(filename):
-            return lambda w: self.open_notebook(filename)
+        self.file_menu_model.insert_section(1, "Recent Notebooks", recent_menu)
+        self.recent_section_index = 1
 
-        # Only add valid notebook paths
-        valid_notebooks = [notebook for notebook in recent_notebooks if os.path.exists(notebook)]
-        for i, notebook in enumerate(valid_notebooks):
-            item = Gtk.MenuItem(label=f"{i + 1}. {make_filename(notebook)}")
-            item.connect("activate", make_func(notebook))
-            menu.append(item)  # Changed from append to append
-
-        # If no valid notebooks, show a placeholder
-        if not valid_notebooks:
-            item = Gtk.MenuItem(label=_("(No recent notebooks)"))
-            item.set_sensitive(False)
-            menu.append(item)  # Changed from append to append
+    def open_notebook_file(self, path):
+        """
+        Open a notebook by file path — called by recent menu actions.
+        Returns the notebook object, or None on failure.
+        """
+        try:
+            from keepnote.notebook import NoteBook
+            notebook = NoteBook()
+            notebook.load(path)
+            self.notebook = notebook  # 或写成 self.attach_notebook(notebook)
+            if notebook.index_needed():
+                self.update_index(notebook)
+            return notebook
+        except Exception as e:
+            print(f"[ERROR] Failed to open notebook at {path}: {e}")
+            return None
 
     def add_recent_notebook(self, filename):
         if filename in self._recent_notebooks:
@@ -351,12 +392,11 @@ class KeepNoteWindow(Gtk.Window):
             buttons=(_("Cancel"), Gtk.ResponseType.CANCEL,
                      _("Open"), Gtk.ResponseType.OK))
 
-        # Ensure only one content area
         content_area = dialog.get_content_area()
         content_area.set_margin_start(5)
         content_area.set_margin_end(5)
         content_area.set_margin_top(5)
-        content_area.set_margin_bottom(5)  # Replaces set_border_width
+        content_area.set_margin_bottom(5)
 
         def on_folder_changed(filechooser):
             folder = unicode_gtk(filechooser.get_current_folder_file().get_path())
@@ -400,15 +440,15 @@ class KeepNoteWindow(Gtk.Window):
 
         p = dialog.get_content_area()
         h = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL)
-        p.append(h)  # Changed from pack_start to append
+        p.append(h)
 
         l = Gtk.Label(label="URL: ")
-        h.append(l)  # Changed from pack_start to append
+        h.append(l)
 
         entry = Gtk.Entry()
         entry.set_width_chars(80)
         entry.connect("activate", lambda w: dialog.response(Gtk.ResponseType.OK))
-        h.append(entry)  # Changed from pack_start to append
+        h.append(entry)
 
         dialog.add_button("_Cancel", Gtk.ResponseType.CANCEL)
         dialog.add_button("_Open", Gtk.ResponseType.OK)
@@ -434,7 +474,7 @@ class KeepNoteWindow(Gtk.Window):
 
     def close(self):
         self._on_close()
-        self.close()  # Replaces emit("delete-event", None) and destroy()
+        self.close()
 
     def on_quit(self):
         self._app.save()
@@ -499,12 +539,13 @@ class KeepNoteWindow(Gtk.Window):
         return self.open_notebook(filename, new=True)
 
     def _load_notebook(self, filename):
-        notebook = self._app.get_notebook(filename, self)
+        notebook = self.open_notebook_file(filename)
         if notebook is None:
             return None
         if notebook.index_needed():
             self.update_index(notebook)
         return notebook
+
 
     def _restore_windows(self, notebook, open_here=True):
         win_lookup = dict((w.get_id(), w) for w in self._app.get_windows())
@@ -723,7 +764,7 @@ class KeepNoteWindow(Gtk.Window):
         about.set_program_name(keepnote.PROGRAM_NAME)
         about.set_version(keepnote.PROGRAM_VERSION_TEXT)
         about.set_copyright(keepnote.COPYRIGHT)
-        about.set_logo(get_resource_pixbuf("keepnote-icon.png"))
+        about.set_logo(get_resource_pixbuf("keepnote.py-icon.png"))
         about.set_website(keepnote.WEBSITE)
         about.set_license_type(Gtk.License.GPL_2_0)
         about.set_translator_credits(keepnote.TRANSLATOR_CREDITS)
@@ -733,9 +774,9 @@ class KeepNoteWindow(Gtk.Window):
             about.set_license(open(license_file).read())
 
         about.set_transient_for(self)
-        about.connect("activate-link", func)  # Replaces set_url_hook
+        about.connect("activate-link", func)
         about.connect("response", lambda d, r: d.destroy())
-        about.present()  # Replaces show()
+        about.present()
 
     # Messages, warnings, errors UI/dialogs
     def set_status(self, text, bar="status"):
@@ -758,189 +799,108 @@ class KeepNoteWindow(Gtk.Window):
         self._app.pause_auto_save(False)
 
     # Menus
-    def get_actions(self):
-        actions = [Action(*x) for x in [
-            ("File", None, _("_File")),
-            ("New Notebook", "gtk-new", _("_New Notebook..."), "", _("Start a new notebook"), lambda w: self.on_new_notebook()),
-            ("Open Notebook", "gtk-open", _("_Open Notebook..."), "<control>O", _("Open an existing notebook"), lambda w: self.on_open_notebook()),
-            ("Open Recent Notebook", "gtk-open", _("Open Re_cent Notebook")),
-            ("Reload Notebook", "gtk-revert-to-saved", _("_Reload Notebook"), "", _("Reload the current notebook"), lambda w: self.reload_notebook()),
-            ("Save Notebook", "gtk-save", _("_Save Notebook"), "<control>S", _("Save the current notebook"), lambda w: self._app.save()),
-            ("Close Notebook", "gtk-close", _("_Close Notebook"), "", _("Close the current notebook"), lambda w: self._app.close_all_notebook(self.get_notebook())),
-            ("Empty Trash", "gtk-delete", _("Empty _Trash"), "", None, lambda w: self.on_empty_trash()),
-            ("Export", None, _("_Export Notebook")),
-            ("Import", None, _("_Import Notebook")),
-            ("Quit", "gtk-quit", _("_Quit"), "<control>Q", _("Quit KeepNote"), lambda w: self.on_quit()),
-            ("Edit", None, _("_Edit")),
-            ("Undo", "gtk-undo", None, "<control>Z", None, lambda w: self.on_undo()),
-            ("Redo", "gtk-redo", None, "<control><shift>Z", None, lambda w: self.on_redo()),
-            ("Cut", "gtk-cut", None, "<control>X", None, lambda w: self.on_cut()),
-            ("Copy", "gtk-copy", None, "<control>C", None, lambda w: self.on_copy()),
-            ("Copy Tree", "gtk-copy", None, "<control><shift>C", None, lambda w: self.on_copy_tree()),
-            ("Paste", "gtk-paste", None, "<control>V", None, lambda w: self.on_paste()),
-            ("KeepNote Preferences", "gtk-preferences", _("_Preferences"), "", None, lambda w: self._app.app_options_dialog.show(self)),
-            ("Search", None, _("_Search")),
-            ("Search All Notes", "gtk-find", _("_Search All Notes"), "<control>K", None, lambda w: self.search_box.grab_focus()),
-            ("Go", None, _("_Go")),
-            ("View", None, _("_View")),
-            ("View Note As", "gtk-open", _("_View Note As")),
-            ("View Note in File Explorer", "gtk-open", _("View Note in File Explorer"), "", None, lambda w: self.on_view_node_external_app("file_explorer", kind="dir")),
-            ("View Note in Text Editor", "gtk-open", _("View Note in Text Editor"), "", None, lambda w: self.on_view_node_external_app("text_editor", kind="page")),
-            ("View Note in Web Browser", "gtk-open", _("View Note in Web Browser"), "", None, lambda w: self.on_view_node_external_app("web_browser", kind="page")),
-            ("Open File", "gtk-open", _("_Open File"), "", None, lambda w: self.on_view_node_external_app("file_launcher", kind="file")),
-            ("Tools", None, _("_Tools")),
-            ("Update Notebook Index", None, _("_Update Notebook Index"), "", None, lambda w: self.update_index(clear=True)),
-            ("Compact Notebook Index", None, _("_Compact Notebook Index"), "", None, lambda w: self.compact_index()),
-            ("Open Notebook URL", None, _("_Open Notebook from URL"), "", None, lambda w: self.on_open_notebook_url()),
-            ("Window", None, _("Window")),
-            ("New Window", None, _("New Window"), "", _("Open a new window"), lambda w: self.on_new_window()),
-            ("Close Window", None, _("Close Window"), "", _("Close window"), lambda w: self.close()),
-            ("Help", None, _("_Help")),
-            ("View Error Log...", "gtk-dialog-error", _("View _Error Log..."), "", None, lambda w: self.view_error_log()),
-            ("View Preference Files...", None, _("View Preference Files..."), "", None, lambda w: self.view_config_files()),
-            ("Drag and Drop Test...", None, _("Drag and Drop Test..."), "", None, lambda w: self.drag_test.on_drag_and_drop_test()),
-            ("About", "gtk-about", _("_About"), "", None, lambda w: self.on_about())
-        ]] + [
-            Action("Main Spacer Tool"),
-            Action("Search Box Tool", None, None, "", _("Search All Notes")),
-            Action("Search Button Tool", "gtk-find", None, "", _("Search All Notes"), lambda w: self.search_box.on_search_nodes())
-        ]
-
-        recent = next(x for x in actions if x.get_property("name") == "Open Recent Notebook")
-        recent.set_property("is-important", True)
-        return actions
-
-    def setup_menus(self, uimanager):
-        pass
-
-    def get_ui(self):
-        return ["""
-<ui>
-<!-- main window menu bar -->
-<menubar name="main_menu_bar">
-  <menu action="File">
-     <menuitem action="New Notebook"/>
-     <placeholder name="Viewer"/>
-     <placeholder name="New"/>
-     <separator/>
-     <menuitem action="Open Notebook"/>
-     <menuitem action="Open Recent Notebook"/>
-     <menuitem action="Save Notebook"/>
-     <menuitem action="Close Notebook"/>
-     <menuitem action="Reload Notebook"/>
-     <menuitem action="Empty Trash"/>
-     <separator/>
-     <menu action="Export" />
-     <menu action="Import" />
-     <separator/>
-     <placeholder name="Extensions"/>
-     <separator/>
-     <menuitem action="Quit"/>
-  </menu>
-  <menu action="Edit">
-    <menuitem action="Undo"/>
-    <menuitem action="Redo"/>
-    <separator/>
-    <menuitem action="Cut"/>
-    <menuitem action="Copy"/>
-    <menuitem action="Copy Tree"/>
-    <menuitem action="Paste"/>
-    <separator/>
-    <placeholder name="Viewer"/>
-    <separator/>
-    <menuitem action="KeepNote Preferences"/>
-  </menu>
-  <menu action="Search">
-    <menuitem action="Search All Notes"/>
-    <placeholder name="Viewer"/>
-  </menu>
-  <placeholder name="Viewer"/>
-  <menu action="Go">
-    <placeholder name="Viewer"/>
-  </menu>
-  <menu action="Tools">
-    <placeholder name="Viewer"/>
-    <menuitem action="Update Notebook Index"/>
-    <menuitem action="Compact Notebook Index"/>
-    <menuitem action="Open Notebook URL"/>
-    <placeholder name="Extensions"/>
-  </menu>
-  <menu action="Window">
-     <menuitem action="New Window"/>
-     <menuitem action="Close Window"/>
-     <placeholder name="Viewer Window"/>
-  </menu>
-  <menu action="Help">
-    <menuitem action="View Error Log..."/>
-    <menuitem action="View Preference Files..."/>
-    <menuitem action="Drag and Drop Test..."/>
-    <separator/>
-    <menuitem action="About"/>
-  </menu>
-</menubar>
-<!-- main window tool bar -->
-<toolbar name="main_tool_bar">
-  <placeholder name="Viewer"/>
-  <toolitem action="Main Spacer Tool"/>
-  <toolitem action="Search Box Tool"/>
-  <toolitem action="Search Button Tool"/>
-</toolbar>
-<!-- popup menus -->
-<menubar name="popup_menus">
-</menubar>
-</ui>
-"""]
-
-    def get_actions_statusicon(self):
-        return [Action(*x) for x in [
-            ("KeepNote Preferences", "gtk-preferences", _("_Preferences"), "", None, lambda w: self._app.app_options_dialog.show(self)),
-            ("Quit", "gtk-quit", _("_Quit"), "<control>Q", _("Quit KeepNote"), lambda w: self.close()),
-            ("About", "gtk-about", _("_About"), "", None, lambda w: self.on_about())
-        ]]
-
-    def get_ui_statusicon(self):
-        return ["""
-<ui>
-  <!-- statusicon_menu -->
-  <popup name="statusicon_menu">
-    <menuitem action="KeepNote Preferences"/>
-    <menuitem action="About"/>
-    <separator/>
-    <menuitem action="Quit"/>
-  </popup>
-</ui>
-"""]
-
     def make_menubar(self):
-        self._actiongroup = Gtk.ActionGroup(name='MainWindow')
-        self._uimanager.insert_action_group(self._actiongroup, 0)
-        add_actions(self._actiongroup, self.get_actions())
-        for s in self.get_ui():
-            self._uimanager.add_ui_from_string(s)
-        self.setup_menus(self._uimanager)
-        return self._uimanager.get_widget('/main_menu_bar')
+        """
+        Create a full-featured GTK 4-compatible menubar using Gtk.MenuButton and Gio.Menu.
+        This replaces deprecated Gtk.MenuBar, Gtk.MenuItem, Gtk.Menu from GTK 3.
+        """
+        menubar_box = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=6)
+
+        # Create and insert action group for "win" domain
+        self.win_actions = Gio.SimpleActionGroup()
+        self.insert_action_group("win", self.win_actions)
+
+        # === Helper to build menu button and action group ===
+        def create_menu_button(title, actions):
+            menu = Gio.Menu()
+            for label, action_name, callback in actions:
+                menu.append(label, f"win.{action_name}")
+
+                if not self.win_actions.has_action(action_name):
+                    action = Gio.SimpleAction.new(action_name, None)
+                    action.connect("activate", lambda a, p, cb=callback: cb())
+                    self.win_actions.add_action(action)
+
+            btn = Gtk.MenuButton(label=title)
+            btn.set_popover(Gtk.PopoverMenu.new_from_model(menu))
+            return btn
+
+        # === File Menu ===
+        file_actions = [
+            ("New Notebook", "new_notebook", self.on_new_notebook),
+            ("Open Notebook", "open_notebook", self.on_open_notebook),
+            ("Save Notebook", "save_notebook", lambda: self.save_notebook(silent=False)),
+            ("Close Notebook", "close_notebook", lambda: self._app.close_all_notebook(self.get_notebook())),
+            ("Reload Notebook", "reload_notebook", self.reload_notebook),
+            ("Empty Trash", "empty_trash", self.on_empty_trash),
+            ("Quit", "quit", self.on_quit),
+        ]
+        menubar_box.append(create_menu_button("File", file_actions))
+
+        # === Edit Menu ===
+        edit_actions = [
+            ("Undo", "undo", self.on_undo),
+            ("Redo", "redo", self.on_redo),
+            ("Cut", "cut", self.on_cut),
+            ("Copy", "copy", self.on_copy),
+            ("Copy Tree", "copy_tree", self.on_copy_tree),
+            ("Paste", "paste", self.on_paste),
+        ]
+        menubar_box.append(create_menu_button("Edit", edit_actions))
+
+        # === Search Menu ===
+        search_actions = [
+            ("Search All Notes", "search_all",
+             lambda: self.search_box.grab_focus() if hasattr(self, 'search_box') else None),
+        ]
+        menubar_box.append(create_menu_button("Search", search_actions))
+
+        # === Tools Menu ===
+        tools_actions = [
+            ("Update Notebook Index", "update_index", lambda: self.update_index(clear=True)),
+            ("Compact Notebook Index", "compact_index", self.compact_index),
+            ("Open Notebook from URL", "open_url", self.on_open_notebook_url),
+        ]
+        menubar_box.append(create_menu_button("Tools", tools_actions))
+
+        # === Window Menu ===
+        window_actions = [
+            ("New Window", "new_window", self.on_new_window),
+            ("Close Window", "close_window", self.close),
+        ]
+        menubar_box.append(create_menu_button("Window", window_actions))
+
+        # === Help Menu ===
+        help_actions = [
+            ("View Error Log", "error_log", self.view_error_log),
+            ("View Preference Files", "pref_files", self.view_config_files),
+            ("Drag and Drop Test", "drag_drop_test", lambda: self.drag_test.on_drag_and_drop_test()),
+            ("About", "about", self.on_about),
+        ]
+        menubar_box.append(create_menu_button("Help", help_actions))
+
+        return menubar_box
 
     def make_toolbar(self):
-        toolbar = self._uimanager.get_widget('/main_tool_bar')
-        toolbar.set_orientation(Gtk.Orientation.HORIZONTAL)
-        # toolbar.set_style(Gtk.ToolbarStyle.ICONS)  # Removed in GTK 4
+        toolbar = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=6)
         toolbar.set_margin_start(0)
         toolbar.set_margin_end(0)
         toolbar.set_margin_top(0)
-        toolbar.set_margin_bottom(0)  # Replaces set_border_width
-
-        spacer = self._uimanager.get_widget("/main_tool_bar/Main Spacer Tool")
-        spacer.set_child(None)  # Changed from remove to set_child
-        spacer.set_expand(True)
+        toolbar.set_margin_bottom(0)
 
         self.search_box = SearchBox(self)
-        w = self._uimanager.get_widget("/main_tool_bar/Search Box Tool")
-        w.set_child(self.search_box)  # Changed from remove/add to set_child
+        toolbar.append(self.search_box)
+
+        search_button = Gtk.Button(label=_("Search"))
+        search_button.connect("clicked", lambda w: self.search_box.on_search_nodes())
+        toolbar.append(search_button)
+        # Call recent menu setup here to ensure file_menu_model is initialized
+        if hasattr(self, '_recent_notebooks'):
+            self.set_recent_notebooks_menu(self._recent_notebooks)
 
         return toolbar
 
-    def make_statusicon_menu(self):
-        return None  # System tray not supported in GTK 4
+
 
 class SearchBox(Gtk.Entry):
     def __init__(self, window):

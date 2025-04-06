@@ -31,7 +31,7 @@ import os
 import sys
 _ = gettext.gettext
 
-# keepnote imports
+# keepnote.py imports
 import keepnote
 import keepnote.extension
 import keepnote.gui.extension
@@ -63,7 +63,7 @@ class Extension (keepnote.gui.extension.Extension):
         self._ui_id = {}
 
     def get_depends(self):
-        return [("keepnote", ">=", (0, 6, 2))]
+        return [("keepnote.py", ">=", (0, 6, 2))]
 
     #================================
     # UI setup

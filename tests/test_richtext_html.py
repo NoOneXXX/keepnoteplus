@@ -6,7 +6,7 @@ import sys
 from io import StringIO
 from unittest import TestCase
 
-# keepnote imports
+# keepnote.py imports
 from keepnote.gui.richtext.richtext_html import HtmlBuffer, nest_indent_tags, \
     find_paragraphs, P_TAG
 from keepnote.gui.richtext import RichTextIO

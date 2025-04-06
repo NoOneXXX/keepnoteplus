@@ -11,7 +11,7 @@
 
 from io import StringIO
 
-# keepnote imports
+# keepnote.py imports
 import keepnote.notebook.connection as connlib
 from keepnote.notebook.connection import NoteBookConnection
 

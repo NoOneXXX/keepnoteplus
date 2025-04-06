@@ -33,7 +33,7 @@ class Extension(extension.Extension):
         self.app = app
 
     def get_depends(self):
-        return [("keepnote", ">=", (0, 7, 1))]
+        return [("keepnote.py", ">=", (0, 7, 1))]
 
     def on_add_ui(self, window):
         """Initialize extension for a particular window"""

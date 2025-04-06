@@ -5,8 +5,8 @@ from gi.repository import Gtk, Gdk
 
 # KeepNote imports
 import keepnote
-from keepnote import get_resource, unicode_gtk
-
+from keepnote import get_resource
+from keepnote.util.platform import unicode_gtk
 class KeepNoteFindDialog:
     """Find dialog for KeepNote editor"""
 
@@ -42,7 +42,7 @@ class KeepNoteFindDialog:
 
         # Load the UI file (replacing Glade with a GTK 4 UI file)
         self.find_builder = Gtk.Builder()
-        self.find_builder.add_from_file(get_resource("rc", "keepnote.ui"))  # Update to .ui file
+        self.find_builder.add_from_file(get_resource("rc", "keepnote.py.ui"))  # Update to .ui file
         self.find_builder.set_translation_domain(keepnote.GETTEXT_DOMAIN)
         self.find_dialog = self.find_builder.get_object("find_dialog")
         self.find_dialog.connect("close-request", lambda w: self.on_find_response("close"))

@@ -22,7 +22,7 @@ except Exception as e:
 #sqlite.threadsafety = 0
 
 
-# keepnote imports
+# keepnote.py imports
 import keepnote
 
 

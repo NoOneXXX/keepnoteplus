@@ -71,7 +71,7 @@ from os.path import join
 import xml.etree.cElementTree as ET
 
 
-# keepnote imports
+# keepnote.py imports
 import keepnote
 from keepnote import safefile, plist, maskdict
 from keepnote import trans

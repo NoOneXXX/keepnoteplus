@@ -13,12 +13,12 @@ import socket
 import sys
 import _thread
 
-# keepnote libs
+# keepnote.py libs
 import keepnote
 
 
 # constants
-KEEPNOTE_HEADER = "keepnote\n"
+KEEPNOTE_HEADER = "keepnote.py\n"
 #KEEPNOTE_EOF = "\x00"
 #KEEPNOTE_ESCAPE = "\xff"
 

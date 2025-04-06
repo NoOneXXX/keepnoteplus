@@ -85,33 +85,33 @@ def remove_package_dir(filename):
 # Resource files/data
 
 # Get resources
-rc_files = get_file_lookup(None, "keepnote/rc", "rc")
-image_files = get_file_lookup(None, "keepnote/images", "images")
-efiles = get_file_lookup(None, "keepnote/extensions", "extensions",
+rc_files = get_file_lookup(None, "keepnote.py/rc", "rc")
+image_files = get_file_lookup(None, "keepnote.py/images", "images")
+efiles = get_file_lookup(None, "keepnote.py/extensions", "extensions",
                          exclude=[".pyc"])
 freedesktop_files = [
     # Application icon
     ("share/icons/hicolor/48x48/apps",
-     ["desktop/keepnote.png"]),
+     ["desktop/keepnote.py.png"]),
 
     # Desktop menu entry
     ("share/applications",
-     ["desktop/keepnote.desktop"])
+     ["desktop/keepnote.py.desktop"])
 ]
 
 # Get data files
 data_files = freedesktop_files
-package_data = {'keepnote': []}
+package_data = {'keepnote.py': []}
 for v in itertools.chain(list(rc_files.values()),
                          list(image_files.values()),
                          list(efiles.values())):
-    package_data['keepnote'].extend([remove_package_dir(f) for f in v])
+    package_data['keepnote.py'].extend([remove_package_dir(f) for f in v])
 
 # =============================================================================
 # Setup
 
 setup(
-    name='keepnote',
+    name='keepnote.py',
     version=KEEPNOTE_VERSION,
     description='A cross-platform note taking application',
     long_description="""
@@ -159,15 +159,15 @@ setup(
     license="GPL",
 
     packages=[
-        'keepnote',
-        'keepnote.compat',
-        'keepnote.gui',
-        'keepnote.gui.richtext',
-        'keepnote.notebook',
-        'keepnote.notebook.connection',
-        'keepnote.notebook.connection.fs',
-        'keepnote.server',
-        'keepnote.mswin'
+        'keepnote.py',
+        'keepnote.py.compat',
+        'keepnote.py.gui',
+        'keepnote.py.gui.richtext',
+        'keepnote.py.notebook',
+        'keepnote.py.notebook.connection',
+        'keepnote.py.notebook.connection.fs',
+        'keepnote.py.server',
+        'keepnote.py.mswin'
     ],
     install_requires=[
         'pygobject>=3.50.0',
@@ -175,7 +175,7 @@ setup(
     ],
     entry_points={
         'console_scripts': [
-            'keepnote = keepnote.main:main',  # Adjust if script is moved
+            'keepnote.py = keepnote.py.main:main',  # Adjust if script is moved
         ],
     },
     data_files=data_files,

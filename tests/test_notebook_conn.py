@@ -4,7 +4,7 @@ from io import StringIO
 import sys
 import unittest
 
-# keepnote imports
+# keepnote.py imports
 from keepnote import notebook
 import keepnote.notebook.connection as connlib
 from keepnote.notebook.connection import FileError

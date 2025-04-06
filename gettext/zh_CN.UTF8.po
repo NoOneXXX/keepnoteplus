@@ -1,12 +1,12 @@
-# Chinese translations for keepnote package
-# keepnote 软件包的简体中文翻译.
-# Copyright (C) 2010 THE keepnote'S COPYRIGHT HOLDER
-# This file is distributed under the same license as the keepnote package.
+# Chinese translations for keepnote.py package
+# keepnote.py 软件包的简体中文翻译.
+# Copyright (C) 2010 THE keepnote.py'S COPYRIGHT HOLDER
+# This file is distributed under the same license as the keepnote.py package.
 # hudc <hdccn@sina.com>, 2010.
 #
 msgid ""
 msgstr ""
-"Project-Id-Version: keepnote 0.6.2\n"
+"Project-Id-Version: keepnote.py 0.6.2\n"
 "Report-Msgid-Bugs-To: \n"
 "POT-Creation-Date: 2012-07-23 10:26-0400\n"
 "PO-Revision-Date: 2010-03-24 15:32+0800\n"

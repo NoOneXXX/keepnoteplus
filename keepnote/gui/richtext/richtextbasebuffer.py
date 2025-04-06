@@ -116,7 +116,6 @@ class RichTextBaseBuffer(Gtk.TextBuffer):
             # Undo handler events
             self.connect("insert-text", self._undo_handler.on_insert_text),
             self.connect("delete-range", self._undo_handler.on_delete_range),
-            self.connect("insert-pixbuf", self._undo_handler.on_insert_pixbuf),
             self.connect("insert-child-anchor",
                          self._undo_handler.on_insert_child_anchor),
             self.connect("apply-tag", self._undo_handler.on_apply_tag),

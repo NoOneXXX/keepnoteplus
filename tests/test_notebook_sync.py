@@ -3,7 +3,7 @@
 import os
 import unittest
 
-# keepnote imports
+# keepnote.py imports
 from keepnote import notebook
 import keepnote.notebook.sync as sync
 

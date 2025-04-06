@@ -1,6 +1,6 @@
 import os, shutil, unittest
 
-# keepnote imports
+# keepnote.py imports
 from keepnote import notebook
 
 from keepnote.gui.richtext.richtext_html import HtmlBuffer, nest_indent_tags, \

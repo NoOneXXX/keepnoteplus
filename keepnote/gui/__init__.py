@@ -17,9 +17,9 @@ from gi.repository import Gtk, GLib, Gdk, GdkPixbuf
 from gi.repository import Gio
 # KeepNote imports
 import keepnote
-from keepnote import log_error
+
 from keepnote.gui.richtext import richtext_tags
-from keepnote import get_resource
+from keepnote.util.platform import get_resource
 from keepnote import tasklib
 from keepnote.notebook import NoteBookError
 import keepnote.notebook as notebooklib
@@ -28,7 +28,9 @@ import keepnote.gui.dialog_node_icon
 import keepnote.gui.dialog_wait
 from keepnote.gui.icons import DEFAULT_QUICK_PICK_ICONS, uncache_node_icon
 
-_ = keepnote.translate
+# 修改为从 util.perform 直接导入
+from keepnote.util.platform import translate
+_ = translate
 
 # Constants
 MAX_RECENT_NOTEBOOKS = 20
@@ -43,7 +45,8 @@ DEFAULT_FONT_FAMILY = "Sans"
 DEFAULT_FONT_SIZE = 10
 DEFAULT_FONT = f"{DEFAULT_FONT_FAMILY} {DEFAULT_FONT_SIZE}"
 
-if keepnote.get_platform() == "darwin":
+from keepnote.util.platform import get_platform
+if get_platform() == "darwin":
     CLIPBOARD_NAME = Gdk.SELECTION_PRIMARY
 else:
     CLIPBOARD_NAME = "CLIPBOARD"
@@ -105,11 +108,15 @@ class PixbufCache(object):
         if key in self._pixbufs:
             return self._pixbufs[key]
         else:
+            if not isinstance(filename, str):
+                # 不接受 Gtk.Image 或 Paintable，返回默认或跳过
+                return None
+
             pixbuf = GdkPixbuf.Pixbuf.new_from_file(filename)
             if size:
                 if size != (pixbuf.get_width(), pixbuf.get_height()):
                     pixbuf = pixbuf.scale_simple(size[0], size[1],
-                                                GdkPixbuf.InterpType.BILINEAR)
+                                                 GdkPixbuf.InterpType.BILINEAR)
             self._pixbufs[key] = pixbuf
             return pixbuf
 
@@ -254,6 +261,14 @@ def add_actions(actiongroup, actions):
 
 # Application for GUI
 class KeepNote(keepnote.KeepNote):
+
+    def get_node(self, node_id):
+        print(">>> get_node() called")
+        notebook = self.get_notebook()
+        if notebook:
+            return notebook.get_node_by_id(node_id)
+        return None
+
     """GUI version of the KeepNote application instance"""
     def __init__(self, basedir=None):
         super().__init__(basedir)
@@ -405,6 +420,7 @@ class KeepNote(keepnote.KeepNote):
             window.update_title()
 
     def _on_closing_notebook(self, notebook, save):
+        from keepnote import log_error
         super()._on_closing_notebook(notebook, save)
         try:
             if save:
@@ -532,6 +548,7 @@ class KeepNote(keepnote.KeepNote):
             window.present()
 
     def error(self, text, error=None, tracebk=None, parent=None):
+        from keepnote import log_error
         if parent is None:
             parent = self.get_current_window()
         dialog = Gtk.MessageDialog(
@@ -584,6 +601,7 @@ class KeepNote(keepnote.KeepNote):
         Gtk.main_quit()
 
     def _on_window_close(self, window):
+        from keepnote import log_error
         if window in self._windows:
             for ext in self.get_enabled_extensions():
                 try:
@@ -602,6 +620,7 @@ class KeepNote(keepnote.KeepNote):
         self._current_window = window
 
     def init_extensions_windows(self, windows=None, exts=None):
+        from keepnote import log_error
         if exts is None:
             exts = self.get_enabled_extensions()
         if windows is None:

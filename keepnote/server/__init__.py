@@ -25,7 +25,7 @@ from .bottle import response
 from .bottle import static_file
 from .bottle import template
 
-# keepnote imports
+# keepnote.py imports
 import keepnote
 from keepnote.notebook import new_nodeid
 import keepnote.notebook.connection as connlib

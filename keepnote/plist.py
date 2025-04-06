@@ -158,7 +158,7 @@ def dumps(elm, indent=0):
     return s.getvalue()
 
 
-# In keepnote.plist
+# In keepnote.py.plist
 def dump_etree(data, element=None):
     if element is None:
         element = ET.Element("dict")

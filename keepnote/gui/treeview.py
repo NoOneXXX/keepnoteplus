@@ -23,8 +23,13 @@ class KeepNoteTreeView(basetreeview.KeepNoteBaseTreeView):
         self.set_model(self.model)
 
         # Treeview signals
-        self.connect("key-release-event", self.on_key_released)
-        self.connect("button-press-event", self.on_button_press)
+        # GTK3 写法（不可用于 GTK4）
+        # self.connect("key-release-event", self.on_key_released)
+
+        # GTK4 推荐写法：
+        controller = Gtk.EventControllerKey()
+        controller.connect("key-released", self.on_key_released)
+        self.add_controller(controller)
 
         # Selection config
         self.get_selection().set_mode(Gtk.SelectionMode.MULTIPLE)

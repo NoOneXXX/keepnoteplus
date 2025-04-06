@@ -1,6 +1,6 @@
 import unittest
 
-# keepnote imports
+# keepnote.py imports
 from keepnote import commands
 
 

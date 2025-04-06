@@ -9,7 +9,7 @@
 from keepnote import PROGRAM_VERSION_TEXT
 import pefile
 
-exe_file = 'dist/keepnote-%s.win/keepnote.exe' % PROGRAM_VERSION_TEXT
+exe_file = 'dist/keepnote.py-%s.win/keepnote.py.exe' % PROGRAM_VERSION_TEXT
 
 
 # read PE file

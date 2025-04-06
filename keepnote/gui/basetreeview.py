@@ -9,9 +9,9 @@ import gi
 gi.require_version('Gtk', '4.0')
 from gi.repository import Gtk, Gdk, GObject
 from gi.repository import GdkPixbuf
-# keepnote imports
+# keepnote.py imports
 import keepnote
-from keepnote import unicode_gtk
+from keepnote.util.platform import unicode_gtk
 from keepnote.notebook import NoteBookError
 from keepnote.gui.icons import get_node_icon
 from keepnote.gui.treemodel import (
@@ -22,9 +22,9 @@ from keepnote.timestamp import get_str_timestamp
 
 _ = keepnote.translate
 
-MIME_NODE_COPY = "application/x-keepnote-node-copy"
-MIME_TREE_COPY = "application/x-keepnote-tree-copy"
-MIME_NODE_CUT = "application/x-keepnote-node-cut"
+MIME_NODE_COPY = "application/x-keepnote.py-node-copy"
+MIME_TREE_COPY = "application/x-keepnote.py-tree-copy"
+MIME_NODE_CUT = "application/x-keepnote.py-node-cut"
 
 # treeview drag and drop config
 DROP_URI = Gtk.DropTarget.new(Gdk.FileList, Gdk.DragAction.COPY)

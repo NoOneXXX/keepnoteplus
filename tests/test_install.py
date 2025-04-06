@@ -3,7 +3,7 @@
 import os
 import unittest
 
-# keepnote imports
+# keepnote.py imports
 from keepnote import PROGRAM_VERSION_TEXT
 
 from . import TMP_DIR, SRC_DIR, make_clean_dir
@@ -18,7 +18,7 @@ class Install (unittest.TestCase):
     def test_distutil_sdist(self):
         """Test distutil install"""
 
-        pkg = "keepnote-%s" % PROGRAM_VERSION_TEXT
+        pkg = "keepnote.py-%s" % PROGRAM_VERSION_TEXT
         sdist = SRC_DIR + "/dist/%s.tar.gz" % pkg
         install_dir = TMP_DIR + "/install/distutil"
         home_dir = TMP_DIR + "/install/home"
@@ -38,5 +38,5 @@ class Install (unittest.TestCase):
         self.system("cp ~/.Xauthority %s" % home_dir)
 
         self.system("HOME=%s; PYTHONPATH=%s/lib/python; "
-                    "python %s/bin/keepnote --no-gui" %
+                    "python %s/bin/keepnote.py --no-gui" %
                     (home_dir, install_dir, install_dir))

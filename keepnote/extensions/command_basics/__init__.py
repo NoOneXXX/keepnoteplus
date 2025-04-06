@@ -83,7 +83,7 @@ class Extension(keepnote.gui.extension.Extension):
         ]
 
     def get_depends(self):
-        return [("keepnote", ">=", (0, 6, 4))]
+        return [("keepnote.py", ">=", (0, 6, 4))]
 
     def on_enabled(self, enabled):
         if enabled:

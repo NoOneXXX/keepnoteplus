@@ -10,7 +10,7 @@
 import sys
 import _thread
 
-# keepnote imports
+# keepnote.py imports
 import keepnote
 from keepnote import AppCommand
 import keepnote.notebook
@@ -45,7 +45,7 @@ class Extension (keepnote.gui.extension.Extension):
 
 
     def get_depends(self):
-        return [("keepnote", ">=", (0, 7, 6))]
+        return [("keepnote.py", ">=", (0, 7, 6))]
 
 
     def on_enabled(self, enabled):

@@ -21,7 +21,7 @@ except:
 
 
 # global translation object
-GETTEXT_DOMAIN = 'keepnote'
+GETTEXT_DOMAIN = 'keepnote.py'
 _locale_dir = "."
 _translation = None
 _lang = None

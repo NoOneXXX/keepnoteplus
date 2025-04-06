@@ -11,8 +11,8 @@ import re
 from html.parser import HTMLParser
 from xml.sax.saxutils import escape
 
-# keepnote imports
-from keepnote import log_error, log_message
+# keepnote.py imports
+
 
 from .textbuffer_tools import \
     normalize_tags, \
@@ -888,6 +888,7 @@ class HtmlBuffer (HTMLParser):
     # Reading HTML
 
     def read(self, infile, partial=False, ignore_errors=False):
+        from keepnote import log_error
         """Read from stream infile to populate textbuffer"""
         #self._text_queue = []
         self._within_body = False
@@ -1137,6 +1138,7 @@ class HtmlBuffer (HTMLParser):
         self._out.write(text)
 
     def write_anchor(self, dom, anchor, xhtml=True):
+        from keepnote import  log_message
         """Write an anchor object"""
         for tag_writer in self._tag_writers:
             if isinstance(anchor, tag_writer.tagclass):

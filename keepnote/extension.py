@@ -231,7 +231,7 @@ class Extension (object):
 
         Dependencies returned as a list of tuples (NAME, REL, EXTRA)
 
-        NAME is a string identify an extension (or 'keepnote' itself).
+        NAME is a string identify an extension (or 'keepnote.py' itself).
         EXTRA is an object whose type depends on REL
 
         REL is a string representing a relation.  Options are:
@@ -257,7 +257,7 @@ class Extension (object):
         name can appear more than once if several relations are required
         (such as specifying a range of valid version numbers).
         """
-        return [("keepnote", ">=", (0, 6, 1))]
+        return [("keepnote.py", ">=", (0, 6, 1))]
 
     #===============================
     # filesystem paths

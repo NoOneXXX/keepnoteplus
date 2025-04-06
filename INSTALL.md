@@ -47,7 +47,7 @@ Once third-party libraries are installed, you can download and extract
 the `*.tar`.gz file using the command (if you haven't already done so):
 
 ```sh
-tar zxvf keepnote-X.Y.Z.tar.gz
+tar zxvf keepnote.py-X.Y.Z.tar.gz
 ```
 
 where X.Y.Z is the version of KeepNote you have downloaded.  One of
@@ -55,7 +55,7 @@ the easiest ways to run keepnote, is directly from its source
 directory using the command:
 
 ```sh
-YOUR_DOWNLOAD_PATH/keepnote-X.Y.Z/bin/keepnote
+YOUR_DOWNLOAD_PATH/keepnote.py-X.Y.Z/bin/keepnote.py
 ```
 
 or you can install with python distutils:
@@ -73,7 +73,7 @@ python setup.py install --prefix=YOUR_INSTALL_LOCATION
 Lastly, KeepNote can be install from [PyPI](https://pypi.python.org/pypi):
 
 ```sh
-pip install keepnote
+pip install keepnote.py
 ```
 
 This will download and install KeepNote to your default path.
@@ -105,5 +105,5 @@ spell checking to work completely.
 
 
 ```sh
-YOUR_DOWNLOAD_PATH/keepnote-X.Y.X/bin/keepnote
+YOUR_DOWNLOAD_PATH/keepnote.py-X.Y.X/bin/keepnote.py
 ```

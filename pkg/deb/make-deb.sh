@@ -8,7 +8,7 @@ fi
 # configure
 export DEBFULLNAME="Matt Rasmussen"
 export DEBEMAIL="rasmus@alum.mit.edu"
-PKG_NAME=keepnote
+PKG_NAME=keepnote.py
 PKG_VERSION="$1"
 
 

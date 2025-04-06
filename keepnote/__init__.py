@@ -1,5 +1,5 @@
-
 # Python imports
+import json
 import os
 import shutil
 import sys
@@ -10,7 +10,6 @@ import tempfile
 import traceback
 import uuid
 import zipfile
-
 try:
     import xml.etree.cElementTree as ET
 except ImportError:
@@ -33,8 +32,7 @@ import keepnote.timestamp
 import keepnote.trans
 from keepnote.trans import GETTEXT_DOMAIN
 import keepnote.xdg
-
-
+from gi.repository import Gtk
 import base64
 import html.entities
 from keepnote import tarfile
@@ -43,7 +41,7 @@ import sgmllib
 import string
 
 import xml.sax.saxutils
-
+# from keepnote.py.gui.richtext.richtextbase_tags import RichTextTagTable
 # Make pyflakes ignore these used modules
 GETTEXT_DOMAIN
 base64
@@ -60,6 +58,7 @@ try:
     import sys
     import modulefinder
     import win32com
+
     for p in win32com.__path__[1:]:
         modulefinder.AddPackagePath("win32com", p)
     for extra in ["win32com.shell"]:
@@ -111,7 +110,7 @@ BASEDIR = os.path.dirname(os.path.abspath(__file__))
 PLATFORM = None
 
 USER_PREF_DIR = "keepnote"
-USER_PREF_FILE = "keepnote.xml"
+USER_PREF_FILE = "keepnote.py.xml"
 USER_LOCK_FILE = "lockfile"
 USER_ERROR_LOG = "error-log.txt"
 USER_EXTENSIONS_DIR = "extensions"
@@ -122,17 +121,21 @@ PORTABLE_FILE = "portable.txt"
 DEFAULT_ENCODING = sys.getdefaultencoding()
 FS_ENCODING = sys.getfilesystemencoding()
 
+
 # Application resources
 def get_basedir():
     return os.path.dirname(os.path.abspath(__file__))
+
 
 def set_basedir(basedir):
     global BASEDIR
     BASEDIR = basedir if basedir else get_basedir()
     keepnote.trans.set_local_dir(get_locale_dir())
 
-def get_resource(*path_list):
-    return os.path.join(BASEDIR, *path_list)
+
+# def get_resource(*path_list):
+#     return os.path.join(BASEDIR, *path_list)
+
 
 # Common functions
 def get_platform():
@@ -142,20 +145,19 @@ def get_platform():
         PLATFORM = 'darwin' if p == 'darwin' else 'windows' if p.startswith('win') else 'unix'
     return PLATFORM
 
+
 def is_url(text):
     return re.match(r"^[^:]+://", text) is not None
+
 
 def ensure_unicode(text, encoding="utf-8"):
     if text is None:
         return None
     return text if isinstance(text, str) else str(text, encoding)
 
-def unicode_gtk(text):
-    if text is None:
-        return None
-    if isinstance(text, bytes):
-        return text.decode("utf-8", errors="replace")
-    return text  # Already a string in Python 3
+
+
+
 
 def print_error_log_header(out=None):
     out = out or sys.stderr
@@ -163,6 +165,7 @@ def print_error_log_header(out=None):
         "==============================================\n"
         f"{PROGRAM_NAME} {PROGRAM_VERSION_TEXT}: {time.asctime()}\n"
     )
+
 
 def print_runtime_info(out=None):
     out = out or sys.stderr
@@ -175,9 +178,9 @@ def print_runtime_info(out=None):
         f"sys.getdefaultencoding()={DEFAULT_ENCODING}\n"
         f"sys.getfilesystemencoding()={FS_ENCODING}\n"
         "PYTHONPATH=\n  " + "\n  ".join(sys.path) + "\n\n"
-        "Imported libs\n"
-        "-------------\n"
-        f"keepnote: {keepnote.__file__}\n"
+                                                    "Imported libs\n"
+                                                    "-------------\n"
+                                                    f"keepnote.py: {keepnote.__file__}\n"
     )
     try:
         from gi.repository import Gtk
@@ -199,6 +202,7 @@ def print_runtime_info(out=None):
         out.write("gtkspell: NOT PRESENT\n")
     out.write("\n")
 
+
 def test_fts3():
     from keepnote.notebook.connection.fs.index import sqlite
     con = sqlite.connect(":memory:")
@@ -210,14 +214,20 @@ def test_fts3():
     finally:
         con.close()
 
+
 # Locale functions
 def translate(message):
     return keepnote.trans.translate(message)
 
+
 def get_locale_dir():
     return get_resource("rc", "locale")
 
+def get_resource(*path_list):
+    return os.path.join(BASEDIR, *path_list)
+
 _ = translate
+
 
 # Preference filenaming scheme
 def get_home():
@@ -226,33 +236,53 @@ def get_home():
         raise EnvError("HOME environment variable must be specified")
     return home
 
+
+
+
+
 def get_user_pref_dir(home=None):
+    """
+    返回用户配置目录路径。根据平台不同返回：
+    - Windows: %APPDATA%\keepnote
+    - Unix/Darwin: 使用 xdg 配置目录
+    """
     p = get_platform()
     if p in ("unix", "darwin"):
         if home is None:
             home = get_home()
         return keepnote.xdg.get_config_file(USER_PREF_DIR, default=True)
+
     elif p == "windows":
         if os.path.exists(os.path.join(BASEDIR, PORTABLE_FILE)):
-            return os.path.join(BASEDIR, USER_PREF_DIR)
-        appdata = get_win_env("APPDATA")
-        if appdata is None:
-            raise EnvError("APPDATA environment variable must be specified")
-        return os.path.join(appdata, USER_PREF_DIR)
+            path = os.path.join(BASEDIR, USER_PREF_DIR)
+        else:
+            appdata = get_win_env("APPDATA")
+            if appdata is None:
+                raise EnvError("APPDATA environment variable must be specified")
+            path = os.path.join(appdata, USER_PREF_DIR)
+
+        # ✅ 如果目录不存在，自动创建（避免 NoteBookError）
+        os.makedirs(path, exist_ok=True)
+        return path
+
     raise Exception(f"unknown platform '{p}'")
+
 
 def get_user_extensions_dir(pref_dir=None, home=None):
     if pref_dir is None:
         pref_dir = get_user_pref_dir(home)
     return os.path.join(pref_dir, USER_EXTENSIONS_DIR)
 
+
 def get_user_extensions_data_dir(pref_dir=None, home=None):
     if pref_dir is None:
         pref_dir = get_user_pref_dir(home)
     return os.path.join(pref_dir, USER_EXTENSIONS_DATA_DIR)
 
+
 def get_system_extensions_dir():
     return os.path.join(BASEDIR, "extensions")
+
 
 def get_user_documents():
     """Returns the path to the user's documents folder"""
@@ -261,26 +291,31 @@ def get_user_documents():
     else:
         return os.path.expanduser("~/Documents")
 
+
 def get_user_pref_file(pref_dir=None, home=None):
     if pref_dir is None:
         pref_dir = get_user_pref_dir(home)
     return os.path.join(pref_dir, USER_PREF_FILE)
+
 
 def get_user_lock_file(pref_dir=None, home=None):
     if pref_dir is None:
         pref_dir = get_user_pref_dir(home)
     return os.path.join(pref_dir, USER_LOCK_FILE)
 
+
 def get_user_error_log(pref_dir=None, home=None):
     if pref_dir is None:
         pref_dir = get_user_pref_dir(home)
     return os.path.join(pref_dir, USER_ERROR_LOG)
+
 
 def get_win_env(key):
     try:
         return ensure_unicode(os.getenv(key), DEFAULT_ENCODING)
     except UnicodeDecodeError:
         return ensure_unicode(os.getenv(key), FS_ENCODING)
+
 
 # Preference/extension initialization
 def init_user_pref_dir(pref_dir=None, home=None):
@@ -295,7 +330,7 @@ def init_user_pref_dir(pref_dir=None, home=None):
     if not os.path.exists(pref_file) or os.path.getsize(pref_file) == 0:
         try:
             with open(pref_file, "w", encoding="utf-8") as out:
-                out.write("<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n<keepnote>\n</keepnote>\n")
+                out.write("<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n<keepnote.py>\n</keepnote.py>\n")
             print(f"Created or updated pref_file: {pref_file}, size: {os.path.getsize(pref_file)} bytes")
             if os.path.getsize(pref_file) == 0:
                 raise IOError("Failed to write content to preferences file")
@@ -304,6 +339,7 @@ def init_user_pref_dir(pref_dir=None, home=None):
             raise
     init_error_log(pref_dir)
     extension.init_user_extensions(pref_dir)
+
 
 def init_error_log(pref_dir=None, home=None):
     if pref_dir is None:
@@ -314,6 +350,7 @@ def init_error_log(pref_dir=None, home=None):
         if not os.path.exists(error_dir):
             os.makedirs(error_dir)
         open(error_log, "a").close()
+
 
 def log_error(error=None, tracebk=None, out=None):
     out = out or sys.stderr
@@ -326,6 +363,7 @@ def log_error(error=None, tracebk=None, out=None):
     except UnicodeEncodeError:
         out.write(str(error).encode("ascii", "replace"))
 
+
 def log_message(message, out=None):
     out = out or sys.stderr
     try:
@@ -333,6 +371,7 @@ def log_message(message, out=None):
     except UnicodeEncodeError:
         out.write(message.encode("ascii", "replace"))
     out.flush()
+
 
 # Exceptions
 class EnvError(Exception):
@@ -343,6 +382,7 @@ class EnvError(Exception):
 
     def __str__(self):
         return f"{self.error}\n{self.msg}" if self.error else self.msg
+
 
 class KeepNoteError(Exception):
     def __init__(self, msg, error=None):
@@ -356,6 +396,7 @@ class KeepNoteError(Exception):
     def __str__(self):
         return self.msg
 
+
 class KeepNotePreferenceError(Exception):
     def __init__(self, msg, error=None):
         super().__init__(msg)
@@ -365,6 +406,7 @@ class KeepNotePreferenceError(Exception):
     def __str__(self):
         return f"{self.error}\n{self.msg}" if self.error else self.msg
 
+
 # Preference data structures
 class ExternalApp:
     def __init__(self, key, title, prog, args=None):
@@ -372,6 +414,7 @@ class ExternalApp:
         self.title = title
         self.prog = prog
         self.args = args or []
+
 
 DEFAULT_EXTERNAL_APPS = [
     ExternalApp("file_launcher", "File Launcher", ""),
@@ -382,6 +425,7 @@ DEFAULT_EXTERNAL_APPS = [
     ExternalApp("image_viewer", "Image Viewer", ""),
     ExternalApp("screen_shot", "Screen Shot", ""),
 ]
+
 
 def get_external_app_defaults():
     if get_platform() == "windows":
@@ -407,11 +451,12 @@ def get_external_app_defaults():
         ]
     return DEFAULT_EXTERNAL_APPS
 
+
 class KeepNotePreferences(Pref):
     def __init__(self, pref_dir=None, home=None):
         super().__init__()
         self._pref_dir = pref_dir or get_user_pref_dir(home)
-        self._tree = ET.ElementTree(ET.Element("keepnote"))  # Always start with valid tree
+        self._tree = ET.ElementTree(ET.Element("keepnote.py"))  # Always start with valid tree
         self.changed = Listeners()
 
     def get_pref_dir(self):
@@ -441,7 +486,7 @@ class KeepNotePreferences(Pref):
             tree = ET.ElementTree(file=pref_file)
             root = tree.getroot()
             print(f"Parsed root tag: {root.tag}")
-            if root.tag != "keepnote":
+            if root.tag != "keepnote.py":
                 raise KeepNotePreferenceError("Invalid root tag in preferences file", None)
             p = root.find("pref")
             if p is None:
@@ -461,7 +506,7 @@ class KeepNotePreferences(Pref):
     def write(self):
         pref_file = get_user_pref_file(self._pref_dir)
         if self._tree is None or self._tree.getroot() is None:
-            self._tree = ET.ElementTree(ET.Element("keepnote"))
+            self._tree = ET.ElementTree(ET.Element("keepnote.py"))
         # Add current preferences to the tree before writing
         root = self._tree.getroot()
         pref_elem = ET.SubElement(root, "pref")
@@ -469,6 +514,7 @@ class KeepNotePreferences(Pref):
         plist.dump_etree(self._data, dict_elem)
         with open(pref_file, "w", encoding="utf-8") as out:
             self._tree.write(out, encoding="unicode", xml_declaration=True)
+
 
 # Application class
 class ExtensionEntry:
@@ -480,12 +526,14 @@ class ExtensionEntry:
     def get_key(self):
         return os.path.basename(self.filename)
 
+
 class AppCommand:
     def __init__(self, name, func=lambda app, args: None, metavar="", help=""):
         self.name = name
         self.func = func
         self.metavar = metavar
         self.help = help
+
 
 class KeepNote:
     def __init__(self, basedir=None, pref_dir=None):
@@ -626,6 +674,8 @@ class KeepNote:
         for notebook in self._notebooks.values():
             notebook.save()
 
+
+
     def get_node(self, nodeid):
         for notebook in self._notebooks.values():
             node = notebook.get_node_by_id(nodeid)
@@ -764,7 +814,7 @@ class KeepNote:
     def _clear_extensions(self):
         for ext in list(self.get_enabled_extensions()):
             ext.disable()
-        self._extensions = {"keepnote": ExtensionEntry("", "system", KeepNoteExtension(self))}
+        self._extensions = {"keepnote.py": ExtensionEntry("", "system", KeepNoteExtension(self))}
 
     def _scan_extension_paths(self):
         for path, ext_type in self._extension_paths:
@@ -888,7 +938,6 @@ class KeepNote:
         return os.path.join(get_user_extensions_data_dir(self.get_pref_dir()), extkey)
 
 
-
 def unzip(filename, outdir):
     with zipfile.ZipFile(filename) as extzip:
         for fn in extzip.namelist():
@@ -906,9 +955,10 @@ def unzip(filename, outdir):
                 out.write(extzip.read(fn))
             yield newfilename
 
+
 class KeepNoteExtension(extension.Extension):
     version = PROGRAM_VERSION
-    key = "keepnote"
+    key = "keepnote.py"
     name = "KeepNote"
     description = "The KeepNote application"
     visible = False
@@ -920,5 +970,128 @@ class KeepNoteExtension(extension.Extension):
         super().enable(True)
         return True
 
-    def get_depends(self):
-        return []
+    def get_richtext_tag_table(self):
+        """
+        返回富文本编辑器用的标签表（Gtk.TextTagTable）
+        这通常是用于高亮、粗体、颜色等文本标记。
+        """
+        if not hasattr(self, "_richtext_tag_table"):
+            self._richtext_tag_table = Gtk.TextTagTable()
+        return self._richtext_tag_table
+
+
+def get_depends(self):
+    return []
+
+class Listener:
+    def __init__(self):
+        self._callbacks = []
+
+    def add(self, callback):
+        if callback not in self._callbacks:
+            self._callbacks.append(callback)
+
+    def remove(self, callback):
+        if callback in self._callbacks:
+            self._callbacks.remove(callback)
+
+    def fire(self, *args, **kwargs):
+        for callback in self._callbacks:
+            callback(*args, **kwargs)
+
+class KeepNoteApplication(Gtk.Application):
+    # def get_richtext_tag_table(self):
+    #     # TODO: Return a tag table for rich text editing
+    #     from gi.repository import Gtk
+    #     return Gtk.TextTagTable()
+    def __init__(self):
+        Gtk.Application.__init__(self, application_id="org.keepnote.py.KeepNote")
+        self._tag_table = None  # ✅ 添加这一行
+        self.pref = self.load_preferences()  # or an actual Preferences object
+        self.connect("activate", self.do_activate)
+        # self.connect("startup", self.do_startup)  # Ensure startup is connected
+        self._notebooks = []  # ✅ 添加这行初始化
+        self._windows = []
+        self._window = None
+
+    def load_preferences(self):
+        """
+        加载用户偏好设置，可以是 JSON 或其他格式
+        """
+        config_path = os.path.join(keepnote.get_user_pref_dir(), "settings.json")
+        if os.path.exists(config_path):
+            try:
+                with open(config_path, "r", encoding="utf-8") as f:
+                    return json.load(f)
+            except Exception as e:
+                print("Error loading preferences:", e)
+        return {}
+
+    def get_listeners(self, key):
+        if not hasattr(self, "_listeners"):
+            self._listeners = {}
+        if key not in self._listeners:
+            self._listeners[key] = Listener()
+        return self._listeners[key]
+
+    def ref_notebook(self, notebook):
+        """注册一个 notebook 引用，避免重复添加"""
+        if notebook not in self._notebooks:
+            self._notebooks.append(notebook)
+
+    def unref_notebook(self, notebook):
+        """注销 notebook 引用"""
+        if notebook in self._notebooks:
+            self._notebooks.remove(notebook)
+
+    def get_notebooks(self):
+        """获取当前引用的所有 notebooks"""
+        return list(self._notebooks)
+
+
+    def get_richtext_tag_table(self):
+        if self._tag_table is None:
+            from keepnote.gui.richtext.richtextbase_tags import RichTextTagTable
+            self._tag_table = RichTextTagTable()
+        return self._tag_table
+
+    # 在 keepnote.py/__init__.py 的 KeepNoteApplication 类中
+    def do_activate(self, *args, **kwargs):
+        print(f"✅ Entering do_activate with args: {args}")
+        if self._window is not None:
+            print(f"ℹ️ Window already exists (id: {self._window.get_id()}), presenting existing window")
+            self._window.present()
+            print(f"ℹ️ Window maximized: {self._window._maximized}, iconified: {self._window._iconified}")
+            if self._window._iconified:
+                self._window.restore_window()
+            return
+
+        try:
+            from keepnote.gui import main_window
+            self._window = main_window.KeepNoteWindow(self)
+            self._windows.append(self._window)
+            self._window.present()
+            print(f"✅ New window created (id: {self._window.get_id()}) and presented")
+            print(f"ℹ️ Window maximized: {self._window._maximized}, iconified: {self._window._iconified}")
+        except Exception as e:
+            print("❌ Error in do_activate:")
+            traceback.print_exc()
+            raise
+
+    def get_node(self, uid):
+        # 兼容接口，用于提供 get_node 方法
+        if hasattr(self, "notebook") and self.notebook:
+            return self.notebook.get_node(uid)
+        return None
+
+    def error(self, text, error=None, tracebk=None):
+        from keepnote import log_message, log_error
+        """
+        用于统一打印错误信息（主窗口或后台异常）。
+        """
+        log_message(text + "\n")
+        if error is not None:
+            log_error(error, tracebk)
+
+    def do_startup(self):
+        Gtk.Application.do_startup(self)

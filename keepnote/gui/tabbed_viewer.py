@@ -1,5 +1,6 @@
 # PyGObject imports
 from gi import require_version
+
 require_version('Gtk', '4.0')
 from gi.repository import Gtk, Gdk, GLib, GObject
 
@@ -11,6 +12,7 @@ from keepnote.gui.viewer import Viewer
 from keepnote.gui.icons import get_node_icon
 
 _ = keepnote.translate
+
 
 class TwoWayDict(object):
     def __init__(self):
@@ -26,6 +28,7 @@ class TwoWayDict(object):
 
     def get2(self, item2, default=None):
         return self._lookup2.get(item2, default)
+
 
 class TabbedViewer(Viewer):
     """A viewer with a treeview, listview, and editor"""
@@ -50,7 +53,13 @@ class TabbedViewer(Viewer):
         self._tabs.connect("switch-page", self._on_switch_tab)
         self._tabs.connect("page-added", self._on_tab_added)
         self._tabs.connect("page-removed", self._on_tab_removed)
-        self._tabs.connect("button-press-event", self._on_button_press)
+
+        # Replace "button-press-event" with Gtk.GestureClick
+        click_controller = Gtk.GestureClick.new()
+        click_controller.set_button(1)  # Left-click
+        click_controller.connect("pressed", self._on_button_press)
+        self._tabs.add_controller(click_controller)
+
         self.append(self._tabs)  # Changed from pack_start to append
 
         # Initialize with a single tab
@@ -149,6 +158,7 @@ class TabbedViewer(Viewer):
             self.emit("current-node", self._current_viewer.get_current_node())
             notebook = self._current_viewer.get_notebook()
             self.emit("modified", notebook.save_needed() if notebook else False)
+
         GLib.idle_add(func)
 
     def _on_tab_added(self, tabs, child, page_num):
@@ -174,7 +184,7 @@ class TabbedViewer(Viewer):
 
         MAX_TITLE = 20
         if len(title) > MAX_TITLE - 3:
-            title = title[:MAX_TITLE-3] + "..."
+            title = title[:MAX_TITLE - 3] + "..."
 
         tab = self._tabs.get_tab_label(viewer)
         if self._tab_names[viewer] is None:
@@ -193,11 +203,13 @@ class TabbedViewer(Viewer):
         pos = (pos + step) % self._tabs.get_n_pages()
         self._tabs.set_current_page(pos)
 
-    def _on_button_press(self, widget, event):
+    def _on_button_press(self, gesture, n_press, x, y):
+        """Callback for double-click on tab bar"""
         if (self.get_toplevel().get_focus() == self._tabs and
-                event.button == 1 and event.type == Gdk.EventType.DOUBLE_BUTTON_PRESS):  # Changed from _2BUTTON_PRESS
+                n_press == 2):  # Double-click
             label = self._tabs.get_tab_label(self._tabs.get_nth_page(self._tabs.get_current_page()))
             label.start_editing()
+            gesture.set_state(Gtk.EventSequenceState.CLAIMED)
 
     def _on_new_tab_name(self, viewer, name):
         """Callback for when a tab gets a new name"""
@@ -279,7 +291,8 @@ class TabbedViewer(Viewer):
             if notebook:
                 tabs = notebook.pref.get("viewers", "ids", self._viewerid, "tabs")
                 name = self._tab_names[viewer]
-                tabs.append({"viewer_type": viewer.get_name(), "viewerid": viewer.get_id(), "name": name if name is not None else ""})
+                tabs.append({"viewer_type": viewer.get_name(), "viewerid": viewer.get_id(),
+                             "name": name if name is not None else ""})
                 if viewer == current_viewer:
                     notebook.pref.set("viewers", "ids", self._viewerid, "current_viewer", viewer.get_id())
 
@@ -319,54 +332,38 @@ class TabbedViewer(Viewer):
     def add_ui(self, window):
         assert window == self._main_window
         self._ui_ready = True
-        self._action_group = Gtk.ActionGroup(name="Tabbed Viewer")
-        self._uis = []
-        add_actions(self._action_group, self._get_actions())
-        self._main_window.get_uimanager().insert_action_group(self._action_group, 0)
-        for s in self._get_ui():
-            self._uis.append(self._main_window.get_uimanager().add_ui_from_string(s))
+        # Note: Gtk.UIManager is deprecated in GTK 4, this needs reimplementation
+        print("Warning: add_ui needs to be reimplemented for GTK 4 (Gtk.UIManager deprecated)")
         self._current_viewer.add_ui(window)
 
     def remove_ui(self, window):
         assert window == self._main_window
         self._ui_ready = False
         self._current_viewer.remove_ui(window)
-        for ui in reversed(self._uis):
-            self._main_window.get_uimanager().remove_ui(ui)
-        self._uis = []
-        self._main_window.get_uimanager().remove_action_group(self._action_group)
+        # Note: Gtk.UIManager is deprecated in GTK 4, this needs reimplementation
+        print("Warning: remove_ui needs to be reimplemented for GTK 4 (Gtk.UIManager deprecated)")
 
     def _get_ui(self):
-        return ["""
-<ui>
-<!-- main window menu bar -->
-<menubar name="main_menu_bar">
-  <menu action="Go">
-    <placeholder name="Viewer">
-      <menuitem action="Next Tab"/>
-      <menuitem action="Previous Tab"/>
-      <separator/>
-    </placeholder>
-  </menu>
-  <menu action="Window">
-    <placeholder name="Viewer Window">
-      <menuitem action="New Tab"/>
-      <menuitem action="Close Tab"/>
-    </placeholder>
-  </menu>
-</menubar>
-</ui>
-"""]
+        # Placeholder for GTK 4 GMenu or manual widget implementation
+        print("Warning: _get_ui needs to be reimplemented for GTK 4")
+        return []
 
     def _get_actions(self):
         return [Action(*x) for x in [
             ("New Tab", None, _("New _Tab"), "<shift><control>T", _("Open a new tab"), lambda w: self.new_tab()),
             ("Close Tab", None, _("Close _Tab"), "<shift><control>W", _("Close a tab"), lambda w: self.close_tab()),
-            ("Next Tab", None, _("_Next Tab"), "<control>Page_Down", _("Switch to next tab"), lambda w: self.switch_tab(1)),
-            ("Previous Tab", None, _("_Previous Tab"), "<control>Page_Up", _("Switch to previous tab"), lambda w: self.switch_tab(-1))
+            ("Next Tab", None, _("_Next Tab"), "<control>Page_Down", _("Switch to next tab"),
+             lambda w: self.switch_tab(1)),
+            ("Previous Tab", None, _("_Previous Tab"), "<control>Page_Up", _("Switch to previous tab"),
+             lambda w: self.switch_tab(-1))
         ]]
 
+
 class TabLabel(Gtk.Box):
+    __gsignals__ = {
+        "new-name": (GObject.SIGNAL_RUN_LAST, None, (str,)),
+    }
+
     def __init__(self, tabs, viewer, icon, text):
         super().__init__(orientation=Gtk.Orientation.HORIZONTAL, spacing=2)
 
@@ -388,31 +385,36 @@ class TabLabel(Gtk.Box):
         # Entry
         self.entry = Gtk.Entry()
         self.entry.set_halign(Gtk.Align.START)
-        self.entry.connect("focus-out-event", lambda w, e: self.stop_editing())
+
+        # Replace "focus-out-event" with EventControllerFocus
+        focus_controller = Gtk.EventControllerFocus.new()
+        focus_controller.connect("leave", lambda controller: self.stop_editing())
+        self.entry.add_controller(focus_controller)
+
         self.entry.connect("activate", self._done)
         self._editing = False
 
-        # Close button
-        self.close_button_state = [Gtk.StateType.NORMAL]
-
-        def highlight(w, event):
-            self.close_button_state[0] = w.get_state_flags()  # Replaces get_state()
-            w.set_state_flags(Gtk.StateFlags.PRELIGHT, clear=False)  # Replaces set_state()
-
-        def unhighlight(w, event):
-            w.set_state_flags(self.close_button_state[0], clear=True)  # Replaces set_state()
-
-        self.eclose_button = Gtk.EventBox()
+        # Close button with hover effects using EventControllerMotion
+        self.eclose_button = Gtk.Box()
         self.close_button = keepnote.gui.get_resource_image("close_tab.png")
-        self.eclose_button.set_child(self.close_button)  # Changed from add to set_child
+        self.eclose_button.append(self.close_button)  # Changed from add to set_child
         self.eclose_button.set_visible(True)  # Replaces show()
-
-        self.eclose_button.connect("enter-notify-event", highlight)
-        self.eclose_button.connect("leave-notify-event", unhighlight)
         self.close_button.set_visible(True)  # Replaces show()
 
-        self.eclose_button.connect("button-press-event", lambda w, e:
-                                   self.tabs.close_viewer(self.viewer) if e.button == 1 else None)
+        # Replace "enter-notify-event" and "leave-notify-event" with EventControllerMotion
+        motion_controller = Gtk.EventControllerMotion.new()
+        motion_controller.connect("enter",
+                                  lambda controller, x, y: self.close_button.set_state_flags(Gtk.StateFlags.PRELIGHT,
+                                                                                             clear=False))
+        motion_controller.connect("leave", lambda controller: self.close_button.set_state_flags(Gtk.StateFlags.NORMAL,
+                                                                                                clear=True))
+        self.eclose_button.add_controller(motion_controller)
+
+        # Replace "button-press-event" with GestureClick
+        click_controller = Gtk.GestureClick.new()
+        click_controller.set_button(1)  # Left-click
+        click_controller.connect("pressed", lambda gesture, n_press, x, y: self.tabs.close_viewer(self.viewer))
+        self.eclose_button.add_controller(click_controller)
 
         # Layout
         self.append(self.icon)  # Changed from pack_start to append
@@ -429,14 +431,13 @@ class TabLabel(Gtk.Box):
         if not self._editing:
             self._editing = True
             # In GTK 4, get_preferred_size() is replaced with measure()
-            self.label.measure(Gtk.Orientation.HORIZONTAL, -1)
-            w = self.label.get_width()  # Simplified for now
-            h = self.label.get_height()  # Simplified for now
+            width = self.label.measure(Gtk.Orientation.HORIZONTAL, -1)[1]  # Minimum width
+            height = self.label.measure(Gtk.Orientation.VERTICAL, -1)[1]  # Minimum height
             self.remove(self.label)
             self.entry.set_text(self.label.get_label())
             self.append(self.entry)  # Changed from pack_start to append
             self.reorder_child(self.entry, 1)
-            self.entry.set_size_request(w, h)
+            self.entry.set_size_request(int(width), int(height))
             self.entry.set_visible(True)  # Replaces show()
             self.entry.grab_focus()
 
@@ -455,5 +456,6 @@ class TabLabel(Gtk.Box):
     def set_icon(self, pixbuf):
         self.icon.set_from_pixbuf(pixbuf)
 
+
 GObject.type_register(TabLabel)
-GObject.signal_new("new-name", TabLabel, GObject.SignalFlags.RUN_LAST, None, (str,))
+# GObject.signal_new("new-name", TabLabel, GObject.SignalFlags.RUN_LAST, None, (str,))

@@ -1,10 +1,10 @@
 # Python 3 and PyGObject imports
 import gi
 gi.require_version('Gtk', '4.0')  # Specify GTK 4.0
-from gi.repository import Gtk, Gdk
+from gi.repository import Gtk, Gdk, GLib
 
 # KeepNote imports
-from keepnote import unicode_gtk
+from keepnote.util.platform import unicode_gtk
 from keepnote.notebook import get_node_url
 
 class LinkEditor(Gtk.Frame):
@@ -48,12 +48,23 @@ class LinkEditor(Gtk.Frame):
 
         self.url_text = Gtk.Entry()
         hbox.append(self.url_text)  # Changed from pack_start to append
-        self.url_text.connect("key-press-event", self._on_key_press_event)
-        self.url_text.connect("focus-in-event", self._on_url_text_start)
-        self.url_text.connect("focus-out-event", self._on_url_text_done)
+
+        # Replace "key-press-event" with EventControllerKey
+        key_controller = Gtk.EventControllerKey.new()
+        key_controller.connect("key-pressed", self._on_key_press_event)
+        self.url_text.add_controller(key_controller)
+
+        # Replace "focus-in-event" and "focus-out-event" with EventControllerFocus
+        focus_controller = Gtk.EventControllerFocus.new()
+        focus_controller.connect("enter", self._on_url_text_start)
+        focus_controller.connect("leave", self._on_url_text_done)
+        self.url_text.add_controller(focus_controller)
+
+        # Connect "changed" and "activate" signals (still valid in GTK 4)
         self.url_text.connect("changed", self._on_url_text_changed)
         self.url_text.connect("activate", self._on_activate)
 
+        # Completion setup
         self._liststore = Gtk.ListStore.new([str, str])
         self.completion = Gtk.EntryCompletion()
         self.completion.connect("match-selected", self._on_completion_match)
@@ -93,10 +104,10 @@ class LinkEditor(Gtk.Frame):
         self._ignore_text = False
         self.dismiss(True)
 
-    def _on_url_text_done(self, widget, event):
+    def _on_url_text_done(self, controller):
         self.set_url()
 
-    def _on_url_text_start(self, widget, event):
+    def _on_url_text_start(self, controller):
         if self.textview:
             tag, start, end = self.textview.get_link()
             if tag:
@@ -132,8 +143,6 @@ class LinkEditor(Gtk.Frame):
                 def scroll_to_mark():
                     self.textview.scroll_to_mark(self.textview.get_buffer().get_insert(), 0.0, False, 0.0, 0.0)
                     return False
-                # GObject.idle_add is replaced with GLib.idle_add in GTK 4
-                from gi.repository import GLib
                 GLib.idle_add(scroll_to_mark)
 
         elif self.active:
@@ -156,11 +165,11 @@ class LinkEditor(Gtk.Frame):
     def _on_activate(self, entry):
         self.dismiss(True)
 
-    def _on_key_press_event(self, widget, event):
-        # In GTK 4, event.keyval is replaced with event.get_keyval()[1]
-        keyval = event.get_keyval()[1]
+    def _on_key_press_event(self, controller, keyval, keycode, state):
         if keyval == Gdk.KEY_Escape:
             self.dismiss(False)
+            return True
+        return False
 
     def dismiss(self, set_url):
         if self.textview is None:

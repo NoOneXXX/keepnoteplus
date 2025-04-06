@@ -17,7 +17,7 @@ import xml.dom
 import xml.parsers.expat
 from xml.sax.saxutils import escape
 
-# keepnote imports
+# keepnote.py imports
 from keepnote import safefile
 
 

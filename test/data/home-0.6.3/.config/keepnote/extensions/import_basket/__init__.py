@@ -235,7 +235,7 @@ class BasketIndexParser():
     """ A Basket notepad index file parser:  ~/.kde/share/apps/basket/baskets/baskets.xml
         For each basket node will create a Keepnote node,
         a basket node can contains many notes(each of them is saved into a note*.html),
-        in that case all note*.html are merged in a unique keepnote page.html
+        in that case all note*.html are merged in a unique keepnote.py page.html
     """
         
     def reset(self):
@@ -318,7 +318,7 @@ class BasketIndexParser():
                 
         html_content = self.getMergedHTMLFromBaskets(folderName, xnode.get_data_file())                           
         
-        # Set the icon for the new keepnote node
+        # Set the icon for the new keepnote.py node
         if  icon:
             basename = os.path.basename(icon)
             basename, ext = os.path.splitext(basename)
@@ -329,7 +329,7 @@ class BasketIndexParser():
                     icon_file = self.install_icon(icon)
                 xnode.set_attr("icon", icon_file)
 
-        # Write text for the new keepnote node into the associated file
+        # Write text for the new keepnote.py node into the associated file
         if html_content:
             write_node(xnode, html_content)        
 

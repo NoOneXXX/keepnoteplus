@@ -1,6 +1,6 @@
 import os, shutil, unittest, _thread, threading, traceback, sys
 
-# keepnote imports
+# keepnote.py imports
 import keepnote
 from keepnote import notebook as notebooklib
 

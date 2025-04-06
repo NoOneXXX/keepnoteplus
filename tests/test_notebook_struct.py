@@ -3,7 +3,7 @@
 import unittest
 import os
 
-# keepnote imports
+# keepnote.py imports
 from keepnote import notebook
 import keepnote.notebook.connection.fs as fs
 from keepnote.notebook import new_nodeid

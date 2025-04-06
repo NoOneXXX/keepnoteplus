@@ -40,7 +40,7 @@ class Extension(extension.Extension):
             self.load_config()
 
     def get_depends(self):
-        return [("keepnote", ">=", (0, 7, 1))]
+        return [("keepnote.py", ">=", (0, 7, 1))]
 
     #===============================
     # config handling

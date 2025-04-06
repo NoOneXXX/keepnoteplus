@@ -1,7 +1,8 @@
 # PyGObject imports
 from gi import require_version
+
 require_version('Gtk', '4.0')
-from gi.repository import Gtk, Gdk, GObject
+from gi.repository import Gtk, Gdk, Gio, GObject
 
 # KeepNote imports
 import keepnote
@@ -33,7 +34,7 @@ class ThreePaneViewer(Viewer):
     def __init__(self, app, main_window, viewerid=None):
         super().__init__(app, main_window, viewerid, viewer_name="three_pane_viewer")
         self._ui_ready = False
-
+        self._uis = []
         self._current_page = None
         self._treeview_sel_nodes = []
         self._queue_list_select = []
@@ -68,42 +69,26 @@ class ThreePaneViewer(Viewer):
         self.editor = ContentEditor(self._app)
         rich_editor = RichTextEditor(self._app)
         self.editor.add_editor("text/xhtml+xml", rich_editor)
-        self.editor.add_editor("text", TextEditor(self._app))
-        self.editor.set_default_editor(rich_editor)
-
-        self.editor.connect("view-node", self._on_editor_view_node)
-        self.editor.connect("child-activated", self._on_child_activated)
-        self.editor.connect("visit-node", lambda w, n: self.goto_node(n, False))
-        self.editor.connect("error", lambda w, t, e: self.emit("error", t, e))
-        self.editor.connect("window-request", lambda w, t: self.emit("window-request", t))
-        self.editor.view_nodes([])
-
-        self.editor_pane = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=5)
-        self.editor_pane.append(self.editor)
-
-        self._hpaned = Gtk.Paned(orientation=Gtk.Orientation.HORIZONTAL)
-        self.append(self._hpaned)
-        self._hpaned.set_position(DEFAULT_HSASH_POS)
-
-        self._paned2 = Gtk.Paned(orientation=Gtk.Orientation.VERTICAL)
-        self._hpaned.set_end_child(self._paned2)
-        self._paned2.set_position(DEFAULT_VSASH_POS)
-
-        sw = Gtk.ScrolledWindow()
-        sw.set_policy(Gtk.PolicyType.AUTOMATIC, Gtk.PolicyType.AUTOMATIC)
-        sw.set_child(self.treeview)  # GTK4 change
-        self._hpaned.set_start_child(sw)
+        self.editor.add_editor("text/plain", TextEditor(self._app))
 
         self._listview_sw = Gtk.ScrolledWindow()
-        self._listview_sw.set_policy(Gtk.PolicyType.AUTOMATIC, Gtk.PolicyType.AUTOMATIC)
-        self._listview_sw.set_child(self.listview)  # GTK4 change
+        self._listview_sw.set_child(self.listview)
+
+        self.editor_pane = self.editor.get_widget()
+
+        self._paned2 = Gtk.Paned.new(Gtk.Orientation.VERTICAL)
         self._paned2.set_start_child(self._listview_sw)
-
         self._paned2.set_end_child(self.editor_pane)
-        self.treeview.grab_focus()
 
-    # All other methods are preserved as-is unless GTK upgrade is needed (e.g., .add() to .set_child())
+        self._treeview_sw = Gtk.ScrolledWindow()
+        self._treeview_sw.set_child(self.treeview)
 
+        self._hpaned = Gtk.Paned.new(Gtk.Orientation.HORIZONTAL)
+        self._hpaned.set_start_child(self._treeview_sw)
+        self._hpaned.set_end_child(self._paned2)
+
+        self.widget = self._hpaned
+        self._ui_ready = True
 
     def set_notebook(self, notebook):
         self._app.ref_notebook(notebook)
@@ -122,8 +107,8 @@ class ThreePaneViewer(Viewer):
         self.treeview.set_notebook(notebook)
 
         if self.treeview.get_popup_menu():
-            self.treeview.get_popup_menu().iconmenu.set_notebook(notebook)
-            self.listview.get_popup_menu().iconmenu.set_notebook(notebook)
+            self.treeview.get_popup_menu().set_parent(self.treeview)
+            self.listview.get_popup_menu().set_parent(self.listview)
             colors = self._notebook.pref.get("colors", default=DEFAULT_COLORS) if self._notebook else DEFAULT_COLORS
             self.treeview.get_popup_menu().fgcolor_menu.set_colors(colors)
             self.treeview.get_popup_menu().bgcolor_menu.set_colors(colors)
@@ -134,7 +119,9 @@ class ThreePaneViewer(Viewer):
         self.treeview.grab_focus()
 
     def load_preferences(self, app_pref, first_open=False):
-        p = app_pref.get("viewers", "three_pane_viewer", define=True)
+        viewers_pref = app_pref.get("viewers", {})
+        p = viewers_pref.get("three_pane_viewer", {})
+
         vsash_pos = p.get("vsash_pos", DEFAULT_VSASH_POS)
         hsash_pos = p.get("hsash_pos", DEFAULT_HSASH_POS)
         print(f"vsash_pos: {vsash_pos} (type: {type(vsash_pos)})")
@@ -146,11 +133,6 @@ class ThreePaneViewer(Viewer):
         self._hpaned.set_position(int(hsash_pos))
 
         self.listview.load_preferences(app_pref, first_open)
-        try:
-            self.treeview.set_property("enable-tree-lines", app_pref.get("look_and_feel", "treeview_lines", default=True))
-        except:
-            pass
-
         self.editor.load_preferences(app_pref, first_open)
         if self._ui_ready:
             self.remove_ui(self._main_window)
@@ -187,9 +169,20 @@ class ThreePaneViewer(Viewer):
 
     def set_view_mode(self, mode):
         vsash = self._paned2.get_position()
-        self._paned2.remove(self._listview_sw)
-        self._paned2.remove(self.editor_pane)
-        self._hpaned.remove(self._paned2)
+        if self._paned2.get_start_child() == self._listview_sw:
+            self._paned2.set_start_child(None)
+        elif self._paned2.get_end_child() == self._listview_sw:
+            self._paned2.set_end_child(None)
+
+        if self._paned2.get_start_child() == self.editor_pane:
+            self._paned2.set_start_child(None)
+        elif self._paned2.get_end_child() == self.editor_pane:
+            self._paned2.set_end_child(None)
+
+        if self._hpaned.get_start_child() == self._paned2:
+            self._hpaned.set_start_child(None)
+        elif self._hpaned.get_end_child() == self._paned2:
+            self._hpaned.set_end_child(None)
 
         if mode == "vertical":
             self._paned2 = Gtk.Paned(orientation=Gtk.Orientation.VERTICAL)
@@ -198,11 +191,11 @@ class ThreePaneViewer(Viewer):
 
         self._paned2.set_position(vsash)
         self._paned2.show()
-        self._hpaned.pack2(self._paned2, resize=True, shrink=False)
-        self._hpaned.show()
+        self._hpaned.set_end_child(self._paned2)
 
-        self._paned2.pack1(self._listview_sw, resize=True, shrink=True)
-        self._paned2.pack2(self.editor_pane, resize=True, shrink=False)
+        self._hpaned.show()
+        self._paned2.set_end_child(self._listview_sw)
+        self._paned2.set_end_child(self.editor_pane)
         self._view_mode = mode
 
     def _load_selections(self):
@@ -459,65 +452,83 @@ class ThreePaneViewer(Viewer):
     def add_ui(self, window):
         assert window == self._main_window
         self._ui_ready = True
-        self._action_group = Gtk.ActionGroup(name="Viewer")
+        self._action_group = Gio.SimpleActionGroup()
         self._uis = []
-        add_actions(self._action_group, self._get_actions())
-        self._main_window.get_uimanager().insert_action_group(self._action_group, 0)
 
-        for s in self._get_ui():
-            self._uis.append(self._main_window.get_uimanager().add_ui_from_string(s))
+        # Add actions to the action group
+        for action_data in self._get_actions():
+            action_name = action_data['name'].lower().replace(" ", "-")
+            simple_action = Gio.SimpleAction.new(action_name, None)
+            simple_action.connect("activate", action_data['callback'])
+            self._action_group.add_action(simple_action)
 
-        uimanager = self._main_window.get_uimanager()
-        uimanager.ensure_update()
+        self._main_window.insert_action_group("viewer", self._action_group)
 
-        self.back_button = uimanager.get_widget("/main_tool_bar/Viewer/Back")
-        self.forward_button = uimanager.get_widget("/main_tool_bar/Viewer/Forward")
+        # Create toolbar
+        toolbar = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=6)
+        self.back_button = Gtk.Button(label=_("Back"))
+        self.back_button.connect("clicked", lambda w: self.visit_history(-1))
+        self.forward_button = Gtk.Button(label=_("Forward"))
+        self.forward_button.connect("clicked", lambda w: self.visit_history(1))
+        toolbar.append(self.back_button)
+        toolbar.append(self.forward_button)
+
+        # Note: You'll need to add this toolbar to your main window
+        # e.g., self._main_window.set_header_bar(toolbar) or similar
+
         self.editor.add_ui(window)
 
-        menu1 = uimanager.get_widget("/popup_menus/treeview_popup").get_submenu()
-        self.treeview.set_popup_menu(menu1)
-        menu1.set_accel_path(CONTEXT_MENU_ACCEL_PATH)
-        menu1.set_accel_group(uimanager.get_accel_group())
+        tree_menu = self._create_popup_menu("treeview")
+        self.treeview.set_popup_menu(tree_menu)
 
-        menu1.iconmenu = self._setup_icon_menu()
-        item = uimanager.get_widget("/popup_menus/treeview_popup/Change Note Icon")
-        item.set_submenu(menu1.iconmenu)
-        item.show()
+        list_menu = self._create_popup_menu("listview")
+        self.listview.set_popup_menu(list_menu)
 
-        menu1.fgcolor_menu = self._setup_color_menu("fg")
-        item = uimanager.get_widget("/popup_menus/treeview_popup/Change Fg Color")
-        item.set_submenu(menu1.fgcolor_menu)
-        item.show()
+    def remove_ui(self, window):
+        assert self._main_window == window
+        self._ui_ready = False
+        self.editor.remove_ui(self._main_window)
+        self._main_window.insert_action_group("viewer", None)
+        self._action_group = None
 
-        menu1.bgcolor_menu = self._setup_color_menu("bg")
-        item = uimanager.get_widget("/popup_menus/treeview_popup/Change Bg Color")
-        item.set_submenu(menu1.bgcolor_menu)
-        item.show()
+    def _create_popup_menu(self, menu_type):
+        menu = Gtk.PopoverMenu()
+        # 设置自定义属性
+        menu_box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL)
 
-        menu2 = uimanager.get_widget("/popup_menus/listview_popup").get_submenu()
-        self.listview.set_popup_menu(menu2)
-        menu2.set_accel_group(uimanager.get_accel_group())
-        menu2.set_accel_path(CONTEXT_MENU_ACCEL_PATH)
+        items = [
+            ("New Page", self.on_new_page),
+            ("New Child Page", self.on_new_child_page),
+            ("New Folder", self.on_new_dir),
+            ("Attach File", self._on_attach_file_menu),
+            ("Delete Note", self.on_delete_node),
+            ("Rename Note", self._on_rename_node),
+        ]
 
-        menu2.iconmenu = self._setup_icon_menu()
-        item = uimanager.get_widget("/popup_menus/listview_popup/Change Note Icon")
-        item.set_submenu(menu2.iconmenu)
-        item.show()
+        for label, callback in items:
+            button = Gtk.Button(label=_(label))
+            button.connect("clicked", callback)
+            menu_box.append(button)
 
-        menu2.fgcolor_menu = self._setup_color_menu("fg")
-        item = uimanager.get_widget("/popup_menus/listview_popup/Change Fg Color")
-        item.set_submenu(menu2.fgcolor_menu)
-        item.show()
+        icon_menu = self._setup_icon_menu()
+        color_fg_menu = self._setup_color_menu("fg")
+        color_bg_menu = self._setup_color_menu("bg")
 
-        menu2.bgcolor_menu = self._setup_color_menu("bg")
-        item = uimanager.get_widget("/popup_menus/listview_popup/Change Bg Color")
-        item.set_submenu(menu2.bgcolor_menu)
-        item.show()
+        menu_box.append(icon_menu)
+        menu_box.append(color_fg_menu)
+        menu_box.append(color_bg_menu)
+
+        menu.set_child(menu_box)
+        menu.set_parent(self._main_window)  # Set parent for proper positioning
+        # ✅ 添加这一行，把 fgcolor_menu 属性挂到 menu 上
+        menu.fgcolor_menu = color_fg_menu
+        menu.bgcolor_menu = color_bg_menu
+        return menu
 
     def _setup_icon_menu(self):
         iconmenu = IconMenu()
         iconmenu.connect("set-icon", lambda w, i: self._app.on_set_icon(i, "", self.get_selected_nodes()))
-        iconmenu.new_icon.connect("activate", lambda w: self._app.on_new_icon(self.get_selected_nodes(), self._notebook, self._main_window))
+        iconmenu.connect("new-icon-activated", lambda w: self._app.on_new_icon(self.get_selected_nodes(), self._notebook, self._main_window))
         iconmenu.set_notebook(self._notebook)
         return iconmenu
 
@@ -546,18 +557,16 @@ class ThreePaneViewer(Viewer):
         self._app.get_listeners("colors_changed").add(on_new_colors)
         return menu
 
-    def remove_ui(self, window):
-        assert self._main_window == window
-        self._ui_ready = False
-        self.editor.remove_ui(self._main_window)
-        for ui in reversed(self._uis):
-            self._main_window.get_uimanager().remove_ui(ui)
-        self._uis = []
-        self._main_window.get_uimanager().ensure_update()
-        self._main_window.get_uimanager().remove_action_group(self._action_group)
-        self._action_group = None
+    def visit_history(self, direction):
+        # This method needs to be implemented based on your history handling
+        # For now, here's a basic placeholder
+        if direction < 0 and self._history.has_back():
+            self.goto_node(self._history.back())
+        elif direction > 0 and self._history.has_forward():
+            self.goto_node(self._history.forward())
 
     def _get_ui(self):
+        # This method is kept for reference but not used in GTK 4 version
         return ["""
         <ui>
         <menubar name="main_menu_bar">
@@ -675,30 +684,41 @@ class ThreePaneViewer(Viewer):
         """]
 
     def _get_actions(self):
-        return [Action(*x) for x in [
-            ("treeview_popup", None, "", "", None, lambda w: None),
-            ("listview_popup", None, "", "", None, lambda w: None),
-            ("Copy Tree", "gtk-copy", _("Copy _Tree"), "<control><shift>C", _("Copy entire tree"), lambda w: self.on_copy_tree()),
-            ("New Page", "gtk-new", _("New _Page"), "<control>N", _("Create a new page"), lambda w: self.on_new_page(), "note-new.png"),
-            ("New Child Page", "gtk-new", _("New _Child Page"), "<control><shift>N", _("Create a new child page"), lambda w: self.on_new_child_page(), "note-new.png"),
-            ("New Folder", "gtk-directory", _("New _Folder"), "<control><shift>M", _("Create a new folder"), lambda w: self.on_new_dir(), "folder-new.png"),
-            ("Attach File", "gtk-add", _("_Attach File..."), "", _("Attach a file to the notebook"), lambda w: self._on_attach_file_menu()),
-            ("Back", "gtk-go-back", _("_Back"), "", None, lambda w: self.visit_history(-1)),
-            ("Forward", "gtk-go-forward", _("_Forward"), "", None, lambda w: self.visit_history(1)),
-            ("Go to Note", "gtk-jump-to", _("Go to _Note"), "", None, lambda w: self.on_goto_node(None, None)),
-            ("Go to Parent Note", "gtk-go-back", _("Go to _Parent Note"), "<shift><alt>Left", None, lambda w: self.on_goto_parent_node()),
-            ("Go to Next Note", "gtk-go-down", _("Go to Next N_ote"), "<alt>Down", None, lambda w: self.goto_next_node()),
-            ("Go to Previous Note", "gtk-go-up", _("Go to _Previous Note"), "<alt>Up", None, lambda w: self.goto_prev_node()),
-            ("Expand Note", "gtk-add", _("E_xpand Note"), "<alt>Right", None, lambda w: self.expand_node()),
-            ("Collapse Note", "gtk-remove", _("_Collapse Note"), "<alt>Left", None, lambda w: self.collapse_node()),
-            ("Expand All Child Notes", "gtk-add", _("Expand _All Child Notes"), "<shift><alt>Right", None, lambda w: self.expand_node(True)),
-            ("Collapse All Child Notes", "gtk-remove", _("Collapse A_ll Child Notes"), "<shift><alt>Left", None, lambda w: self.collapse_node(True)),
-            ("Go to Tree View", None, _("Go to _Tree View"), "<control>T", None, lambda w: self.goto_treeview()),
-            ("Go to List View", None, _("Go to _List View"), "<control>Y", None, lambda w: self.goto_listview()),
-            ("Go to Editor", None, _("Go to _Editor"), "<control>D", None, lambda w: self.goto_editor()),
-            ("Delete Note", "gtk-delete", _("_Delete"), "", None, self.on_delete_node),
-            ("Rename Note", "gtk-edit", _("_Rename"), "", None, lambda w: self._on_rename_node()),
-            ("Change Note Icon", None, _("_Change Note Icon"), "", None, lambda w: None, lookup_icon_filename(None, "folder-red.png")),
-            ("Change Fg Color", None, _("Change _Fg Color")),
-            ("Change Bg Color", None, _("Change _Bg Color")),
-        ]]
+        # Return a list of dictionaries instead of Action objects
+        return [
+            {
+                'name': name,
+                'stock_id': stock_id,
+                'label': label,
+                'accelerator': accelerator,
+                'tooltip': tooltip,
+                'callback': callback,
+                'icon_filename': icon_filename
+            } for (name, stock_id, label, accelerator, tooltip, callback, *rest) in [
+                ("treeview_popup", None, "", "", None, lambda w: None),
+                ("listview_popup", None, "", "", None, lambda w: None),
+                ("copy-tree", "gtk-copy", _("Copy _Tree"), "<control><shift>C", _("Copy entire tree"), lambda w: self.on_copy_tree()),
+                ("new-page", "gtk-new", _("New _Page"), "<control>N", _("Create a new page"), lambda w: self.on_new_page(), "note-new.png"),
+                ("new-child-page", "gtk-new", _("New _Child Page"), "<control><shift>N", _("Create a new child page"), lambda w: self.on_new_child_page(), "note-new.png"),
+                ("new-folder", "gtk-directory", _("New _Folder"), "<control><shift>M", _("Create a new folder"), lambda w: self.on_new_dir(), "folder-new.png"),
+                ("attach-file", "gtk-add", _("_Attach File..."), "", _("Attach a file to the notebook"), lambda w: self._on_attach_file_menu()),
+                ("back", "gtk-go-back", _("_Back"), "", None, lambda w: self.visit_history(-1)),
+                ("forward", "gtk-go-forward", _("_Forward"), "", None, lambda w: self.visit_history(1)),
+                ("go-to-note", "gtk-jump-to", _("Go to _Note"), "", None, lambda w: self.on_goto_node(None, None)),
+                ("go-to-parent-note", "gtk-go-back", _("Go to _Parent Note"), "<shift><alt>Left", None, lambda w: self.on_goto_parent_node()),
+                ("go-to-next-note", "gtk-go-down", _("Go to Next N_ote"), "<alt>Down", None, lambda w: self.goto_next_node()),
+                ("go-to-previous-note", "gtk-go-up", _("Go to _Previous Note"), "<alt>Up", None, lambda w: self.goto_prev_node()),
+                ("expand-note", "gtk-add", _("E_xpand Note"), "<alt>Right", None, lambda w: self.expand_node()),
+                ("collapse-note", "gtk-remove", _("_Collapse Note"), "<alt>Left", None, lambda w: self.collapse_node()),
+                ("expand-all-child-notes", "gtk-add", _("Expand _All Child Notes"), "<shift><alt>Right", None, lambda w: self.expand_node(True)),
+                ("collapse-all-child-notes", "gtk-remove", _("Collapse A_ll Child Notes"), "<shift><alt>Left", None, lambda w: self.collapse_node(True)),
+                ("go-to-tree-view", None, _("Go to _Tree View"), "<control>T", None, lambda w: self.goto_treeview()),
+                ("go-to-list-view", None, _("Go to _List View"), "<control>Y", None, lambda w: self.goto_listview()),
+                ("go-to-editor", None, _("Go to _Editor"), "<control>D", None, lambda w: self.goto_editor()),
+                ("delete-note", "gtk-delete", _("_Delete"), "", None, self.on_delete_node),
+                ("rename-note", "gtk-edit", _("_Rename"), "", None, lambda w: self._on_rename_node()),
+                ("change-note-icon", None, _("_Change Note Icon"), "", None, lambda w: None, lookup_icon_filename(None, "folder-red.png")),
+                ("change-fg-color", None, _("Change _Fg Color"), "", None, lambda w: None),
+                ("change-bg-color", None, _("Change _Bg Color"), "", None, lambda w: None),
+            ] for icon_filename in rest or [None]
+        ]

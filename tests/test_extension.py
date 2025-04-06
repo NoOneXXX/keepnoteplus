@@ -1,7 +1,7 @@
 import os
 import unittest
 
-# keepnote imports
+# keepnote.py imports
 import keepnote
 from keepnote import extension
 
@@ -12,7 +12,7 @@ from . import clean_dir, DATA_DIR, TMP_DIR
 _tmppath = os.path.join(TMP_DIR, 'extension')
 _home = os.path.join(_tmppath, 'home')
 _extension_file = os.path.join(DATA_DIR, 'test_extension.kne')
-_pref_dir = os.path.join(_home, '.config', 'keepnote')
+_pref_dir = os.path.join(_home, '.config', 'keepnote.py')
 
 
 class ExtensionInstall (unittest.TestCase):
@@ -74,7 +74,7 @@ class ExtensionInstall (unittest.TestCase):
 
         # Disable extension.
         ext = next(ext for ext in app.get_enabled_extensions()
-                   if ext.key != 'keepnote')
+                   if ext.key != 'keepnote.py')
         ext.enable(False)
         ext_key = ext.key
 
@@ -102,7 +102,7 @@ class ExtensionInstall (unittest.TestCase):
         """Extension install using program from command-line."""
         clean_dir(_tmppath)
         os.system(
-            "HOME=%s bin/keepnote --no-gui -c install '%s'"
+            "HOME=%s bin/keepnote.py --no-gui -c install '%s'"
             % (_home, _extension_file))
         self.assertTrue(os.path.exists(
             _pref_dir + '/extensions/test_extension/info.xml'))

@@ -2,7 +2,7 @@ import os
 import shutil
 import unittest
 
-# keepnote imports
+# keepnote.py imports
 from keepnote import notebook
 
 from . import make_clean_dir
@@ -55,11 +55,11 @@ class Tests (unittest.TestCase):
         book.install_icon("share/icons/gnome/16x16/mimetypes/zip.png")
 
         book.install_icons(
-            "keepnote/images/node_icons/folder-orange.png",
-            "keepnote/images/node_icons/folder-orange-open.png")
+            "keepnote.py/images/node_icons/folder-orange.png",
+            "keepnote.py/images/node_icons/folder-orange-open.png")
         book.install_icons(
-            "keepnote/images/node_icons/folder-orange.png",
-            "keepnote/images/node_icons/folder-orange-open.png")
+            "keepnote.py/images/node_icons/folder-orange.png",
+            "keepnote.py/images/node_icons/folder-orange-open.png")
 
         book.save()
 

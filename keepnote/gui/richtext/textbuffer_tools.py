@@ -7,7 +7,8 @@
 
 from keepnote.linked_list import LinkedList
 from keepnote.linked_tree import LinkedTreeNode
-from keepnote.util import PushIter
+from keepnote.util.iterutils import PushIter
+
 
 
 # TextBuffer uses this char for anchors and pixbufs

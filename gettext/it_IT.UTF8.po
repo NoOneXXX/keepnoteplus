@@ -1,12 +1,12 @@
-# Italian translations for keepnote package
-# Traduzioni italiane per il pacchetto keepnote..
-# Copyright (C) 2010 THE keepnote'S COPYRIGHT HOLDER
-# This file is distributed under the same license as the keepnote package.
+# Italian translations for keepnote.py package
+# Traduzioni italiane per il pacchetto keepnote.py..
+# Copyright (C) 2010 THE keepnote.py'S COPYRIGHT HOLDER
+# This file is distributed under the same license as the keepnote.py package.
 # Davide Melan <davide.melan@gmail.com>, 2010.
 #
 msgid ""
 msgstr ""
-"Project-Id-Version: keepnote 0.6.2\n"
+"Project-Id-Version: keepnote.py 0.6.2\n"
 "Report-Msgid-Bugs-To: \n"
 "POT-Creation-Date: 2012-07-23 10:26-0400\n"
 "PO-Revision-Date: 2010-06-19 17:43+0200\n"

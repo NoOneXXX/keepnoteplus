@@ -16,7 +16,7 @@ import xml.parsers.expat
 from xml.sax.saxutils import escape
 
 
-# keepnote imports
+# keepnote.py imports
 import keepnote.compat.xmlobject_v3 as xmlo
 from keepnote.listening import Listeners
 from keepnote.timestamp import \
@@ -366,7 +366,7 @@ default_notebook_table = NoteBookTable("default", attrs=[title_attr,
 # TODO: parent might be an implict attr
 
 
-# 1. attrs should be data that is optional (although keepnote has a few
+# 1. attrs should be data that is optional (although keepnote.py has a few
 # required entries).
 # 2. attrs can appear in listview
 

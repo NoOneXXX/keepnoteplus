@@ -2,7 +2,7 @@
 # python imports
 import os
 
-# keepnote imports
+# keepnote.py imports
 from keepnote.notebook import NOTEBOOK_FORMAT_VERSION
 import keepnote.notebook.connection as connlib
 from keepnote.notebook.connection import fs

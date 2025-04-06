@@ -16,7 +16,7 @@ import json
 import urllib.request, urllib.parse, urllib.error
 import urllib.parse
 
-# keepnote imports
+# keepnote.py imports
 from keepnote import plist
 import keepnote.notebook.connection as connlib
 from keepnote.notebook.connection import NoteBookConnection

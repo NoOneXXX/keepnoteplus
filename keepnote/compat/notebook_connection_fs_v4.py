@@ -61,7 +61,7 @@ from xml.sax.saxutils import escape
 import xml.etree.cElementTree as ET
 
 
-# keepnote imports
+# keepnote.py imports
 from keepnote import safefile
 from keepnote import trans
 import keepnote.compat.notebook_connection_fs_index_v4 as notebook_index

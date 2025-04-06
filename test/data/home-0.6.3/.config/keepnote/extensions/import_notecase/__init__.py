@@ -32,7 +32,7 @@ import htmlentitydefs,re
 import base64
 import string,random
 
-# keepnote imports
+# keepnote.py imports
 import keepnote
 import keepnote.gui.extension
 from keepnote import notebook as notebooklib

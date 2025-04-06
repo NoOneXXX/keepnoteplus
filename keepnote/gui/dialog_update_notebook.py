@@ -34,12 +34,12 @@ class UpdateNoteBookDialog:
         """Show the dialog to update the notebook"""
         # Load the UI file (replacing Glade with a GTK 4 UI file)
         self.builder = Gtk.Builder()
-        self.builder.add_from_file(get_resource("rc", "keepnote.ui"))  # Update to .ui file
+        self.builder.add_from_file(get_resource("rc", "keepnote.py.ui"))  # Update to .ui file
         self.builder.set_translation_domain(keepnote.GETTEXT_DOMAIN)
         self.dialog = self.builder.get_object("update_notebook_dialog")
         # Add error handling to ensure dialog exists
         if self.dialog is None:
-            print("Error: update_notebook_dialog not found in keepnote.ui")
+            print("Error: update_notebook_dialog not found in keepnote.py.ui")
             return False
 
         self.dialog.set_transient_for(self.main_window)

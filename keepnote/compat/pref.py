@@ -12,7 +12,7 @@ from keepnote import FS_ENCODING
 from keepnote import xdg
 import keepnote.timestamp
 import keepnote.compat.xmlobject_v3 as xmlo
-from keepnote.util import compose
+from keepnote.util.platform import compose
 from keepnote import orderdict
 
 OLD_USER_PREF_DIR = "takenote"
@@ -20,13 +20,13 @@ OLD_USER_PREF_FILE = "takenote.xml"
 OLD_XDG_USER_EXTENSIONS_DIR = "takenote/extensions"
 OLD_XDG_USER_EXTENSIONS_DATA_DIR = "takenote/extensions_data"
 
-USER_PREF_DIR = "keepnote"
-USER_PREF_FILE = "keepnote.xml"
+USER_PREF_DIR = "keepnote.py"
+USER_PREF_FILE = "keepnote.py.xml"
 USER_EXTENSIONS_DIR = "extensions"
 USER_EXTENSIONS_DATA_DIR = "extensions_data"
 
-XDG_USER_EXTENSIONS_DIR = "keepnote/extensions"
-XDG_USER_EXTENSIONS_DATA_DIR = "keepnote/extensions_data"
+XDG_USER_EXTENSIONS_DIR = "keepnote.py/extensions"
+XDG_USER_EXTENSIONS_DATA_DIR = "keepnote.py/extensions_data"
 
 
 # =============================================================================
@@ -51,7 +51,7 @@ def get_old_pref_dir2(home):
 def get_new_pref_dir(home):
     """
     Returns new preference directory
-    $HOME/.config/keepnote
+    $HOME/.config/keepnote.py
     """
     return os.path.join(home, ".config", USER_PREF_DIR)
 
@@ -112,7 +112,7 @@ def upgrade_user_pref_dir(old_user_pref_dir, new_user_pref_dir):
     # Move user preference directory
     shutil.copytree(old_user_pref_dir, new_user_pref_dir)
 
-    # Rename takenote.xml to keepnote.xml
+    # Rename takenote.xml to keepnote.py.xml
     oldfile = os.path.join(new_user_pref_dir, OLD_USER_PREF_FILE)
     newfile = os.path.join(new_user_pref_dir, USER_PREF_FILE)
 
@@ -122,7 +122,7 @@ def upgrade_user_pref_dir(old_user_pref_dir, new_user_pref_dir):
         # Rename root XML tag
         tree = ElementTree.ElementTree(file=newfile)
         elm = tree.getroot()
-        elm.tag = "keepnote"
+        elm.tag = "keepnote.py"
         tree.write(newfile, encoding="UTF-8")
 
     # Move over data files from .local/share/takenote
@@ -316,7 +316,7 @@ class KeepNotePreferences:
 
 
 g_keepnote_pref_parser = xmlo.XmlObject(
-    xmlo.Tag("keepnote", tags=[
+    xmlo.Tag("keepnote.py", tags=[
         xmlo.Tag("id", attr=("id", None, None)),
         xmlo.Tag("language", attr=("language", None, None)),
 

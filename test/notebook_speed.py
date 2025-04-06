@@ -3,7 +3,7 @@ from .testing import *
 
 import os, shutil, unittest, _thread, threading, traceback, sys, time
 
-# keepnote imports
+# keepnote.py imports
 import keepnote
 from keepnote import notebook
 
@@ -19,7 +19,7 @@ class Speed (unittest.TestCase):
     def test_open(self):
 
         filename = "test/data/notebook-v6"
-        app = keepnote.KeepNote("keepnote")
+        app = keepnote.KeepNote("keepnote.py")
 
         start = time.time()
         book = app.get_notebook(filename)

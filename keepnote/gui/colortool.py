@@ -53,22 +53,10 @@ class ColorTextImage(Gtk.Image):
         self._pixbuf = None
         self.fg_color = None
         self.bg_color = None
-        self._exposed = False
 
-        self.connect("parent-set", self.on_parent_set)
-        self.connect("snapshot", self.on_snapshot)
+        self.connect("realize", self.on_realize)
 
-    def on_parent_set(self, widget, old_parent):
-        self._exposed = False
-
-    def on_snapshot(self, widget, snapshot):
-        if not self._exposed:
-            self._exposed = True
-            self.init_colors()
-        self.do_draw(snapshot)
-        return False
-
-    def init_colors(self):
+    def on_realize(self, widget):
         self._pixbuf = GdkPixbuf.Pixbuf.new(GdkPixbuf.Colorspace.RGB, True, 8, self.width, self.height)
         self.refresh()
 
@@ -113,9 +101,10 @@ class ColorTextImage(Gtk.Image):
             PangoCairo.show_layout(cr, layout)
         self.set_from_pixbuf(GdkPixbuf.Pixbuf.new_from_data(surface.get_data(), GdkPixbuf.Colorspace.RGB, True, 8, self.width, self.height, surface.get_stride()))
 
-    def do_draw(self, snapshot):
-        texture = Gdk.Texture.new_for_pixbuf(self._pixbuf)
-        snapshot.append_texture(texture, Gdk.Rectangle(x=0, y=0, width=self.width, height=self.height))
+    def do_snapshot(self, snapshot):
+        if self._pixbuf:
+            texture = Gdk.Texture.new_for_pixbuf(self._pixbuf)
+            snapshot.append_texture(texture, Gdk.Rectangle(x=0, y=0, width=self.width, height=self.height))
 
 # ColorMenu class
 class ColorMenu(Gtk.Popover):
@@ -152,8 +141,12 @@ class ColorMenu(Gtk.Popover):
     def on_new_color(self, button):
         dialog = ColorSelectionDialog("Choose color")
         dialog.set_modal(True)
-        dialog.show()
-        if dialog.run() == Gtk.ResponseType.OK:
+        dialog.set_transient_for(self.get_root())  # Set parent window
+        dialog.connect("response", self.on_color_dialog_response)
+        dialog.present()
+
+    def on_color_dialog_response(self, dialog, response):
+        if response == Gtk.ResponseType.OK:
             color = dialog.get_rgba()
             color_str = color_int16_to_str((int(color.red * 65535),
                                             int(color.green * 65535),
@@ -198,8 +191,6 @@ class ColorMenu(Gtk.Popover):
 GObject.type_register(ColorMenu)
 GObject.signal_new("set-color", ColorMenu, GObject.SignalFlags.RUN_LAST, None, (GObject.TYPE_PYOBJECT,))
 GObject.signal_new("set-colors", ColorMenu, GObject.SignalFlags.RUN_LAST, None, (GObject.TYPE_PYOBJECT,))
-
-GObject.signal_new("get-colors", ColorMenu, GObject.SignalFlags.RUN_LAST, None, ())
 
 # ColorTool base class
 class ColorTool(Gtk.MenuButton):

@@ -13,7 +13,7 @@ import shutil
 import re
 import uuid
 
-# keepnote imports
+# keepnote.py imports
 from keepnote import sqlitedict
 from keepnote import trans
 from keepnote.notebook.connection import NodeExists

@@ -3,7 +3,7 @@
 import os
 import uuid
 
-# keepnote imports
+# keepnote.py imports
 from keepnote.notebook.connection import fs_raw
 
 from .test_notebook_conn import TestConnBase

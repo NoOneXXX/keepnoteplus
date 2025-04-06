@@ -18,26 +18,24 @@ class IconMenu(Gtk.Popover):
         super().__init__()
 
         self._notebook = None
+        self.width = 4  # Number of icons per row
+        self.grid = Gtk.Grid()  # Use a grid for icon layout
+        self.grid.set_column_spacing(5)
+        self.grid.set_row_spacing(5)
 
-        # Default icon menu item
-        self.default_icon = Gtk.MenuItem.new_with_label("_Default Icon")
-        self.default_icon.connect("activate", lambda w: self.emit("set-icon", ""))
+        # Set the grid as the popover's child
+        self.set_child(self.grid)
 
-        # New icon menu item
-        self.new_icon = Gtk.MenuItem.new_with_label("_More Icons...")
-
-        self.width = 4
-        self.posi = 0
-        self.posj = 0
-
+        # Setup menu initially
         self.setup_menu()
 
     def clear(self):
         """Clear the menu"""
-        for item in self.get_children():
-            self.remove(item)
-        self.posi = 0
-        self.posj = 0
+        child = self.grid.get_first_child()
+        while child:
+            next_child = child.get_next_sibling()
+            self.grid.remove(child)
+            child = next_child
 
     def set_notebook(self, notebook):
         """Set notebook for menu"""
@@ -57,57 +55,49 @@ class IconMenu(Gtk.Popover):
         """Update menu to reflect notebook"""
         self.clear()
 
+        # Add icons
         if self._notebook is None:
-            for iconfile in default_menu_icons:
-                self.add_icon(iconfile)
+            icons = default_menu_icons
         else:
-            for iconfile in self._notebook.pref.get_quick_pick_icons():
-                self.add_icon(iconfile)
+            icons = self._notebook.pref.get_quick_pick_icons()
 
-        # Separator
-        item = Gtk.SeparatorMenuItem()
-        self.append(item)
+        for i, iconfile in enumerate(icons):
+            self.add_icon(iconfile, i)
 
-        # Default icon
-        self.append(self.default_icon)
+        # Add separator (using a horizontal separator widget)
+        separator = Gtk.Separator(orientation=Gtk.Orientation.HORIZONTAL)
+        self.grid.attach(separator, 0, len(icons) // self.width + 1, self.width, 1)
 
-        # New icon
-        self.append(self.new_icon)
+        # Default icon button
+        default_button = Gtk.Button(label="_Default Icon")
+        default_button.connect("clicked", lambda w: self.emit("set-icon", ""))
+        self.grid.attach(default_button, 0, len(icons) // self.width + 2, self.width, 1)
 
-    def append_grid(self, item):
-        """Attach item in a grid layout"""
-        # Note: attach() is not available in GTK 4 for Gtk.Menu.
-        # We will simulate the grid layout by using a different approach if needed.
-        # For now, we will append items directly and note the limitation.
-        print("Warning: append_grid is not fully supported in GTK 4 (Gtk.Menu.attach is deprecated)")
-        self.append(item)
+        # New icon button
+        self.new_icon = Gtk.Button(label="_More Icons...")
+        self.new_icon.connect("clicked", lambda w: self.emit("new-icon-activated"))  # Custom signal for new icon
+        self.grid.attach(self.new_icon, 0, len(icons) // self.width + 3, self.width, 1)
 
-    def append(self, item):
-        """Append item to menu, resetting grid position if needed"""
-        if self.posj > 0:
-            self.posi += 1
-            self.posj = 0
-        super().append(item)
-
-    def add_icon(self, iconfile):
+    def add_icon(self, iconfile, index):
         """Add an icon to the menu"""
-        child = Gtk.MenuItem()
-        # Remove default label if it exists
-        default_child = child.get_child()
-        if default_child is not None:
-            child.remove(default_child)
-        img = Gtk.Image()
+        button = Gtk.Button()
         iconfile2 = lookup_icon_filename(self._notebook, iconfile)
-        img.set_from_file(iconfile2)
-        child.set_child(img)  # Changed from add to set_child
-        child.connect("activate", lambda w: self.emit("set-icon", iconfile))
-        self.append_grid(child)
 
-# Note: GObject.signal_new is not needed in GTK 4 for custom signals.
-# We assume the signal "set-icon" is handled by KeepNote's custom signal system.
-# If needed, this can be reimplemented using a custom GObject subclass with a signal.
+        if isinstance(iconfile2, Gtk.Widget):  # Paintable
+            img = iconfile2
+        else:  # string path fallback
+            img = Gtk.Image.new_from_file(iconfile2)
 
-# Register the custom signal for IconMenu
+        button.set_child(img)
+        button.connect("clicked", lambda w: self.emit("set-icon", iconfile))
+
+        # Calculate grid position
+        row = index // self.width
+        col = index % self.width
+        self.grid.attach(button, col, row, 1, 1)
+
+
+# Register the custom signals for IconMenu
 GObject.type_register(IconMenu)
-GObject.signal_new("set-icon", IconMenu, GObject.SignalFlags.RUN_LAST,
-                   None, (str,))
+GObject.signal_new("set-icon", IconMenu, GObject.SignalFlags.RUN_LAST, None, (str,))
+GObject.signal_new("new-icon-activated", IconMenu, GObject.SignalFlags.RUN_LAST, None, ())

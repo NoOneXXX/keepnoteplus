@@ -1,5 +1,5 @@
 
-# keepnote imports
+# keepnote.py imports
 from keepnote.notebook.connection import mem
 
 from .test_notebook_conn import TestConnBase

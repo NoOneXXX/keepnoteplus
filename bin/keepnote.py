@@ -1,6 +1,9 @@
 #!/usr/bin/env python3
-
+import json
 # Python imports
+import sys
+print("✅ PYTHONPATH = ", sys.path)
+
 import sys
 import os
 from os.path import basename, dirname, realpath, join, isdir
@@ -8,6 +11,10 @@ import time
 import optparse
 import threading
 import traceback
+import gi
+gi.require_version("Gtk", "4.0")
+gi.require_version("Gio", "2.0")
+from gi.repository import Gio, Gtk
 
 # =============================================================================
 # KeepNote import
@@ -19,42 +26,42 @@ bin_path = os.path.dirname(sys.argv[0])
 
 (1) directly from source dir
 
-    pkgdir = bin_path + "../keepnote"
+    pkgdir = bin_path + "../keepnote.py"
     basedir = pkgdir
     sys.path.append(pkgdir)
 
-    src/bin/keepnote
-    src/keepnote/__init__.py
-    src/keepnote/images
-    src/keepnote/rc
+    src/bin/keepnote.py
+    src/keepnote.py/__init__.py
+    src/keepnote.py/images
+    src/keepnote.py/rc
 
 (2) from installation location by setup.py 
 
-    pkgdir = keepnote.get_basedir()
+    pkgdir = keepnote.py.get_basedir()
     basedir = pkgdir
 
-    prefix/bin/keepnote
-    prefix/lib/python-XXX/site-packages/keepnote/__init__.py
-    prefix/lib/python-XXX/site-packages/keepnote/images
-    prefix/lib/python-XXX/site-packages/keepnote/rc
+    prefix/bin/keepnote.py
+    prefix/lib/python-XXX/site-packages/keepnote.py/__init__.py
+    prefix/lib/python-XXX/site-packages/keepnote.py/images
+    prefix/lib/python-XXX/site-packages/keepnote.py/rc
 
 (3) windows py2exe dir
 
     pkgdir = bin_path
     basedir = bin_path
 
-    dir/keepnote.exe
+    dir/keepnote.py.exe
     dir/library.zip
     dir/images
     dir/rc
 """
 
-# Try to infer keepnote lib path from program path
+# Try to infer keepnote.py lib path from program path
 pkgdir = dirname(dirname(realpath(sys.argv[0])))
-if os.path.exists(join(pkgdir, "keepnote", "__init__.py")):
+if os.path.exists(join(pkgdir, "keepnote.py", "__init__.py")):
     sys.path.insert(0, pkgdir)
     import keepnote
-
+    print(keepnote.__file__)
     # If this works, we know we are running from src_path (1)
     basedir = keepnote.get_basedir()
 
@@ -212,7 +219,7 @@ def start_gui(argv, options, args, cmd_exec):
     setup_threading()
 
     app = keepnote.gui.KeepNote(basedir)
-    gtk_app = Gtk.Application(application_id="org.keepnote")
+    gtk_app = Gtk.Application(application_id="org.keepnote.py")
     cmd_exec.set_app(app)
 
     def on_activate(gtk_app):
@@ -318,51 +325,27 @@ def list_commands(app):
         print()
 
 
+
+
+# Setup sys.path to include KeepNote source if needed
+BIN_DIR = os.path.dirname(os.path.realpath(__file__))
+SRC_DIR = os.path.abspath(os.path.join(BIN_DIR, "..", "keepnote.py"))
+if SRC_DIR not in sys.path:
+    sys.path.insert(0, SRC_DIR)
+
+import keepnote
+
 def main(argv):
-    """Main execution"""
-    print("Starting main execution...")
-    options, args = parse_argv(argv)
-
-    keepnote.compat.pref.check_old_user_pref_dir()
-    if not os.path.exists(keepnote.get_user_pref_dir()):
-        keepnote.init_user_pref_dir()
-
-    start_error_log(options.show_errors)
-
-    if options.newproc:
-        main_proc = True
-        cmd_exec = CommandExecutor()
-    else:
-        if options.no_gui:
-            main_proc, cmd_exec = get_command_executor(
-                execute_command, port=options.port)
-        else:
-            main_proc, cmd_exec = get_command_executor(
-                lambda app, argv: gui_exec(
-                    lambda: execute_command(app, argv)),
-                port=options.port)
-
-    if main_proc:
-        if options.no_gui:
-            start_non_gui(argv, options, args, cmd_exec)
-        else:
-            start_gui(argv, options, args, cmd_exec)
-    else:
-        cmd_exec.execute(argv)
-
-    if options.cont:
-        while True:
-            time.sleep(1000)
+    app = keepnote.KeepNoteApplication()
+    exit_status = app.run(argv)
+    sys.exit(exit_status)
 
 
-# =============================================================================
-# Start main function
-try:
+if __name__ == '__main__':
     main(sys.argv)
-except SystemExit as e:
-    print(f"SystemExit: {e}")
-except Exception as e:
-    print(f"Exception: {e}")
-    traceback.print_exc()
-    sys.stderr.flush()
-    sys.exit(1)  # Exit with error code 1
+
+    def get_node(self, path):
+        if hasattr(self, 'notebook'):
+            return self.notebook.get_node_by_path(path)
+        else:
+            raise NotImplementedError("Notebook 尚未初始化，无法获取节点")

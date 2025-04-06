@@ -1,6 +1,6 @@
 #!/usr/bin/env python
 
-# keepnote imports
+# keepnote.py imports
 from keepnote.gui.richtext.textbuffer_tools import TextBufferDom
 from .test_richtext_html import display_item, BufferBase
 

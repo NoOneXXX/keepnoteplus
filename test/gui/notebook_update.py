@@ -31,7 +31,7 @@ class Update (unittest.TestCase):
                         new_notebook_filename)
 
         self.assertEqual(
-            os.system("bin/keepnote --newproc %s" % new_notebook_filename), 0)
+            os.system("bin/keepnote.py --newproc %s" % new_notebook_filename), 0)
 
 
 if __name__ == "__main__":

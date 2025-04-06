@@ -9,7 +9,7 @@
 
 # python imports
 from itertools import chain
-# keepnote imports
+# keepnote.py imports
 import keepnote
 import keepnote.notebook
 

@@ -191,6 +191,10 @@ class ContentEditor(MultiEditor):
         """Set the default editor"""
         self._default_editor = editor
 
+    # 在 ContentEditor 类中加上这个方法
+    def get_widget(self):
+        return self._textview  # 或者返回 Gtk.Box、Gtk.Widget 等视图控件
+
     #=============================
     # Editor Interface
 

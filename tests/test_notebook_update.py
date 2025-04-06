@@ -3,7 +3,7 @@
 import shutil
 import unittest
 
-# keepnote imports
+# keepnote.py imports
 from keepnote.compat import notebook_v1
 from keepnote.compat import notebook_v2
 from keepnote.compat import notebook_v3

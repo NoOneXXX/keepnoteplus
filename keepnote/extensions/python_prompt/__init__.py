@@ -32,7 +32,7 @@ class Extension(extension.Extension):
         extension.Extension.__init__(self, app)
 
     def get_depends(self):
-        return [("keepnote", ">=", (0, 7, 1))]
+        return [("keepnote.py", ">=", (0, 7, 1))]
 
     #================================
     # UI setup

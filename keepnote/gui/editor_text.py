@@ -5,7 +5,8 @@ from gi.repository import Gtk
 
 # KeepNote imports
 import keepnote
-from keepnote import KeepNoteError, unicode_gtk
+from keepnote import KeepNoteError
+from keepnote.util.platform import unicode_gtk
 from keepnote.notebook import NoteBookError, parse_node_url, is_node_url
 from keepnote.gui.richtext import RichTextView, RichTextBuffer, RichTextIO, RichTextError
 from keepnote.gui import CONTEXT_MENU_ACCEL_PATH, Action, ToggleAction, add_actions

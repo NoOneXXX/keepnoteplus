@@ -2,14 +2,15 @@
 import os
 import re
 import gi
-from gi.overrides import GdkPixbuf
+from gi.repository import GdkPixbuf
 
 gi.require_version('Gtk', '4.0')  # Specify GTK 4.0
-from gi.repository import Gtk, Gdk
+from gi.repository import Gtk, Gdk, GObject
 
 # KeepNote imports
 import keepnote
-from keepnote import KeepNoteError, is_url, unicode_gtk
+from keepnote import KeepNoteError, is_url
+from keepnote.util.platform import unicode_gtk
 from keepnote.notebook import NoteBookError, get_node_url, parse_node_url, is_node_url
 from keepnote import notebook as notebooklib
 from keepnote.gui import dialog_image_new
@@ -141,7 +142,11 @@ class RichTextEditor(KeepNoteEditor):
         self._textview.connect("child-activated", self._on_child_activated)
         self._textview.connect("visit-url", self._on_visit_url)
         self._textview.get_buffer().connect("end-user-action", self._on_text_changed)
-        self._textview.connect("key-press-event", self._on_key_press_event)
+
+        # Replace key-press-event with EventControllerKey
+        key_controller = Gtk.EventControllerKey.new()
+        key_controller.connect("key-pressed", self._on_key_press_event)
+        self._textview.add_controller(key_controller)
 
         # Scrollbars
         self._sw = Gtk.ScrolledWindow()
@@ -327,13 +332,13 @@ class RichTextEditor(KeepNoteEditor):
     def _on_child_activated(self, textview, child):
         self.emit("child-activated", textview, child)
 
-    def _on_text_changed(self, textview):
+    def _on_text_changed(self, textbuffer):
         self._check_link()
 
-    def _on_key_press_event(self, textview, event):
+    def _on_key_press_event(self, controller, keyval, keycode, state):
         if (self._link_picker and self._link_picker.shown() and
-                event.keyval in (Gdk.KEY_Down, Gdk.KEY_Up, Gdk.KEY_Return, Gdk.KEY_Escape)):
-            return self._link_picker.on_key_press_event(textview, event)
+                keyval in (Gdk.KEY_Down, Gdk.KEY_Up, Gdk.KEY_Return, Gdk.KEY_Escape)):
+            return self._link_picker.on_key_press_event(self._textview, keyval, keycode, state)
         return False
 
     def _on_visit_url(self, textview, url):
@@ -417,7 +422,7 @@ class RichTextEditor(KeepNoteEditor):
         self.emit("window-request", "minimize")
 
         try:
-            imgfile = self._app.take_screenshot("keepnote")
+            imgfile = self._app.take_screenshot("keepnote.py")
             self.emit("window-request", "restore")
             self.insert_image(imgfile, "screenshot.png")
         except Exception as e:
@@ -472,7 +477,7 @@ class RichTextEditor(KeepNoteEditor):
         dialog.connect("update-preview", update_file_preview, preview)
 
         dialog.present()
-        response = dialog.run()
+        response = dialog.run_blocking()  # Updated for GTK 4
         if response == Gtk.ResponseType.OK:
             filename = unicode_gtk(dialog.get_filename())
             dialog.destroy()
@@ -510,23 +515,23 @@ class RichTextEditor(KeepNoteEditor):
         image_path = os.path.join(self._page.get_path(), image_filename)
         self._app.run_external_app("image_viewer", image_path)
 
-    def _on_view_image(self, menuitem):
-        image_filename = menuitem.get_parent().get_child().get_filename()
+    def _on_view_image(self, button):
+        image_filename = self._textview.get_image_menu().get_child().get_filename()
         self.view_image(image_filename)
 
-    def _on_edit_image(self, menuitem):
+    def _on_edit_image(self, button):
         if self._page is None:
             return
 
-        image_filename = menuitem.get_parent().get_child().get_filename()
+        image_filename = self._textview.get_image_menu().get_child().get_filename()
         image_path = os.path.join(self._page.get_path(), image_filename)
         self._app.run_external_app("image_editor", image_path)
 
-    def _on_resize_image(self, menuitem):
+    def _on_resize_image(self, button):
         if self._page is None:
             return
 
-        image = menuitem.get_parent().get_child()
+        image = self._textview.get_image_menu().get_child()
         image_resize_dialog = dialog_image_resize.ImageResizeDialog(self.get_toplevel(), self._app.pref)
         image_resize_dialog.on_resize(image)
 
@@ -537,11 +542,11 @@ class RichTextEditor(KeepNoteEditor):
         dialog = dialog_image_new.NewImageDialog(self, self._app)
         dialog.show()
 
-    def _on_save_image_as(self, menuitem):
+    def _on_save_image_as(self, button):
         if self._page is None:
             return
 
-        image = menuitem.get_parent().get_child()
+        image = self._textview.get_image_menu().get_child()
 
         dialog = FileChooserDialog(
             _("Save Image As..."), self.get_toplevel(),
@@ -553,7 +558,7 @@ class RichTextEditor(KeepNoteEditor):
         dialog.add_button(_("_Save"), Gtk.ResponseType.OK)
         dialog.set_default_response(Gtk.ResponseType.OK)
         dialog.present()
-        response = dialog.run()
+        response = dialog.run_blocking()  # Updated for GTK 4
 
         if response == Gtk.ResponseType.OK:
             if not dialog.get_filename():
@@ -568,26 +573,20 @@ class RichTextEditor(KeepNoteEditor):
 
     def make_image_menu(self, menu):
         """Image context menu"""
-        menu.set_accel_path(CONTEXT_MENU_ACCEL_PATH)
-        item = Gtk.SeparatorMenuItem()
-        menu.append(item)
+        menu_box = menu.get_child()  # Get the existing Gtk.Box
+        menu_box.append(Gtk.Separator())  # Add separator
 
-        item = Gtk.MenuItem(label=_("_View Image..."))
-        item.connect("activate", self._on_view_image)
-        item.get_child().set_label(_("<b>_View Image...</b>"))  # Changed from set_markup_with_mnemonic
-        menu.append(item)
-
-        item = Gtk.MenuItem(label=_("_Edit Image..."))
-        item.connect("activate", self._on_edit_image)
-        menu.append(item)
-
-        item = Gtk.MenuItem(label=_("_Resize Image..."))
-        item.connect("activate", self._on_resize_image)
-        menu.append(item)
-
-        item = Gtk.MenuItem(label=_("_Save Image As..."))
-        item.connect("activate", self._on_save_image_as)
-        menu.append(item)
+        for label, callback in [
+            (_("_View Image..."), self._on_view_image),
+            (_("_Edit Image..."), self._on_edit_image),
+            (_("_Resize Image..."), self._on_resize_image),
+            (_("_Save Image As..."), self._on_save_image_as),
+        ]:
+            item = Gtk.Button(label=label)
+            item.connect("clicked", callback)
+            if label == _("_View Image..."):
+                item.set_label(f"<b>{label}</b>")  # Bold for View Image
+            menu_box.append(item)
 
 class FontUI:
     def __init__(self, widget, signal, update_func=lambda ui, font: None, block=None, unblock=None):
@@ -650,7 +649,7 @@ class EditorMenus:
         self._editor.get_textview().unindent()
 
     def _on_family_set(self, font_family_combo):
-        self._editor.get_textview().set_font_family(font_family_combo.get_family())
+        self._editor.get_textview().set_font_family(font_family_combo.get_active_text())
         self._editor.get_textview().grab_focus()
 
     def _on_font_size_change(self, size):
@@ -687,16 +686,17 @@ class EditorMenus:
 
     def _on_choose_font(self):
         font = self._editor.get_textview().get_font()
-        dialog = Gtk.FontChooserDialog(title=_("Choose Font"))
-        dialog.set_font(f"{font.family} {font.size}")
+        dialog = Gtk.FontDialog(title=_("Choose Font"))
+        dialog.select_font(None, f"{font.family} {font.size}", self._on_font_selected)
         dialog.present()
-        response = dialog.run()
 
-        if response == Gtk.ResponseType.OK:
-            font_desc = dialog.get_font()
-            self._editor.get_textview().set_font(font_desc)
+    def _on_font_selected(self, dialog, result):
+        try:
+            font_desc = dialog.select_font_finish(result)
+            self._editor.get_textview().set_font(font_desc.to_string())
             self._editor.get_textview().grab_focus()
-        dialog.destroy()
+        except:
+            pass  # User canceled or error occurred
 
     # Spellcheck
     def enable_spell_check(self, enabled):
@@ -709,17 +709,14 @@ class EditorMenus:
     def on_spell_check_toggle(self, widget):
         self.enable_spell_check(widget.get_active())
 
-    # Toolbar and menus
+    # Toolbar and menus (GTK 4 replacement for UIManager)
     def add_ui(self, window):
-        # Note: Gtk.UIManager is deprecated in GTK 4. This method needs to be reimplemented
-        # using a different approach, such as GMenu or manual widget creation.
-        # For now, we'll comment out the implementation and note the need for refactoring.
-        print("Warning: add_ui needs to be reimplemented for GTK 4 (Gtk.UIManager is deprecated)")
+        # Placeholder for GTK 4 menu/toolbar implementation
+        print("Warning: add_ui needs to be reimplemented for GTK 4 using GMenu or manual widgets")
         pass
 
     def remove_ui(self, window):
-        # Similarly, this method needs to be reimplemented for GTK 4.
-        print("Warning: remove_ui needs to be reimplemented for GTK 4 (Gtk.UIManager is deprecated)")
+        print("Warning: remove_ui needs to be reimplemented for GTK 4")
         pass
 
     def get_actions(self):
@@ -796,137 +793,15 @@ class EditorMenus:
         )
 
     def get_ui(self):
-        use_minitoolbar = self._app.pref.get("look_and_feel", "use_minitoolbar", default=False)
-
-        ui = ["""
-        <ui>
-        <menubar name="main_menu_bar">
-          <menu action="Edit">
-            <placeholder name="Viewer">
-              <placeholder name="Editor">
-                <menuitem action="Insert Horizontal Rule"/>
-                <menuitem action="Insert Image"/>
-                <menuitem action="Insert New Image"/>
-                <menuitem action="Insert Screenshot"/>
-                <placeholder name="Extension"/>
-              </placeholder>
-            </placeholder>
-          </menu>
-          <menu action="Search">
-            <placeholder name="Viewer">
-              <placeholder name="Editor">
-                <menuitem action="Find In Page"/>
-                <menuitem action="Find Next In Page"/>
-                <menuitem action="Find Previous In Page"/>
-                <menuitem action="Replace In Page"/>
-              </placeholder>
-            </placeholder>
-          </menu>
-          <placeholder name Ascendantly
-            <placeholder name="Viewer">
-              <placeholder name="Editor">
-                <menu action="Format">
-                  <menuitem action="Bold"/>
-                  <menuitem action="Italic"/>
-                  <menuitem action="Underline"/>
-                  <menuitem action="Strike"/>
-                  <menuitem action="Monospace"/>
-                  <menuitem action="Link"/>
-                  <menuitem action="No Wrapping"/>
-                  <separator/>
-                  <menuitem action="Left Align"/>
-                  <menuitem action="Center Align"/>
-                  <menuitem action="Right Align"/>
-                  <menuitem action="Justify Align"/>
-                  <menuitem action="Bullet List"/>
-                  <menuitem action="Indent More"/>
-                  <menuitem action="Indent Less"/>
-                  <separator/>
-                  <menuitem action="Increase Font Size"/>
-                  <menuitem action="Decrease Font Size"/>
-                  <menuitem action="Apply Text Color"/>
-                  <menuitem action="Apply Background Color"/>
-                  <menuitem action="Choose Font"/>
-                </menu>
-              </placeholder>
-            </placeholder>
-          </menu>
-          <menu action="Go">
-            <placeholder name="Viewer">
-              <placeholder name="Editor">
-                <menuitem action="Go to Link"/>
-              </placeholder>
-            </placeholder>
-          </menu>
-          <menu action="Tools">
-            <placeholder name="Viewer">
-              <menuitem action="Spell Check"/>
-            </placeholder>
-          </menu>
-        </menubar>
-        </ui>
-        """]
-
-        if use_minitoolbar:
-            ui.append("""
-        <ui>
-        <toolbar name="main_tool_bar">
-          <placeholder name="Viewer">
-            <placeholder name="Editor">
-              <toolitem action="Bold Tool"/>
-              <toolitem action="Italic Tool"/>
-              <toolitem action="Underline Tool"/>
-              <toolitem action="Link Tool"/>
-              <toolitem action="Font Selector Tool"/>
-              <toolitem action="Font Size Tool"/>
-              <toolitem action="Font Fg Color Tool"/>
-              <toolitem action="Font Bg Color Tool"/>
-              <separator/>
-              <toolitem action="Bullet List Tool"/>
-            </placeholder>
-          </placeholder>
-        </toolbar>
-        </ui>
-        """)
-        else:
-            ui.append("""
-        <ui>
-        <toolbar name="main_tool_bar">
-          <placeholder name="Viewer">
-            <placeholder name="Editor">
-              <toolitem action="Bold Tool"/>
-              <toolitem action="Italic Tool"/>
-              <toolitem action="Underline Tool"/>
-              <toolitem action="Strike Tool"/>
-              <toolitem action="Monospace Tool"/>
-              <toolitem action="Link Tool"/>
-              <toolitem action="No Wrapping Tool"/>
-              <toolitem action="Font Selector Tool"/>
-              <toolitem action="Font Size Tool"/>
-              <toolitem action="Font Fg Color Tool"/>
-              <toolitem action="Font Bg Color Tool"/>
-              <separator/>
-              <toolitem action="Left Align Tool"/>
-              <toolitem action="Center Align Tool"/>
-              <toolitem action="Right Align Tool"/>
-              <toolitem action="Justify Align Tool"/>
-              <toolitem action="Bullet List Tool"/>
-              <separator/>
-            </placeholder>
-          </placeholder>
-        </toolbar>
-        </ui>
-        """)
-
-        return ui
+        # Placeholder for GTK 4 GMenu or manual widget implementation
+        print("Warning: get_ui needs to be reimplemented for GTK 4")
+        return []
 
     def setup_font_toggle(self, uimanager, path, stock=False, update_func=lambda ui, font: None):
-        # Note: This method needs to be reimplemented for GTK 4 due to the removal of Gtk.UIManager
         print("Warning: setup_font_toggle needs to be reimplemented for GTK 4")
         return None
 
     def setup_menu(self, window, uimanager):
-        # Note: This method needs to be reimplemented for GTK 4 due to the removal of Gtk.UIManager
         print("Warning: setup_menu needs to be reimplemented for GTK 4")
         pass
 
@@ -946,7 +821,6 @@ class ComboToolItem(Gtk.Box):
     def set_tooltip(self, tooltips, tip_text=None, tip_private=None):
         self.set_tooltip_text(tip_text)
         self.combobox.set_tooltip_text(tip_text)
-
 
 class ComboToolAction(Action):
     def __init__(self, name, label, tooltip, stock_id):

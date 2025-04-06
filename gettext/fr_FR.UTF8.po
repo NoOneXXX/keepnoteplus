@@ -1,12 +1,12 @@
-# French translations for keepnote package
-# Traductions françaises du paquet keepnote.
+# French translations for keepnote.py package
+# Traductions françaises du paquet keepnote.py.
 # Copyright (C) 2009 Matt Rasmussen
-# This file is distributed under the same license as the keepnote package.
+# This file is distributed under the same license as the keepnote.py package.
 # tb <thibaut.bethune@gmail.com>, 2009.
 #
 msgid ""
 msgstr ""
-"Project-Id-Version: keepnote 0.5.3\n"
+"Project-Id-Version: keepnote.py 0.5.3\n"
 "Report-Msgid-Bugs-To: \n"
 "POT-Creation-Date: 2012-07-23 10:26-0400\n"
 "PO-Revision-Date: 2011-09-19 12:39+0100\n"

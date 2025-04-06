@@ -1,8 +1,10 @@
 # PyGObject imports
 from gi import require_version
+
 require_version('Gtk', '4.0')  # Specify GTK 4.0
 from gi.repository import Gtk, Gdk
 import warnings
+
 warnings.filterwarnings("ignore", category=DeprecationWarning)
 
 # KeepNote imports
@@ -15,6 +17,7 @@ _ = keepnote.translate
 
 DEFAULT_ATTR_COL_WIDTH = 150
 DEFAULT_TITLE_COL_WIDTH = 250
+
 
 class KeepNoteListView(basetreeview.KeepNoteBaseTreeView):
 
@@ -33,13 +36,23 @@ class KeepNoteListView(basetreeview.KeepNoteBaseTreeView):
         self.get_selection().set_mode(Gtk.SelectionMode.MULTIPLE)
 
         # Init view
-        self.connect("key-release-event", self.on_key_released)
-        self.connect("button-press-event", self.on_button_press)
+        #
+        controller = Gtk.EventControllerKey()
+        controller.connect("key-released", self.on_key_released)
+        self.add_controller(controller)
+        controller = Gtk.EventControllerKey()
+        controller.connect("key-released", self.on_key_released)
+        self.add_controller(controller)
+
+        gesture = Gtk.GestureClick()
+        gesture.connect("pressed", self.on_button_press)
+        self.add_controller(gesture)
         self.connect("row-expanded", self._on_listview_row_expanded)
         self.connect("row-collapsed", self._on_listview_row_collapsed)
-        self.connect("columns-changed", self._on_columns_changed)
+        self.connect("notify::columns", self._on_columns_changed)
 
-        self.set_enable_grid_lines(True)  # Replaces set_rules_hint
+# GTK4 不再支持 set_enable_tree_lines / Gtk.TreeViewLines
+# 如需类似效果，可使用 CSS 设置网格线，如 grid-lines: both;
         self.set_fixed_height_mode(True)
         self.set_sensitive(False)
 
@@ -50,9 +63,32 @@ class KeepNoteListView(basetreeview.KeepNoteBaseTreeView):
 
     def load_preferences(self, app_pref, first_open=False):
         """Load application preferences"""
-        self.set_date_formats(app_pref.get("timestamp_formats", default=["%Y-%m-%d %H:%M:%S"]))
-        self.set_enable_grid_lines(
-            app_pref.get("look_and_feel", "listview_rules", default=True))
+
+        # 原来的写法有 default 参数，dict 不支持这个
+        formats = app_pref.get("timestamp_formats")
+        if not formats:
+            formats = ["%Y-%m-%d %H:%M:%S"]
+        self.set_date_formats(formats)
+
+        # GTK4 不再支持 set_enable_grid_lines，建议用 CSS 设置
+        rules_enabled = False
+        look_and_feel = app_pref.get("look_and_feel", {})
+        if isinstance(look_and_feel, dict):
+            rules_enabled = look_and_feel.get("listview_rules", True)
+
+        if rules_enabled:
+            # 使用 CSS 设置网格线效果
+            css_provider = Gtk.CssProvider()
+            css_provider.load_from_data(b"""
+            treeview cell {
+                border-bottom: 1px solid #ccc;
+                border-right: 1px solid #ccc;
+                padding: 2px;
+            }
+            """)
+
+            style_context = self.get_style_context()
+            style_context.add_provider(css_provider, Gtk.STYLE_PROVIDER_PRIORITY_APPLICATION)
 
     def save_preferences(self, app_pref):
         """Save application preferences"""
@@ -130,7 +166,7 @@ class KeepNoteListView(basetreeview.KeepNoteBaseTreeView):
             self._load_column_widths()
             self._load_column_order()
 
-    #==================================
+    # ==================================
     # Model and view setup
 
     def set_model(self, model):
@@ -219,7 +255,7 @@ class KeepNoteListView(basetreeview.KeepNoteBaseTreeView):
         self.append_column(column)
         return column
 
-    #=============================================
+    # =============================================
     # GUI callbacks
 
     def is_node_expanded(self, node):
@@ -227,8 +263,8 @@ class KeepNoteListView(basetreeview.KeepNoteBaseTreeView):
 
     def set_node_expanded(self, node, expand):
         if len(treemodel.get_path_from_node(
-               self.model, node,
-               self.rich_model.get_node_column_pos())) > 1:
+                self.model, node,
+                self.rich_model.get_node_column_pos())) > 1:
             node.set_attr("expanded2", expand)
 
     def _sort_column_changed(self, sortmodel):
@@ -283,7 +319,7 @@ class KeepNoteListView(basetreeview.KeepNoteBaseTreeView):
             if len(paths) > 0:
                 nodes = [
                     self.model.get_value(self.model.get_iter(x),
-                                        self.rich_model.get_node_column_pos())
+                                         self.rich_model.get_node_column_pos())
                     for x in paths]
                 self.emit("activate-node", nodes[0])
 
@@ -313,7 +349,7 @@ class KeepNoteListView(basetreeview.KeepNoteBaseTreeView):
             self._notebook.get_listeners("table_changed").notify(
                 self._notebook, self._current_table)
 
-    #====================================================
+    # ====================================================
     # Actions
 
     def view_nodes(self, nodes, nested=True):

@@ -6,7 +6,7 @@ from gi.repository import Gtk, GLib
 
 # KeepNote imports
 import keepnote
-from keepnote import get_resource
+from keepnote.util.platform import get_resource
 
 class WaitDialog:
     def __init__(self, parent_window):
@@ -21,7 +21,7 @@ class WaitDialog:
     def show(self, title, message, task, cancel=True):
         # Load the UI file (replacing Glade with a GTK 4 UI file)
         self.builder = Gtk.Builder()
-        self.builder.add_from_file(get_resource("rc", "keepnote.ui"))  # Update to .ui file
+        self.builder.add_from_file(get_resource("rc", "keepnote.py.ui"))  # Update to .ui file
         self.builder.set_translation_domain(keepnote.GETTEXT_DOMAIN)
         self.dialog = self.builder.get_object("wait_dialog")
         self.dialog.connect("close-request", self._on_close)

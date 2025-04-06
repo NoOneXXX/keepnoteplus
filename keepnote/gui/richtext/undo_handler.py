@@ -5,7 +5,7 @@
 
 """
 
-# keepnote imports
+# keepnote.py imports
 from keepnote.undo import UndoStack
 from keepnote.listening import Listeners
 

@@ -10,9 +10,8 @@ from gi.repository import Gtk, Gdk
 
 # KeepNote imports
 import keepnote
-from keepnote import unicode_gtk
 import keepnote.gui
-from keepnote import get_resource
+from keepnote.util.platform import get_resource
 import keepnote.notebook as notebooklib
 
 # Constants and globals
@@ -79,8 +78,16 @@ class MimeIcons:
         if name is None or self.theme is None:
             return default
         size = 16
-        info = self.theme.lookup_icon(name, [], size, 0)
-        return info.get_filename() if info else default
+        paintable = self.theme.lookup_icon(
+            name,
+            [],  # fallback names
+            size,
+            1,  # scale
+            Gtk.TextDirection.NONE,
+            Gtk.IconLookupFlags.FORCE_REGULAR
+        )
+        return paintable if paintable else default
+
 
 _g_mime_icons = MimeIcons()
 
@@ -95,7 +102,7 @@ def lookup_icon_filename(notebook, basename):
 
     if notebook:
         filename = notebook.get_icon_file(basename)
-        if filename:
+        if filename and os.path.isfile(filename):
             _icon_basename_cache[(notebook, basename)] = filename
             return filename
 
@@ -104,9 +111,14 @@ def lookup_icon_filename(notebook, basename):
         _icon_basename_cache[(notebook, basename)] = filename
         return filename
 
-    filename = _g_mime_icons.get_icon_filename(basename)
-    _icon_basename_cache[(notebook, basename)] = filename
-    return filename
+    result = _g_mime_icons.get_icon_filename(basename, default=basename)
+    if isinstance(result, str):
+        return result  # fallback to basename if not found
+    elif result is not None:
+        return Gtk.Image.new_from_paintable(result)  # return image widget
+    else:
+        return basename
+
 
 def get_default_icon_basenames(node):
     content_type = node.get_attr("content_type")
@@ -193,7 +205,10 @@ class NoteBookIconManager:
 
     def _resolve_icon(self, filename, size, fade):
         if not fade:
+            if not isinstance(filename, str):
+                return None
             return self.pixbufs.get_pixbuf(filename, size)
+
         return self.get_node_icon_fade(filename, size)
 
     def get_node_icon_fade(self, filename, size, fade_alpha=128):

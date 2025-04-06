@@ -4,7 +4,7 @@ gi.require_version('Gtk', '4.0')  # Specify GTK 4.0
 from gi.repository import Gtk, Gdk, GObject
 
 # KeepNote imports
-from keepnote import unicode_gtk
+from keepnote.util.platform import unicode_gtk
 from keepnote.gui.popupwindow import PopupWindow
 
 class LinkPicker(Gtk.TreeView):

@@ -2,7 +2,7 @@ import os, shutil, unittest, _thread, threading, traceback, sys
 
 from .testing import *
 
-# keepnote imports
+# keepnote.py imports
 import keepnote
 from keepnote import notebook
 
@@ -20,7 +20,7 @@ class NoteBookReload (unittest.TestCase):
         filename = "test/data/notebook-v3"
         path = os.path.join(filename, "stress tests")
         
-        app = keepnote.KeepNote("keepnote")
+        app = keepnote.KeepNote("keepnote.py")
         book = app.get_notebook(filename)
         print("opened '%s'" % book.get_title())
         print("\t".join(["%d. '%s'" % (i+1, x.get_title()) 

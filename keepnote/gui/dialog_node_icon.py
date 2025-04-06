@@ -6,7 +6,7 @@ from gi.repository import Gtk, GdkPixbuf
 
 # KeepNote imports
 import keepnote
-from keepnote import unicode_gtk
+from keepnote.util.platform import unicode_gtk
 import keepnote.gui
 from keepnote.gui.icons import (
     guess_open_icon_filename,
@@ -14,8 +14,10 @@ from keepnote.gui.icons import (
     builtin_icons,
     get_node_icon_filenames
 )
-
-_ = keepnote.translate
+# 修改为从 util.perform 直接导入
+from keepnote.util.platform import translate
+_ = translate
+# _ = keepnote.py.translate
 
 def browse_file(parent, title, filename=None):
     """Callback for selecting file browser"""
@@ -72,7 +74,7 @@ class NodeIconDialog:
 
         # Load the UI file (replacing Glade with a GTK 4 UI file)
         self.builder = Gtk.Builder()
-        self.builder.add_from_file(keepnote.gui.get_resource("rc", "keepnote.ui"))  # Update to .ui file
+        self.builder.add_from_file(keepnote.gui.get_resource("rc", "keepnote.py.ui"))  # Update to .ui file
         self.builder.set_translation_domain(keepnote.GETTEXT_DOMAIN)
         self.dialog = self.builder.get_object("node_icon_dialog")
         self.dialog.set_transient_for(self.main_window)

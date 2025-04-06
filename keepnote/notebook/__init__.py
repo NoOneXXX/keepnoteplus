@@ -15,7 +15,7 @@ import urllib.request, urllib.error, urllib.parse
 import uuid
 import xml.etree.cElementTree as ET
 
-# keepnote imports
+# keepnote.py imports
 from keepnote.listening import Listeners
 from keepnote.timestamp import get_timestamp
 from keepnote import trans
@@ -1326,7 +1326,7 @@ class NoteBook (NoteBookNode):
     def save(self, force=False):
         """Recursively save any loaded nodes"""
 
-        # TODO: keepnote copy of old pref.  only save pref if its changed.
+        # TODO: keepnote.py copy of old pref.  only save pref if its changed.
 
         if force or self in self._dirty:
             self._write_attr_defs()

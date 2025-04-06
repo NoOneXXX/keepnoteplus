@@ -9,7 +9,7 @@ import threading
 import time
 import traceback
 
-# keepnote imports
+# keepnote.py imports
 from keepnote import notebook
 
 from . import clean_dir, TMP_DIR

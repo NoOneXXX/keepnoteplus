@@ -178,6 +178,13 @@ class RichTextTag(Gtk.TextTag):
     def make_from_name(cls, tag_name):
         return cls(cls.get_value(tag_name))
 
+class RichTextTagTable(Gtk.TextTagTable):
+    def __init__(self):
+        super().__init__()
+        self._buffers = []
+
+    def add_textbuffer(self, buffer):
+        self._buffers.append(buffer)
 # Example usage (optional, for testing)
 if __name__ == "__main__":
     win = Gtk.Window()

@@ -4,7 +4,7 @@ import unittest
 import os
 import time
 
-# keepnote imports
+# keepnote.py imports
 from keepnote import notebook
 import keepnote.notebook.connection.fs as fs
 from keepnote.notebook.connection import ConnectionError

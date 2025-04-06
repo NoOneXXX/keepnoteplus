@@ -14,13 +14,13 @@ const thirdPartyFiles = [
 
 // 清理任务
 function clean() {
-    return del(['keepnote/server/static/thirdparty/**']);
+    return del(['keepnote.py/server/static/thirdparty/**']);
 }
 
 // 构建任务
 function buildThirdParty() {
     return src(thirdPartyFiles, { base: 'node_modules' })
-        .pipe(dest('keepnote/server/static/thirdparty/'));
+        .pipe(dest('keepnote.py/server/static/thirdparty/'));
 }
 
 // 默认任务

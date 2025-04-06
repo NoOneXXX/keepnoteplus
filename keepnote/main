@@ -19,24 +19,24 @@ bin_path = os.path.dirname(sys.argv[0])
 
 (1) directly from source dir
 
-    pkgdir = bin_path + "../keepnote"
+    pkgdir = bin_path + "../keepnote.py"
     basedir = pkgdir
     sys.path.append(pkgdir)
 
-    src/bin/keepnote
-    src/keepnote/__init__.py
-    src/keepnote/images
-    src/keepnote/rc
+    src/bin/keepnote.py
+    src/keepnote.py/__init__.py
+    src/keepnote.py/images
+    src/keepnote.py/rc
 
 (2) from installation location by setup.py 
 
-    pkgdir = keepnote.get_basedir()
+    pkgdir = keepnote.py.get_basedir()
     basedir = pkgdir
 
-    prefix/bin/keepnote
-    prefix/lib/python-XXX/site-packages/keepnote/__init__.py
-    prefix/lib/python-XXX/site-packages/keepnote/images
-    prefix/lib/python-XXX/site-packages/keepnote/rc
+    prefix/bin/keepnote.py
+    prefix/lib/python-XXX/site-packages/keepnote.py/__init__.py
+    prefix/lib/python-XXX/site-packages/keepnote.py/images
+    prefix/lib/python-XXX/site-packages/keepnote.py/rc
 
 
 (3) windows py2exe dir
@@ -44,15 +44,15 @@ bin_path = os.path.dirname(sys.argv[0])
     pkgdir = bin_path
     basedir = bin_path
 
-    dir/keepnote.exe
+    dir/keepnote.py.exe
     dir/library.zip
     dir/images
     dir/rc
 """
 
-# Try to infer keepnote lib path from program path
+# Try to infer keepnote.py lib path from program path
 pkgdir = dirname(dirname(realpath(sys.argv[0])))
-if os.path.exists(join(pkgdir, "keepnote", "__init__.py")):
+if os.path.exists(join(pkgdir, "keepnote.py", "__init__.py")):
     sys.path.insert(0, pkgdir)
     import keepnote
 

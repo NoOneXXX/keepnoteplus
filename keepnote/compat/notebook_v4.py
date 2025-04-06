@@ -21,7 +21,7 @@ from xml.sax.saxutils import escape
 import xml.etree.cElementTree as ET
 
 
-# keepnote imports
+# keepnote.py imports
 from keepnote.listening import Listeners
 from keepnote.timestamp import get_timestamp
 from keepnote import trans
@@ -451,7 +451,7 @@ default_notebook_table = NoteBookTable("default", attrs=[title_attr,
 # TODO: parent might be an implict attr
 
 
-# 1. attrs should be data that is optional (although keepnote has a few
+# 1. attrs should be data that is optional (although keepnote.py has a few
 # required entries).
 # 2. attrs can appear in listview
 
@@ -1304,7 +1304,7 @@ class NoteBook (NoteBookNode):
     def save(self, force=False):
         """Recursively save any loaded nodes"""
         
-        # TODO: keepnote copy of old pref.  only save pref if its changed.
+        # TODO: keepnote.py copy of old pref.  only save pref if its changed.
 
         if force or self in self._dirty:
             self._conn.update_node(self._attr["nodeid"], self._attr)

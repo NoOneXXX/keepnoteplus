@@ -129,7 +129,7 @@ def decode(obj):
 
 class SqliteDict(MutableMapping):
     def __init__(self, filename=None, tablename='unnamed', flag='c',
-                 autocommit=False, journal_mode="DELETE"):
+                 autocommit=True, journal_mode="WAL"):  # Change default to WAL
         self.in_temp = filename is None
         if self.in_temp:
             randpart = hex(random.randint(0, 0xffffff))[2:]
@@ -148,6 +148,30 @@ class SqliteDict(MutableMapping):
 
         if flag == 'w':
             self.clear()
+
+    def commit(self):
+        if self.conn is not None:
+            try:
+                self.conn.commit()
+            except sqlite3.OperationalError as e:
+                logger.error(f"Commit failed: {e}")
+                raise
+
+    def close(self):
+        logger.debug("Closing %s", self)
+        if self.conn is not None:
+            if not self.conn.autocommit:
+                try:
+                    self.conn.commit()  # Ensure commit before closing
+                except sqlite3.OperationalError as e:
+                    logger.error(f"Failed to commit on close: {e}")
+            self.conn.close()
+            self.conn = None
+        if self.in_temp:
+            try:
+                os.remove(self.filename)
+            except Exception:
+                pass
 
     def __enter__(self):
         return self
