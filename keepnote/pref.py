@@ -4,7 +4,7 @@
     Preference data structure
 
 """
-
+from email.policy import default
 
 from keepnote import orderdict
 
@@ -48,7 +48,10 @@ def get_pref(pref, *args, **kargs):
             # no default or define specified
             # all keys are expected to be present
             for arg in args:
-                d = d[arg]
+                if isinstance(arg, str) and arg in d:
+                    d = d[arg]
+                else:
+                    return default
 
         # check type
         if "type" in kargs and "default" in kargs:
@@ -58,7 +61,8 @@ def get_pref(pref, *args, **kargs):
         return d
 
     except KeyError:
-        raise Exception("unknown config value '%s'" % ".".join(args))
+        raise Exception("unknown config value '%s'" % ".".join(str(a) for a in args))
+
 
 
 def set_pref(pref, *args):

@@ -408,21 +408,27 @@ class RichTextView(Gtk.TextView, GObject.GObject):
             for callback in self._buffer_callbacks:
                 self._textbuffer.disconnect(callback)
         if textbuffer:
+            if isinstance(textbuffer, RichTextBuffer):
+                textbuffer = textbuffer.get_buffer()
             super().set_buffer(textbuffer)
         else:
             super().set_buffer(self._blank_buffer)
         self._textbuffer = textbuffer
         if self._textbuffer:
-            self._modified_id = self._textbuffer.connect(
-                "modified-changed", self._on_modified_changed)
-            self._buffer_callbacks = [
-                self._textbuffer.connect("font-change", self._on_font_change),
-                self._textbuffer.connect("child-added", self._on_child_added),
-                self._textbuffer.connect("child-activated", self._on_child_activated),
-                self._textbuffer.connect("child-menu", self._on_child_popup_menu),
-                self._modified_id
-            ]
-            self._textbuffer.add_deferred_anchors(self)
+            self._modified_id = self._textbuffer.connect("modified-changed", self._on_modified_changed)
+            self._buffer_callbacks = []
+            # ✅ 如果 textbuffer 是 RichTextBuffer，才连接 font-change 信号
+            # 只在 RichTextBuffer 上连接自定义信号
+            if isinstance(textbuffer, RichTextBuffer):
+                textbuffer.add_deferred_anchors(self)
+                self._buffer_callbacks.append(textbuffer.connect("font-change", self._on_font_change))
+                self._buffer_callbacks.append(textbuffer.connect("child-added", self._on_child_added))
+                self._buffer_callbacks.append(textbuffer.connect("child-activated", self._on_child_activated))
+                self._buffer_callbacks.append(textbuffer.connect("child-menu", self._on_child_popup_menu))
+                # modified-changed 始终存在
+            self._buffer_callbacks.append(self._modified_id)
+            if isinstance(textbuffer, RichTextBuffer):
+                textbuffer.add_deferred_anchors(self)
 
     def set_accel_group(self, accel_group):
         self._accel_group = accel_group
@@ -660,7 +666,11 @@ class RichTextView(Gtk.TextView, GObject.GObject):
     def disable(self):
         if self._textbuffer:
             self._textbuffer.handler_block(self._modified_id)
-            self._textbuffer.clear()
+            if hasattr(self._textbuffer, "clear"):
+                self._textbuffer.clear()
+            else:
+                self._textbuffer.set_text("")  # GTK 方式清除文本内容
+
             self._textbuffer.set_modified(False)
             self._textbuffer.handler_unblock(self._modified_id)
         self.set_sensitive(False)

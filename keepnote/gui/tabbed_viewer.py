@@ -35,6 +35,10 @@ class TabbedViewer(Viewer):
 
     def __init__(self, app, main_window, viewerid=None, default_viewer=ThreePaneViewer):
         super().__init__(app, main_window, viewerid, viewer_name="tabbed_viewer")
+        self._app = app  # Ensure _app is passed correctly
+        if self._app is None:
+            print("ERROR: _app is not initialized.")
+            return  # Prevent further initialization if _app is None
         self._default_viewer = default_viewer
         self._current_viewer = None
         self._callbacks = {}

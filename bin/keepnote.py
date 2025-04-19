@@ -245,21 +245,24 @@ def execute_command(app, argv):
 
     Returns True if GUI event loop should be started
     """
-    print("Executing command...")
+    print("DEBUG: Starting execute_command...")
     options, args = parse_argv(argv)
+    print(f"DEBUG: Options: {options}, Args: {args}")
 
     if options.list_cmd:
+        print("DEBUG: Listing commands...")
         list_commands(app)
         return False
 
     if options.info:
+        print("DEBUG: Printing runtime info...")
         keepnote.print_runtime_info(sys.stdout)
         return False
 
     if options.cmd:
         if len(args) == 0:
             raise Exception(_("Expected command"))
-
+        print(f"DEBUG: Executing command: {args[0]}")
         command = app.get_command(args[0])
         if command:
             command.func(app, args)
@@ -268,44 +271,53 @@ def execute_command(app, argv):
 
         if not options.no_gui:
             if len(app.get_windows()) == 0:
+                print("DEBUG: Creating new window for command...")
                 app.new_window()
-                return True
+            return True
         return False
 
     if options.no_gui:
+        print("DEBUG: Running in non-GUI mode...")
         return False
 
     if len(args) > 0:
         for arg in args:
             if keepnote.notebook.is_node_url(arg):
+                print(f"DEBUG: Going to node ID: {arg}")
                 host, nodeid = keepnote.notebook.parse_node_url(arg)
                 app.goto_nodeid(nodeid)
             elif keepnote.extension.is_extension_install_file(arg):
+                print(f"DEBUG: Installing extension: {arg}")
                 if len(app.get_windows()) == 0:
+                    print("DEBUG: Creating new window for extension...")
                     app.new_window()
                 app.install_extension(arg)
             else:
+                print(f"DEBUG: Opening notebook: {arg}")
                 if len(app.get_windows()) == 0:
+                    print("DEBUG: Creating new window for notebook...")
                     app.new_window()
                 app.get_current_window().open_notebook(arg)
     else:
+        print("DEBUG: Creating default window...")
         win = app.new_window()
 
-        if len(app.get_windows()) == 1 and options.default_notebook:
-            default_notebooks = app.pref.get("default_notebooks", default=[])
-            notebook_loaded = False
-            for path in reversed(default_notebooks):
-                if os.path.exists(path):
-                    print(f"Loading default notebook: {path}")
-                    if win.open_notebook(path, open_here=False):
-                        notebook_loaded = True
-                        break
-                else:
-                    print(f"Skipping invalid default notebook path: {path}")
+        # if len(app.get_windows()) == 1 and options.default_notebook:
+        #     default_notebooks = app.pref.get("default_notebooks", default=[])
+        #     notebook_loaded = False
+        #     for path in reversed(default_notebooks):
+        #         if os.path.exists(path):
+        #             print(f"DEBUG: Loading default notebook: {path}")
+        #             if win.open_notebook(path, open_here=False):
+        #                 notebook_loaded = True
+        #                 break
+        #         else:
+        #             print(f"DEBUG: Skipping invalid default notebook path: {path}")
+        #
+        #     if not notebook_loaded:
+        #         print("DEBUG: No valid default notebooks found to load.")
 
-            if not notebook_loaded:
-                print("No valid default notebooks found to load.")
-
+    print("DEBUG: execute_command returning True")
     return True
 
 
@@ -325,8 +337,6 @@ def list_commands(app):
         print()
 
 
-
-
 # Setup sys.path to include KeepNote source if needed
 BIN_DIR = os.path.dirname(os.path.realpath(__file__))
 SRC_DIR = os.path.abspath(os.path.join(BIN_DIR, "..", "keepnote.py"))
@@ -336,9 +346,19 @@ if SRC_DIR not in sys.path:
 import keepnote
 
 def main(argv):
-    app = keepnote.KeepNoteApplication()
-    exit_status = app.run(argv)
-    sys.exit(exit_status)
+    # 修改：添加异常捕获和调试日志，确保程序退出原因被记录
+    # 原因：原始 main 未捕获异常，可能导致窗口一闪即逝后无声退出
+    print("DEBUG: Entering main...")
+    try:
+        app = keepnote.KeepNoteApplication()
+        print("DEBUG: Running application...")
+        exit_status = app.run(argv)
+        print(f"DEBUG: Application exited with status: {exit_status}")
+        sys.exit(exit_status)
+    except Exception as e:
+        print(f"ERROR: Exception in main: {e}")
+        traceback.print_exc()
+        sys.exit(1)
 
 
 if __name__ == '__main__':

@@ -45,8 +45,11 @@ class KeepNoteWindow(Gtk.Window):
 
     def __init__(self, app, winid=None):
         super().__init__()
-
+        self._widgets = {}  # Initialize the _widgets attribute as an empty dictionary
         self._app = app  # application object
+        if self._app is None:
+            print("ERROR: _app is not initialized.")
+            return
         self._winid = winid if winid else str(uuid.uuid4())
         self._viewers = []
 
@@ -68,6 +71,9 @@ class KeepNoteWindow(Gtk.Window):
 
         # Load preferences for the first time
         self.load_preferences(True)
+
+    def set_application(self, app):
+        self._app = app  # Ensure _app is correctly set
 
     def get_id(self):
         return self._winid
@@ -155,7 +161,7 @@ class KeepNoteWindow(Gtk.Window):
 
     def setup_systray(self):
         """Setup system tray for window"""
-        print("Warning: System tray (Gtk.StatusIcon) is not supported in GTK 4. This feature is disabled.")
+        # print("Warning: System tray (Gtk.StatusIcon) is not supported in GTK 4. This feature is disabled.")
         self._tray_icon = None
 
     def _on_systray_popup_menu(self, status, button, time):
@@ -247,6 +253,9 @@ class KeepNoteWindow(Gtk.Window):
         p = self._app.pref
         # window_size = p.get("window", "window_size", default=DEFAULT_WINDOW_SIZE)
         window_section = p.get("window", {})
+        if not isinstance(window_section, dict):
+            print("[warn] config 'window_section' expected dict but got", type(window_section))
+            window_section = {}
         window_size = window_section.get("window_size", DEFAULT_WINDOW_SIZE)
 
         print(f"window_size: {window_size} (type: {type(window_size)})")
@@ -262,17 +271,30 @@ class KeepNoteWindow(Gtk.Window):
         print(f"Parsed window_size: {window_size}")
 
         window_section2 = p.get("window", {})
+        if not isinstance(window_section2, dict):
+            print("[warn] config 'window_section2' expected dict but got", type(window_section2))
+            window_section2 = {}
+
         window_maximized = window_section2.get("window_maximized", True)
 
         self.setup_systray()
 
         window_section3 = p.get("window", {})
+        if not isinstance(window_section3, dict):
+            print("[warn] config 'window_section3' expected dict but got", type(window_section3))
+            window_section3 = {}
+
         use_systray = window_section3.get("use_systray", True)
+
         if first_open:
             self.set_default_size(*window_size)
             if window_maximized:
                 self.maximize()
             window_section4 = p.get("window", {})
+            if not isinstance(window_section4, dict):
+                print("[warn] config 'window_section4' expected dict but got", type(window_section4))
+                window_section4 = {}
+
             if use_systray and window_section4.get("minimize_on_start", False):
                 self.minimize()
 
@@ -306,7 +328,12 @@ class KeepNoteWindow(Gtk.Window):
 
         # Ensure a notebook is opened
         if self._recent_notebooks and not self.get_notebook():
-            self.open_notebook(self._recent_notebooks[0])
+            if not isinstance(self._recent_notebooks, list):
+                print("[warn] config '_recent_notebooks' expected list but got", type(self._recent_notebooks))
+                self._recent_notebooks = []
+
+            if self._recent_notebooks:
+                self.open_notebook(self._recent_notebooks[0])
 
         self.viewer.load_preferences(self._app.pref, first_open)
 
@@ -800,32 +827,30 @@ class KeepNoteWindow(Gtk.Window):
 
     # Menus
     def make_menubar(self):
-        """
-        Create a full-featured GTK 4-compatible menubar using Gtk.MenuButton and Gio.Menu.
-        This replaces deprecated Gtk.MenuBar, Gtk.MenuItem, Gtk.Menu from GTK 3.
-        """
         menubar_box = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=6)
 
-        # Create and insert action group for "win" domain
+        # 添加 menu_button
+        self.menu_button = Gtk.MenuButton(label="Menu")
+        self._widgets["menu_button"] = self.menu_button
+        menubar_box.append(self.menu_button)
+
+        # 创建并插入动作组
         self.win_actions = Gio.SimpleActionGroup()
         self.insert_action_group("win", self.win_actions)
 
-        # === Helper to build menu button and action group ===
         def create_menu_button(title, actions):
             menu = Gio.Menu()
             for label, action_name, callback in actions:
                 menu.append(label, f"win.{action_name}")
-
                 if not self.win_actions.has_action(action_name):
                     action = Gio.SimpleAction.new(action_name, None)
                     action.connect("activate", lambda a, p, cb=callback: cb())
                     self.win_actions.add_action(action)
-
             btn = Gtk.MenuButton(label=title)
             btn.set_popover(Gtk.PopoverMenu.new_from_model(menu))
             return btn
 
-        # === File Menu ===
+        # 文件菜单
         file_actions = [
             ("New Notebook", "new_notebook", self.on_new_notebook),
             ("Open Notebook", "open_notebook", self.on_open_notebook),
@@ -837,7 +862,7 @@ class KeepNoteWindow(Gtk.Window):
         ]
         menubar_box.append(create_menu_button("File", file_actions))
 
-        # === Edit Menu ===
+        # 编辑菜单
         edit_actions = [
             ("Undo", "undo", self.on_undo),
             ("Redo", "redo", self.on_redo),
@@ -848,14 +873,14 @@ class KeepNoteWindow(Gtk.Window):
         ]
         menubar_box.append(create_menu_button("Edit", edit_actions))
 
-        # === Search Menu ===
+        # 搜索菜单
         search_actions = [
             ("Search All Notes", "search_all",
              lambda: self.search_box.grab_focus() if hasattr(self, 'search_box') else None),
         ]
         menubar_box.append(create_menu_button("Search", search_actions))
 
-        # === Tools Menu ===
+        # 工具菜单
         tools_actions = [
             ("Update Notebook Index", "update_index", lambda: self.update_index(clear=True)),
             ("Compact Notebook Index", "compact_index", self.compact_index),
@@ -863,14 +888,14 @@ class KeepNoteWindow(Gtk.Window):
         ]
         menubar_box.append(create_menu_button("Tools", tools_actions))
 
-        # === Window Menu ===
+        # 窗口菜单
         window_actions = [
             ("New Window", "new_window", self.on_new_window),
             ("Close Window", "close_window", self.close),
         ]
         menubar_box.append(create_menu_button("Window", window_actions))
 
-        # === Help Menu ===
+        # 帮助菜单
         help_actions = [
             ("View Error Log", "error_log", self.view_error_log),
             ("View Preference Files", "pref_files", self.view_config_files),

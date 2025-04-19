@@ -41,11 +41,17 @@ class ThreePaneViewer(Viewer):
         self._new_page_occurred = False
         self.back_button = None
         self._view_mode = DEFAULT_VIEW_MODE
-
+        self._app = app  # Ensure _app is assigned here
+        if self._app is None:
+            print("ERROR: _app is not initialized.")
+            return  # Prevent further initialization if _app is None
         self.connect("history-changed", self._on_history_changed)
 
         self.treeview = KeepNoteTreeView()
-        self.treeview.set_get_node(self._app.get_node)
+        if self._app is not None:  # Ensure _app is not None before using it
+            self.treeview.set_get_node(self._app.get_node)
+        else:
+            print("ERROR: _app is not initialized.")
         self.treeview.connect("select-nodes", self._on_tree_select)
         self.treeview.connect("delete-node", self.on_delete_node)
         self.treeview.connect("error", lambda w, t, e: self.emit("error", t, e))
@@ -55,7 +61,11 @@ class ThreePaneViewer(Viewer):
         self.treeview.connect("drop-file", self._on_attach_file)
 
         self.listview = KeepNoteListView()
-        self.listview.set_get_node(self._app.get_node)
+        # self.listview.set_get_node(self._app.get_node)
+        if self._app is not None:  # Ensure _app is not None before using it
+            self.listview.set_get_node(self._app.get_node)
+        else:
+            print("ERROR: _app is not initialized.")
         self.listview.connect("select-nodes", self._on_list_select)
         self.listview.connect("delete-node", self.on_delete_node)
         self.listview.connect("goto-node", self.on_goto_node)
@@ -120,6 +130,9 @@ class ThreePaneViewer(Viewer):
 
     def load_preferences(self, app_pref, first_open=False):
         viewers_pref = app_pref.get("viewers", {})
+        if not isinstance(viewers_pref, dict):
+            print("[warn] config 'viewers' expected dict but got", type(viewers_pref))
+            viewers_pref = {}
         p = viewers_pref.get("three_pane_viewer", {})
 
         vsash_pos = p.get("vsash_pos", DEFAULT_VSASH_POS)

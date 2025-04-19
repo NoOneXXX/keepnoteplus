@@ -57,7 +57,10 @@ class TextEditor(KeepNoteEditor):
         self._sw.set_policy(Gtk.PolicyType.AUTOMATIC, Gtk.PolicyType.AUTOMATIC)
         self._sw.set_has_frame(True)  # Replaces set_shadow_type
         self._sw.set_child(self._textview)  # Changed from add to set_child
-        self.append(self._sw)  # Changed from pack_start to append
+        if self._sw.get_parent() is None:  # 防止重复挂载
+            self.append(self._sw)
+
+    # Changed from pack_start to append
 
         # Menus and find dialog are commented out in the original code
         # self.editor_menus = EditorMenus(self._app, self)
@@ -247,12 +250,12 @@ class EditorMenus:
     def add_ui(self, window):
         # Note: Gtk.UIManager is deprecated in GTK 4. This method needs to be reimplemented
         # using a different approach, such as GMenu or manual widget creation.
-        print("Warning: add_ui needs to be reimplemented for GTK 4 (Gtk.UIManager is deprecated)")
+        # print("Warning: add_ui needs to be reimplemented for GTK 4 (Gtk.UIManager is deprecated)")
         pass
 
     def remove_ui(self, window):
         # Similarly, this method needs to be reimplemented for GTK 4.
-        print("Warning: remove_ui needs to be reimplemented for GTK 4 (Gtk.UIManager is deprecated)")
+        # print("Warning: remove_ui needs to be reimplemented for GTK 4 (Gtk.UIManager is deprecated)")
         pass
 
     def get_actions(self):

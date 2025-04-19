@@ -10,6 +10,9 @@ import tempfile
 import traceback
 import uuid
 import zipfile
+
+from gi.overrides.Pango import Pango
+
 try:
     import xml.etree.cElementTree as ET
 except ImportError:
@@ -241,11 +244,6 @@ def get_home():
 
 
 def get_user_pref_dir(home=None):
-    """
-    返回用户配置目录路径。根据平台不同返回：
-    - Windows: %APPDATA%\keepnote
-    - Unix/Darwin: 使用 xdg 配置目录
-    """
     p = get_platform()
     if p in ("unix", "darwin"):
         if home is None:
@@ -358,10 +356,14 @@ def log_error(error=None, tracebk=None, out=None):
         ty, error, tracebk = sys.exc_info()
     try:
         out.write("\n")
-        traceback.print_exception(type(error), error, tracebk, file=out)
+        if tracebk:
+            traceback.print_exception(type(error), error, tracebk, file=out)
+        else:
+            out.write(str(error))  # Handle string error
         out.flush()
     except UnicodeEncodeError:
         out.write(str(error).encode("ascii", "replace"))
+
 
 
 def log_message(message, out=None):
@@ -555,6 +557,32 @@ class KeepNote:
         self._extensions = {}
         self._disabled_extensions = []
         self._listeners = {}
+        # Initialization code for KeepNote
+        self.pref_dir = pref_dir
+        self._richtext_tag_table = self.create_richtext_tag_table()  # Initialize the tag table
+
+    def get_richtext_tag_table(self):
+        # Ensure that this method returns the richtext tag table.
+        if not hasattr(self, "_richtext_tag_table"):
+            self._richtext_tag_table = self.create_richtext_tag_table()  # Create if it doesn't exist
+        return self._richtext_tag_table
+
+    def create_richtext_tag_table(self):
+        # Create a new GtkTextTagTable and populate it with tags
+        tag_table = Gtk.TextTagTable()
+
+        # Example: Add tags to the table (this depends on the actual dictionary structure)
+        tag = Gtk.TextTag.new("example-tag")
+        tag_table.add(tag)
+
+        # You should create and add tags based on the dictionary
+        # For example, assuming the dictionary is {'tag_name': tag_properties}
+        tag_properties = {'tag_name': 'bold', 'weight': Pango.Weight.BOLD}
+        tag = Gtk.TextTag.new(tag_properties['tag_name'])
+        tag.set_property("weight", tag_properties['weight'])
+        tag_table.add(tag)
+
+        return tag_table
 
     def init(self):
         import threading
@@ -1006,13 +1034,24 @@ class KeepNoteApplication(Gtk.Application):
     #     return Gtk.TextTagTable()
     def __init__(self):
         Gtk.Application.__init__(self, application_id="org.keepnote.py.KeepNote")
-        self._tag_table = None  # ✅ 添加这一行
-        self.pref = self.load_preferences()  # or an actual Preferences object
+        self._tag_table = None
+        self.pref = self.load_preferences()
         self.connect("activate", self.do_activate)
-        # self.connect("startup", self.do_startup)  # Ensure startup is connected
-        self._notebooks = []  # ✅ 添加这行初始化
+        self._notebooks = []
         self._windows = []
         self._window = None
+        self._activated = False  # 初始化 _activated 属性
+        self._app = None  # 初始化 _app 属性
+        # Ensure _app is initialized properly here
+        self._app = KeepNote(pref_dir=self.get_pref_dir())
+        print("✅ Application finished without exception.")
+
+    def get_pref_dir(self):
+        # Make sure this method returns the preferences directory
+        return get_user_pref_dir(home=None)  # Calls the previously defined get_user_pref_dir function
+
+    def set_app(self, app):
+        self._app = app
 
     def load_preferences(self):
         """
@@ -1056,27 +1095,68 @@ class KeepNoteApplication(Gtk.Application):
         return self._tag_table
 
     # 在 keepnote.py/__init__.py 的 KeepNoteApplication 类中
-    def do_activate(self, *args, **kwargs):
-        print(f"✅ Entering do_activate with args: {args}")
-        if self._window is not None:
-            print(f"ℹ️ Window already exists (id: {self._window.get_id()}), presenting existing window")
-            self._window.present()
-            print(f"ℹ️ Window maximized: {self._window._maximized}, iconified: {self._window._iconified}")
-            if self._window._iconified:
-                self._window.restore_window()
-            return
-
+    def do_activate(self, *args):
+        # Delay the import of `keepnote.gui` until it's needed
         try:
-            from keepnote.gui import main_window
-            self._window = main_window.KeepNoteWindow(self)
-            self._windows.append(self._window)
-            self._window.present()
-            print(f"✅ New window created (id: {self._window.get_id()}) and presented")
-            print(f"ℹ️ Window maximized: {self._window._maximized}, iconified: {self._window._iconified}")
-        except Exception as e:
-            print("❌ Error in do_activate:")
-            traceback.print_exc()
+            import keepnote.gui
+            from keepnote.gui.main_window import KeepNoteWindow  # Ensure the class is imported correctly
+        except ImportError as e:
+            print(f"ERROR: Failed to import keepnote.gui: {e}")
             raise
+        log_message(f"✅ Entering do_activate with args: {args}\n")
+        try:
+            # 防止重复激活
+            if self._activated:
+                log_message("⚠️ Application already activated, presenting existing window\n")
+                if self._windows:
+                    self._windows[0].present()
+                    log_message(f"ℹ️ Window presented (id: {self._windows[0]})\n")
+                return
+
+            self._activated = True
+
+            # 创建新窗口
+            window = KeepNoteWindow(self._app)
+            self._windows.append(window)
+            window.set_application(self)
+
+            # 加载菜单
+            builder = Gtk.Builder()
+            menu_ui_path = os.path.join(keepnote.get_basedir(), "rc", "menu.ui")
+            if os.path.exists(menu_ui_path):
+                builder.add_from_file(menu_ui_path)
+                menu = builder.get_object("app_menu")
+                if menu:
+                    popover = Gtk.PopoverMenu()
+                    popover.set_menu_model(menu)
+                    # 假设 menu_button 在 KeepNoteWindow 中
+                    menu_button = window.get_widget("menu_button") if hasattr(window, 'get_widget') else None
+                    if menu_button:
+                        menu_button.set_popover(popover)
+                        log_message("✅ Menu loaded and set to menu_button\n")
+                    else:
+                        log_message("⚠️ menu_button not found in UI\n")
+                else:
+                    log_message("⚠️ app_menu not found in menu.ui\n")
+            else:
+                log_message(f"⚠️ menu.ui not found at: {menu_ui_path}\n")
+
+            # 呈现窗口
+            window.present()
+            log_message(f"✅ New window created (id: {window._winid}) and presented\n")
+
+
+            # 执行命令
+            # need_gui = self._app.execute_command(sys.argv)
+            need_gui = True  # Always launch GUI
+            log_message(f"ℹ️ Window presented (id: {self._windows[0]})")
+            print("✅ do_activate() 完成，主窗口应该已展示")
+
+        except Exception as e:
+            exc_type, exc_value, tracebk = sys.exc_info()
+            log_error(exc_value, tracebk)
+            # 保持主循环运行
+            return
 
     def get_node(self, uid):
         # 兼容接口，用于提供 get_node 方法
@@ -1095,3 +1175,17 @@ class KeepNoteApplication(Gtk.Application):
 
     def do_startup(self):
         Gtk.Application.do_startup(self)
+
+
+    def get_windows(self):
+        return self._windows
+
+    def new_window(self):
+        window = keepnote.gui.KeepNoteWindow(self._app)
+        self._windows.append(window)
+        window.set_application(self)
+        window.present()
+        return window
+
+    def get_current_window(self):
+        return self._windows[0] if self._windows else None

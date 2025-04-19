@@ -203,7 +203,10 @@ class KeepNoteBaseTreeView(Gtk.TreeView):
             self.get_selection().unselect_all()
             self.get_selection().select_path(path)
         popup = Gtk.PopoverMenu.new_from_model(self._menu)
-        popup.set_parent(self)
+        # popup.set_parent(self)
+        # if popup.get_parent() is None:
+        #     self.set_child(popup)  # 替代 set_parent
+
         popup.set_position(Gtk.PositionType.BOTTOM)
         popup.popup()
         return True

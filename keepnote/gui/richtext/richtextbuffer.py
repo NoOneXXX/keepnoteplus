@@ -482,7 +482,7 @@ class RichTextFont(RichTextBaseFont):
             elif isinstance(tag, RichTextLinkTag):
                 self.link = tag
 
-class RichTextBuffer(RichTextBaseBuffer):
+class RichTextBuffer:
     """
     TextBuffer specialized for rich text editing
 
@@ -503,25 +503,30 @@ class RichTextBuffer(RichTextBaseBuffer):
         "font-change": (GObject.SignalFlags.RUN_LAST, None, (object,)),
     }
 
-    def __init__(self, table=RichTextTagTable()):
-        super().__init__(table)
+    def __init__(self, tag_table=None):
+        if tag_table is None:
+            tag_table = Gtk.TextTagTable()
+        self.buffer = Gtk.TextBuffer.new(tag_table)
+        # Check if tag_table is a valid Gtk.TextTagTable and set it
+        # if isinstance(tag_table, Gtk.TextTagTable):
+        #     self.set_tag_table(tag_table)  # Correctly set the tag table
+        # else:
+        #     raise TypeError("Expected Gtk.TextTagTable, got {0}".format(type(tag_table)))
 
         # Indentation handler
-        self._indent = IndentHandler(self)
-        self.connect("ending-user-action",
-                     lambda w: self._indent.update_indentation())
-
-        # Font handler
-        self.font_handler = FontHandler(self)
-        self.font_handler.set_font_class(RichTextFont)
-        self.font_handler.connect(
-            "font-change",
-            lambda w, font: self.emit("font-change", font))
+        # Initialize other properties of the RichTextBuffer
+        self._indent = IndentHandler(self.buffer)  # Example of setting up indent handler
+        self.font_handler = FontHandler(self.buffer)  # Set up font handler
+        self.font_handler.set_font_class(RichTextFont)  # Specify the font class
+        self.font_handler.connect("font-change", lambda w, font: self.emit("font-change", font))
 
         # Set of all anchors in buffer
         self._anchors = set()
         self._anchors_highlighted = set()
         self._anchors_deferred = set()
+
+    def get_buffer(self):
+        return self.buffer
 
     def clear(self):
         """Clear buffer contents"""
@@ -805,3 +810,52 @@ class RichTextBuffer(RichTextBaseBuffer):
             for child in self._anchors_highlighted:
                 child.unhighlight()
             self._anchors_highlighted.clear()
+
+    def get_insert_iter(self):
+        return self.buffer.get_insert_iter()
+
+    def get_selection_bounds(self):
+        return self.buffer.get_selection_bounds()
+
+    def begin_user_action(self):
+        self.buffer.begin_user_action()
+
+    def end_user_action(self):
+        self.buffer.end_user_action()
+
+    def select_range(self, start, end):
+        self.buffer.select_range(start, end)
+
+    def get_iter_at_child_anchor(self, anchor):
+        return self.buffer.get_iter_at_child_anchor(anchor)
+
+    def insert_child_anchor(self, iter, anchor):
+        return self.buffer.insert_child_anchor(iter, anchor)
+
+    def is_interactive(self):
+        return self.buffer.get_property("interactive")  # optional, used in indent
+
+    def get_insert_iter(self):
+        return self.buffer.get_insert_iter()
+
+    def begin_user_action(self):
+        self.buffer.begin_user_action()
+
+    def end_user_action(self):
+        self.buffer.end_user_action()
+
+    def get_selection_bounds(self):
+        return self.buffer.get_selection_bounds()
+
+    def select_range(self, start, end):
+        return self.buffer.select_range(start, end)
+
+    def get_iter_at_child_anchor(self, anchor):
+        return self.buffer.get_iter_at_child_anchor(anchor)
+
+    def insert_child_anchor(self, iter, anchor):
+        return self.buffer.insert_child_anchor(iter, anchor)
+
+    def is_interactive(self):
+        return self.buffer.get_property("interactive")
+

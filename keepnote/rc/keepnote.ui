@@ -1,42 +1,77 @@
 <?xml version='1.0' encoding='UTF-8'?>
 <!-- Generated with Glade 3.22 or compatible -->
 <interface>
- <requires lib="gtk+" version="3.0"/>
+ <requires lib="gtk" version="4.0"/>
  <!-- Main Application Window -->
  <object class="GtkWindow" id="main_window">
-  <property name="visible">False</property>
-  <property name="can-focus">False</property>
+  <!-- 修改：将 visible 改为 True，确保窗口默认可见 -->
+  <!-- 原因：原始 visible=False 可能导致窗口初始化后不可见，引发一闪即逝问题 -->
+  <property name="visible">True</property>
   <property name="title" translatable="yes">KeepNote</property>
   <property name="default-width">800</property>
   <property name="default-height">600</property>
-  <child>
-   <object class="GtkBox" id="main_vbox">
+  <child type="titlebar">
+   <object class="GtkHeaderBar" id="header_bar">
     <property name="visible">True</property>
-    <property name="can-focus">False</property>
-    <property name="orientation">vertical</property>
     <child>
-     <!-- 添加 main_menu_bar -->
-     </child>
-    <child>
-     <object class="GtkLabel" id="placeholder_label">
+     <object class="GtkMenuButton" id="menu_button">
       <property name="visible">True</property>
-      <property name="can-focus">False</property>
-      <property name="label" translatable="yes">Main1 Window Content</property>
+      <property name="label" translatable="yes">Menu</property>
+      <!-- 修改：移除无效的 popover 属性，菜单将通过代码加载 -->
+      <!-- 原因：main_menu_popover 未定义，且需通过 menu.ui 动态加载 -->
      </object>
-     </child>
+    </child>
+   </object>
+  </child>
+  <child>
+   <object class="GtkPaned" id="main_paned">
+    <property name="visible">True</property>
+    <property name="orientation">horizontal</property>
+    <child>
+     <object class="GtkTreeView" id="main_treeview">
+      <property name="visible">True</property>
+      <property name="hexpand">True</property>
+      <property name="vexpand">True</property>
+      <!-- 添加：定义列以支持树视图排序 -->
+      <!-- 原因：避免 gtk_tree_model_sort_set_sort_column_id 错误，确保列头存在 -->
+      <child>
+       <object class="GtkTreeViewColumn" id="title_column">
+        <property name="title" translatable="yes">Title</property>
+        <child>
+         <object class="GtkCellRendererText" id="title_renderer"/>
+         <attributes>
+          <attribute name="text">0</attribute>
+         </attributes>
+        </child>
+       </object>
+      </child>
+     </object>
+    </child>
+    <child>
+     <object class="GtkBox" id="content_area">
+      <property name="visible">True</property>
+      <property name="hexpand">True</property>
+      <property name="vexpand">True</property>
+      <property name="orientation">vertical</property>
+      <child>
+       <object class="GtkLabel" id="placeholder_label">
+        <property name="visible">True</property>
+        <property name="label" translatable="yes">Main Window Content</property>
+       </object>
+      </child>
+     </object>
+    </child>
    </object>
   </child>
  </object>
  <!-- Application Options Dialog -->
  <object class="GtkDialog" id="app_options_dialog">
   <property name="visible">False</property>
-  <property name="can-focus">False</property>
   <property name="title" translatable="yes">KeepNote Options</property>
   <property name="transient-for">main_window</property>
   <child>
    <object class="GtkBox" id="dialog_vbox">
     <property name="visible">True</property>
-    <property name="can-focus">False</property>
     <property name="orientation">vertical</property>
     <property name="spacing">6</property>
     <child>
@@ -45,8 +80,21 @@
       <property name="can-focus">True</property>
       <property name="hexpand">True</property>
       <property name="vexpand">True</property>
+      <!-- 添加：定义列以支持树视图排序 -->
+      <!-- 原因：避免 gtk_tree_model_sort_set_sort_column_id 错误 -->
+      <child>
+       <object class="GtkTreeViewColumn" id="config_column">
+        <property name="title" translatable="yes">Config</property>
+        <child>
+         <object class="GtkCellRendererText" id="config_renderer"/>
+         <attributes>
+          <attribute name="text">0</attribute>
+         </attributes>
+        </child>
+       </object>
+      </child>
      </object>
-     </child>
+    </child>
     <child>
      <object class="GtkNotebook" id="app_options_tabs">
       <property name="visible">True</property>
@@ -54,11 +102,10 @@
       <property name="hexpand">True</property>
       <property name="vexpand">True</property>
      </object>
-     </child>
+    </child>
     <child>
      <object class="GtkBox" id="button_box">
       <property name="visible">True</property>
-      <property name="can-focus">False</property>
       <property name="orientation">horizontal</property>
       <property name="spacing">6</property>
       <property name="halign">end</property>
@@ -70,27 +117,24 @@
         <child>
          <object class="GtkBox" id="ok_button_box">
           <property name="visible">True</property>
-          <property name="can-focus">False</property>
           <property name="orientation">horizontal</property>
           <property name="spacing">4</property>
           <child>
            <object class="GtkImage" id="ok_button_image">
             <property name="visible">True</property>
-            <property name="can-focus">False</property>
             <property name="icon-name">gtk-ok</property>
            </object>
           </child>
           <child>
            <object class="GtkLabel" id="ok_button_label">
             <property name="visible">True</property>
-            <property name="can-focus">False</property>
             <property name="label" translatable="yes">OK</property>
            </object>
           </child>
          </object>
         </child>
        </object>
-       </child>
+      </child>
       <child>
        <object class="GtkButton" id="cancel_button">
         <property name="visible">True</property>
@@ -99,27 +143,24 @@
         <child>
          <object class="GtkBox" id="cancel_button_box">
           <property name="visible">True</property>
-          <property name="can-focus">False</property>
           <property name="orientation">horizontal</property>
           <property name="spacing">4</property>
           <child>
            <object class="GtkImage" id="cancel_button_image">
             <property name="visible">True</property>
-            <property name="can-focus">False</property>
             <property name="icon-name">gtk-cancel</property>
            </object>
           </child>
           <child>
            <object class="GtkLabel" id="cancel_button_label">
             <property name="visible">True</property>
-            <property name="can-focus">False</property>
             <property name="label" translatable="yes">Cancel</property>
            </object>
           </child>
          </object>
         </child>
        </object>
-       </child>
+      </child>
       <child>
        <object class="GtkButton" id="apply_button">
         <property name="visible">True</property>
@@ -128,402 +169,340 @@
         <child>
          <object class="GtkBox" id="apply_button_box">
           <property name="visible">True</property>
-          <property name="can-focus">False</property>
           <property name="orientation">horizontal</property>
           <property name="spacing">4</property>
           <child>
            <object class="GtkImage" id="apply_button_image">
             <property name="visible">True</property>
-            <property name="can-focus">False</property>
             <property name="icon-name">gtk-apply</property>
            </object>
           </child>
           <child>
            <object class="GtkLabel" id="apply_button_label">
             <property name="visible">True</property>
-            <property name="can-focus">False</property>
             <property name="label" translatable="yes">Apply</property>
            </object>
           </child>
          </object>
         </child>
        </object>
-       </child>
+      </child>
      </object>
-     </child>
+    </child>
    </object>
   </child>
  </object>
  <!-- General Section Frame -->
  <object class="GtkFrame" id="general_frame">
   <property name="visible">True</property>
-  <property name="can-focus">False</property>
   <property name="label" translatable="yes">General</property>
   <property name="label-xalign">0</property>
   <child>
-   <object class="GtkBox" id="general_alignment">
+   <object class="GtkBox" id="general_vbox">
     <property name="visible">True</property>
-    <property name="can-focus">False</property>
+    <property name="orientation">vertical</property>
+    <property name="spacing">6</property>
+    <property name="margin-start">10</property>
+    <property name="margin-end">10</property>
+    <property name="margin-top">10</property>
     <child>
-     <object class="GtkBox" id="general_vbox">
+     <object class="GtkCheckButton" id="default_notebook_radio">
       <property name="visible">True</property>
-      <property name="can-focus">False</property>
-      <property name="orientation">vertical</property>
-      <property name="spacing">6</property>
+      <property name="can-focus">True</property>
+      <property name="label" translatable="yes">Use as default notebook</property>
+      <property name="active">False</property>
+     </object>
+    </child>
+    <child>
+     <object class="GtkGrid" id="default_notebook_table">
+      <property name="visible">True</property>
+      <property name="column-spacing">6</property>
       <child>
-       </child>
-      <child>
-       </child>
-      <child>
-       </child>
-      <child>
-       <object class="GtkGrid" id="default_notebook_table">
+       <object class="GtkEntry" id="default_notebook_entry">
         <property name="visible">True</property>
-        <property name="can-focus">False</property>
+        <property name="can-focus">True</property>
+        <property name="hexpand">True</property>
+       </object>
+       <packing>
+        <property name="left-attach">0</property>
+        <property name="top-attach">0</property>
+       </packing>
+      </child>
+      <child>
+       <object class="GtkButton" id="default_notebook_button">
+        <property name="visible">True</property>
+        <property name="can-focus">True</property>
         <child>
-         <object class="GtkEntry" id="default_notebook_entry">
+         <object class="GtkBox" id="default_notebook_button_box">
           <property name="visible">True</property>
-          <property name="can-focus">True</property>
-          <property name="hexpand">True</property>
-         </object>
-         </child>
-        <child>
-         <object class="GtkButton" id="default_notebook_button">
-          <property name="visible">True</property>
-          <property name="can-focus">True</property>
+          <property name="orientation">horizontal</property>
+          <property name="spacing">4</property>
           <child>
-           <object class="GtkBox" id="default_notebook_button_box">
+           <object class="GtkImage" id="default_notebook_button_image">
             <property name="visible">True</property>
-            <property name="can-focus">False</property>
-            <property name="orientation">horizontal</property>
-            <property name="spacing">4</property>
-            <child>
-             <object class="GtkImage" id="default_notebook_button_image">
-              <property name="visible">True</property>
-              <property name="can-focus">False</property>
-              <property name="icon-name">gtk-open</property>
-             </object>
-            </child>
-            <child>
-             <object class="GtkLabel" id="default_notebook_button_label">
-              <property name="visible">True</property>
-              <property name="can-focus">False</property>
-              <property name="label" translatable="yes">Browse</property>
-             </object>
-            </child>
+            <property name="icon-name">gtk-open</property>
+           </object>
+          </child>
+          <child>
+           <object class="GtkLabel" id="default_notebook_button_label">
+            <property name="visible">True</property>
+            <property name="label" translatable="yes">Browse</property>
            </object>
           </child>
          </object>
-         </child>
+        </child>
        </object>
-       </child>
-      <child>
-       <object class="GtkCheckButton" id="autosave_check">
-        <property name="visible">True</property>
-        <property name="can-focus">True</property>
-        <property name="label" translatable="yes">Autosave every:</property>
-        </object>
-       </child>
-      <child>
-       <object class="GtkBox" id="autosave_box">
-        <property name="visible">True</property>
-        <property name="can-focus">False</property>
-        <property name="orientation">horizontal</property>
-        <property name="spacing">6</property>
-        <child>
-         <object class="GtkEntry" id="autosave_entry">
-          <property name="visible">True</property>
-          <property name="can-focus">True</property>
-          <property name="width-chars">5</property>
-         </object>
-         </child>
-        <child>
-         <object class="GtkLabel" id="autosave_label">
-          <property name="visible">True</property>
-          <property name="can-focus">False</property>
-          <property name="label" translatable="yes">seconds</property>
-         </object>
-         </child>
-       </object>
-       </child>
-      <child>
-       <object class="GtkCheckButton" id="systray_check">
-        <property name="visible">True</property>
-        <property name="can-focus">True</property>
-        <property name="label" translatable="yes">Use system tray</property>
-        </object>
-       </child>
-      <child>
-       <object class="GtkBox" id="systray_options_box">
-        <property name="visible">True</property>
-        <property name="can-focus">False</property>
-        <property name="orientation">vertical</property>
-        <property name="spacing">6</property>
-        <child>
-         <object class="GtkCheckButton" id="skip_taskbar_check">
-          <property name="visible">True</property>
-          <property name="can-focus">True</property>
-          <property name="label" translatable="yes">Skip taskbar</property>
-          </object>
-         </child>
-        <child>
-         <object class="GtkCheckButton" id="minimize_on_start_check">
-          <property name="visible">True</property>
-          <property name="can-focus">True</property>
-          <property name="label" translatable="yes">Minimize on start</property>
-          </object>
-         </child>
-       </object>
-       </child>
-      <child>
-       <object class="GtkCheckButton" id="window_keep_above_check">
-        <property name="visible">True</property>
-        <property name="can-focus">True</property>
-        <property name="label" translatable="yes">Keep above other windows</property>
-        </object>
-       </child>
-      <child>
-       <object class="GtkCheckButton" id="window_stick_check">
-        <property name="visible">True</property>
-        <property name="can-focus">True</property>
-        <property name="label" translatable="yes">Stick to all workspaces</property>
-        </object>
-       </child>
-      <child>
-       <object class="GtkCheckButton" id="use_fulltext_check">
-        <property name="visible">True</property>
-        <property name="can-focus">True</property>
-        <property name="label" translatable="yes">Use fulltext search</property>
-        </object>
-       </child>
+       <packing>
+        <property name="left-attach">1</property>
+        <property name="top-attach">0</property>
+       </packing>
+      </child>
      </object>
     </child>
-   <property name="orientation">vertical</property><property name="spacing">6</property><child><object class="GtkCheckButton" id="default_notebook_radio"><property name="label">Use as default notebook</property><property name="visible">True</property><property name="can-focus">True</property><property name="active">False</property></object></child></object>
+    <child>
+     <object class="GtkCheckButton" id="autosave_check">
+      <property name="visible">True</property>
+      <property name="can-focus">True</property>
+      <property name="label" translatable="yes">Autosave every:</property>
+     </object>
+    </child>
+    <child>
+     <object class="GtkBox" id="autosave_box">
+      <property name="visible">True</property>
+      <property name="orientation">horizontal</property>
+      <property name="spacing">6</property>
+      <child>
+       <object class="GtkEntry" id="autosave_entry">
+        <property name="visible">True</property>
+        <property name="can-focus">True</property>
+        <property name="width-chars">5</property>
+       </object>
+      </child>
+      <child>
+       <object class="GtkLabel" id="autosave_label">
+        <property name="visible">True</property>
+        <property name="label" translatable="yes">seconds</property>
+       </object>
+      </child>
+     </object>
+    </child>
+    <child>
+     <object class="GtkCheckButton" id="systray_check">
+      <property name="visible">True</property>
+      <property name="can-focus">True</property>
+      <property name="label" translatable="yes">Use system tray</property>
+     </object>
+    </child>
+    <child>
+     <object class="GtkBox" id="systray_options_box">
+      <property name="visible">True</property>
+      <property name="orientation">vertical</property>
+      <property name="spacing">6</property>
+      <child>
+       <object class="GtkCheckButton" id="skip_taskbar_check">
+        <property name="visible">True</property>
+        <property name="can-focus">True</property>
+        <property name="label" translatable="yes">Skip taskbar</property>
+       </object>
+      </child>
+      <child>
+       <object class="GtkCheckButton" id="minimize_on_start_check">
+        <property name="visible">True</property>
+        <property name="can-focus">True</property>
+        <property name="label" translatable="yes">Minimize on start</property>
+       </object>
+      </child>
+     </object>
+    </child>
+    <!-- 修改：移除 window_keep_above_check 和 window_stick_check -->
+    <!-- 原因：GTK4 不支持 set_keep_above 和 stick 功能，移除以避免警告 -->
+    <child>
+     <object class="GtkCheckButton" id="use_fulltext_check">
+      <property name="visible">True</property>
+      <property name="can-focus">True</property>
+      <property name="label" translatable="yes">Use fulltext search</property>
+     </object>
+    </child>
+   </object>
   </child>
  </object>
  <!-- Look and Feel Section Frame -->
  <object class="GtkFrame" id="look_and_feel_frame">
   <property name="visible">True</property>
-  <property name="can-focus">False</property>
   <property name="label" translatable="yes">Look and Feel</property>
   <property name="label-xalign">0</property>
   <child>
-   <object class="GtkBox" id="look_and_feel_alignment">
+   <object class="GtkBox" id="look_and_feel_vbox">
     <property name="visible">True</property>
-    <property name="can-focus">False</property>
+    <property name="orientation">vertical</property>
+    <property name="spacing">6</property>
+    <property name="margin-start">10</property>
+    <property name="margin-end">10</property>
+    <property name="margin-top">10</property>
     <child>
-     <object class="GtkBox" id="look_and_feel_vbox">
+     <object class="GtkLabel" id="look_and_feel_placeholder">
       <property name="visible">True</property>
-      <property name="can-focus">False</property>
-      <property name="orientation">vertical</property>
-      <property name="spacing">6</property>
-      <child>
-       <object class="GtkLabel" id="look_and_feel_placeholder">
-        <property name="visible">True</property>
-        <property name="can-focus">False</property>
-        <property name="label" translatable="yes">Look and Feel Options</property>
-       </object>
-      </child>
+      <property name="label" translatable="yes">Look and Feel Options</property>
      </object>
     </child>
-   <property name="orientation">vertical</property><property name="spacing">6</property></object>
+   </object>
   </child>
  </object>
  <!-- Language Section Frame -->
  <object class="GtkFrame" id="language_frame">
   <property name="visible">True</property>
-  <property name="can-focus">False</property>
   <property name="label" translatable="yes">Language</property>
   <property name="label-xalign">0</property>
   <child>
-   <object class="GtkBox" id="language_alignment">
+   <object class="GtkBox" id="language_vbox">
     <property name="visible">True</property>
-    <property name="can-focus">False</property>
+    <property name="orientation">vertical</property>
+    <property name="spacing">6</property>
+    <property name="margin-start">10</property>
+    <property name="margin-end">10</property>
+    <property name="margin-top">10</property>
     <child>
-     <object class="GtkBox" id="language_vbox">
+     <object class="GtkLabel" id="language_placeholder">
       <property name="visible">True</property>
-      <property name="can-focus">False</property>
-      <property name="orientation">vertical</property>
-      <property name="spacing">6</property>
-      <child>
-       <object class="GtkLabel" id="language_placeholder">
-        <property name="visible">True</property>
-        <property name="can-focus">False</property>
-        <property name="label" translatable="yes">Language Options</property>
-       </object>
-      </child>
+      <property name="label" translatable="yes">Language Options</property>
      </object>
     </child>
-   <property name="orientation">vertical</property><property name="spacing">6</property></object>
+   </object>
   </child>
  </object>
  <!-- Date and Time Section Frame -->
  <object class="GtkFrame" id="dates_frame">
   <property name="visible">True</property>
-  <property name="can-focus">False</property>
   <property name="label" translatable="yes">Date and Time</property>
   <property name="label-xalign">0</property>
   <child>
-   <object class="GtkBox" id="dates_alignment">
+   <object class="GtkBox" id="dates_vbox">
     <property name="visible">True</property>
-    <property name="can-focus">False</property>
+    <property name="orientation">vertical</property>
+    <property name="spacing">6</property>
+    <property name="margin-start">10</property>
+    <property name="margin-end">10</property>
+    <property name="margin-top">10</property>
     <child>
-     <object class="GtkBox" id="dates_vbox">
+     <object class="GtkLabel" id="dates_placeholder">
       <property name="visible">True</property>
-      <property name="can-focus">False</property>
-      <property name="orientation">vertical</property>
-      <property name="spacing">6</property>
-      <child>
-       <object class="GtkLabel" id="dates_placeholder">
-        <property name="visible">True</property>
-        <property name="can-focus">False</property>
-        <property name="label" translatable="yes">Date and Time Options</property>
-       </object>
-      </child>
+      <property name="label" translatable="yes">Date and Time Options</property>
      </object>
     </child>
-   <property name="orientation">vertical</property><property name="spacing">6</property></object>
+   </object>
   </child>
  </object>
  <!-- Editor Section Frame -->
  <object class="GtkFrame" id="editor_frame">
   <property name="visible">True</property>
-  <property name="can-focus">False</property>
   <property name="label" translatable="yes">Editor</property>
   <property name="label-xalign">0</property>
   <child>
-   <object class="GtkBox" id="editor_alignment">
+   <object class="GtkBox" id="editor_vbox">
     <property name="visible">True</property>
-    <property name="can-focus">False</property>
+    <property name="orientation">vertical</property>
+    <property name="spacing">6</property>
+    <property name="margin-start">10</property>
+    <property name="margin-end">10</property>
+    <property name="margin-top">10</property>
     <child>
-     <object class="GtkBox" id="editor_vbox">
+     <object class="GtkLabel" id="editor_placeholder">
       <property name="visible">True</property>
-      <property name="can-focus">False</property>
-      <property name="orientation">vertical</property>
-      <property name="spacing">6</property>
-      <child>
-       <object class="GtkLabel" id="editor_placeholder">
-        <property name="visible">True</property>
-        <property name="can-focus">False</property>
-        <property name="label" translatable="yes">Editor Options</property>
-       </object>
-      </child>
+      <property name="label" translatable="yes">Editor Options</property>
      </object>
     </child>
-   <property name="orientation">vertical</property><property name="spacing">6</property></object>
+   </object>
   </child>
  </object>
  <!-- Helper Applications Section Frame -->
  <object class="GtkFrame" id="helper_apps_frame">
   <property name="visible">True</property>
-  <property name="can-focus">False</property>
   <property name="label" translatable="yes">Helper Applications</property>
   <property name="label-xalign">0</property>
   <child>
-   <object class="GtkBox" id="helper_apps_alignment">
+   <object class="GtkBox" id="helper_apps_vbox">
     <property name="visible">True</property>
-    <property name="can-focus">False</property>
+    <property name="orientation">vertical</property>
+    <property name="spacing">6</property>
+    <property name="margin-start">10</property>
+    <property name="margin-end">10</property>
+    <property name="margin-top">10</property>
     <child>
-     <object class="GtkBox" id="helper_apps_vbox">
+     <object class="GtkLabel" id="helper_apps_placeholder">
       <property name="visible">True</property>
-      <property name="can-focus">False</property>
-      <property name="orientation">vertical</property>
-      <property name="spacing">6</property>
-      <child>
-       <object class="GtkLabel" id="helper_apps_placeholder">
-        <property name="visible">True</property>
-        <property name="can-focus">False</property>
-        <property name="label" translatable="yes">Helper Applications Options</property>
-       </object>
-      </child>
+      <property name="label" translatable="yes">Helper Applications Options</property>
      </object>
     </child>
-   <property name="orientation">vertical</property><property name="spacing">6</property></object>
+   </object>
   </child>
  </object>
  <!-- Notebooks Section Frame -->
  <object class="GtkFrame" id="notebooks_frame">
   <property name="visible">True</property>
-  <property name="can-focus">False</property>
   <property name="label" translatable="yes">Notebook Options</property>
   <property name="label-xalign">0</property>
   <child>
-   <object class="GtkBox" id="notebooks_alignment">
+   <object class="GtkBox" id="notebooks_vbox">
     <property name="visible">True</property>
-    <property name="can-focus">False</property>
+    <property name="orientation">vertical</property>
+    <property name="spacing">6</property>
+    <property name="margin-start">10</property>
+    <property name="margin-end">10</property>
+    <property name="margin-top">10</property>
     <child>
-     <object class="GtkBox" id="notebooks_vbox">
+     <object class="GtkLabel" id="notebooks_placeholder">
       <property name="visible">True</property>
-      <property name="can-focus">False</property>
-      <property name="orientation">vertical</property>
-      <property name="spacing">6</property>
-      <child>
-       <object class="GtkLabel" id="notebooks_placeholder">
-        <property name="visible">True</property>
-        <property name="can-focus">False</property>
-        <property name="label" translatable="yes">Notebook Options</property>
-       </object>
-      </child>
+      <property name="label" translatable="yes">Notebook Options</property>
      </object>
     </child>
-   <property name="orientation">vertical</property><property name="spacing">6</property></object>
+   </object>
   </child>
  </object>
  <!-- Extensions Section Frame -->
  <object class="GtkFrame" id="extensions_frame">
   <property name="visible">True</property>
-  <property name="can-focus">False</property>
   <property name="label" translatable="yes">Extensions</property>
   <property name="label-xalign">0</property>
   <child>
-   <object class="GtkBox" id="extensions_alignment">
+   <object class="GtkBox" id="extensions_vbox">
     <property name="visible">True</property>
-    <property name="can-focus">False</property>
+    <property name="orientation">vertical</property>
+    <property name="spacing">6</property>
+    <property name="margin-start">10</property>
+    <property name="margin-end">10</property>
+    <property name="margin-top">10</property>
     <child>
-     <object class="GtkBox" id="extensions_vbox">
+     <object class="GtkLabel" id="extensions_placeholder">
       <property name="visible">True</property>
-      <property name="can-focus">False</property>
-      <property name="orientation">vertical</property>
-      <property name="spacing">6</property>
-      <child>
-       <object class="GtkLabel" id="extensions_placeholder">
-        <property name="visible">True</property>
-        <property name="can-focus">False</property>
-        <property name="label" translatable="yes">Extensions Options</property>
-       </object>
-      </child>
+      <property name="label" translatable="yes">Extensions Options</property>
      </object>
     </child>
-   <property name="orientation">vertical</property><property name="spacing">6</property></object>
+   </object>
   </child>
  </object>
  <!-- Wait Dialog -->
  <object class="GtkDialog" id="wait_dialog">
   <property name="visible">False</property>
-  <property name="can-focus">False</property>
   <property name="title" translatable="yes">Please Wait</property>
   <property name="transient-for">main_window</property>
   <child>
    <object class="GtkBox" id="wait_vbox">
     <property name="visible">True</property>
-    <property name="can-focus">False</property>
     <property name="orientation">vertical</property>
     <property name="spacing">6</property>
     <child>
      <object class="GtkLabel" id="wait_text_label">
       <property name="visible">True</property>
-      <property name="can-focus">False</property>
       <property name="label" translatable="yes">Loading...</property>
       <property name="halign">center</property>
      </object>
-     </child>
+    </child>
     <child>
      <object class="GtkProgressBar" id="wait_progressbar">
       <property name="visible">True</property>
-      <property name="can-focus">False</property>
       <property name="hexpand">True</property>
      </object>
-     </child>
+    </child>
     <child>
      <object class="GtkButton" id="wait_cancel_button">
       <property name="visible">True</property>
@@ -533,27 +512,24 @@
       <child>
        <object class="GtkBox" id="wait_cancel_button_box">
         <property name="visible">True</property>
-        <property name="can-focus">False</property>
         <property name="orientation">horizontal</property>
         <property name="spacing">4</property>
         <child>
          <object class="GtkImage" id="wait_cancel_button_image">
           <property name="visible">True</property>
-          <property name="can-focus">False</property>
           <property name="icon-name">gtk-cancel</property>
          </object>
         </child>
         <child>
          <object class="GtkLabel" id="wait_cancel_button_label">
           <property name="visible">True</property>
-          <property name="can-focus">False</property>
           <property name="label" translatable="yes">Cancel</property>
          </object>
         </child>
        </object>
       </child>
      </object>
-     </child>
+    </child>
    </object>
   </child>
  </object>

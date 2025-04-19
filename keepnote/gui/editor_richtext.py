@@ -120,6 +120,17 @@ class RichTextEditor(KeepNoteEditor):
     def __init__(self, app):
         super().__init__(app)
         self._app = app
+        if self._app is None:
+            print("ERROR: _app is not initialized.")
+            return
+        tag_table = self._app.get_richtext_tag_table()  # Get the GtkTextTagTable
+        if isinstance(tag_table, Gtk.TextTagTable):
+            self._rich_buffer = RichTextBuffer(tag_table)  # ✅ 创建 RichTextBuffer 实例
+            self._textview = RichTextView(self._rich_buffer.get_buffer())  # ✅ 传入 Gtk.TextBuffer 实例
+
+        else:
+            print("ERROR: Invalid tag table")
+            return
         self._notebook = None
 
         self._link_picker = None
@@ -587,6 +598,7 @@ class RichTextEditor(KeepNoteEditor):
             if label == _("_View Image..."):
                 item.set_label(f"<b>{label}</b>")  # Bold for View Image
             menu_box.append(item)
+
 
 class FontUI:
     def __init__(self, widget, signal, update_func=lambda ui, font: None, block=None, unblock=None):
