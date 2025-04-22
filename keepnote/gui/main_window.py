@@ -67,6 +67,8 @@ class KeepNoteWindow(Gtk.Window):
 
         self.init_shortcuts()  # Replace init_key_shortcuts
         self.init_layout()
+
+
         self.setup_systray()
 
         # Load preferences for the first time
@@ -102,6 +104,7 @@ class KeepNoteWindow(Gtk.Window):
 
     def init_layout(self):
         # Init main window
+        print("🟩 init_layout: setting window title & size")  # 👈 日志
         self.set_title(keepnote.PROGRAM_NAME)
         self.set_default_size(*DEFAULT_WINDOW_SIZE)
         self.set_icon_name("keepnote.py")
@@ -113,15 +116,18 @@ class KeepNoteWindow(Gtk.Window):
         # self.connect("size-allocate", self._on_window_size) // 原始的gtk3的写法 下面是gtk4的写法下面两行就是替换这行的
         self.connect("notify::default-width", self._on_window_size)
         self.connect("notify::default-height", self._on_window_size)
+        print("🧱 init_layout: creating DragDropTestDialog")  # 👈 日志
 
         # Dialogs
         self.drag_test = dialog_drag_drop_test.DragDropTestDialog(self)
+        print("🧱 init_layout: creating viewer")  # 👈 日志
         self.viewer = self.new_viewer()
 
         # Layout
+        print("📦 init_layout: setting main_vbox")  # 👈 日志
         main_vbox = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=0)
         self.set_child(main_vbox)
-
+        print("➕ Adding main_vbox1")
         # Menu bar
         main_vbox.set_margin_start(0)
         main_vbox.set_margin_end(0)
@@ -134,6 +140,7 @@ class KeepNoteWindow(Gtk.Window):
         main_vbox.append(self.make_toolbar())
 
         main_vbox2 = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=0)
+        print("➕ Adding main_vbox2")
         main_vbox2.set_margin_start(1)
         main_vbox2.set_margin_end(1)
         main_vbox2.set_margin_top(1)
@@ -142,22 +149,36 @@ class KeepNoteWindow(Gtk.Window):
 
         # Viewer
         self.viewer_box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=0)
+        print("➕ Adding viewer_box")
         main_vbox2.append(self.viewer_box)
 
         # Status bar
         status_hbox = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=0)
+        print("➕ Adding status_hbox")
         main_vbox.append(status_hbox)
 
         self.status_bar = Gtk.Statusbar()
+        if self.status_bar.get_parent():
+            self.status_bar.unparent()
+        print("➕ Adding status_bar")
         status_hbox.append(self.status_bar)
+
         self.status_bar.set_size_request(300, -1)
 
         self.stats_bar = Gtk.Statusbar()
+        if self.stats_bar.get_parent():
+            self.stats_bar.unparent()
+        print("➕ Adding stats_bar")
         status_hbox.append(self.stats_bar)
 
         # Viewer
+        print("➕ Adding viewer to viewer_box")
+        if self.viewer.get_parent():
+            self.viewer.unparent()
         self.viewer_box.append(self.viewer)
+        print("📦 Calling viewer.add_ui()")
         self.viewer.add_ui(self)
+        self.show()  # 确保主窗口被 GTK4 正确挂载
 
     def setup_systray(self):
         """Setup system tray for window"""
@@ -924,6 +945,7 @@ class KeepNoteWindow(Gtk.Window):
             self.set_recent_notebooks_menu(self._recent_notebooks)
 
         return toolbar
+
 
 
 

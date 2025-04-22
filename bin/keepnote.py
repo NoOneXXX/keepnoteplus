@@ -208,28 +208,36 @@ def gui_exec(function, *args, **kwargs):
 
 
 def start_gui(argv, options, args, cmd_exec):
-    print("Starting GUI...")
+    print("🟢 start_gui called...")
     try:
         import keepnote.gui
         from gi.repository import Gtk, Gio
+        print("✅ Imported keepnote.gui, Gtk, Gio")
     except ImportError as e:
         print(f"Failed to import GUI modules: {e}")
         raise
 
     setup_threading()
-
+    print("🛠️ Creating KeepNote GUI app...")
     app = keepnote.gui.KeepNote(basedir)
     gtk_app = Gtk.Application(application_id="org.keepnote.py")
+    print("✅ Gtk.Application created")
     cmd_exec.set_app(app)
-
+    print("🔧 cmd_exec linked to app")
     def on_activate(gtk_app):
+        print("🚀 on_activate triggered")
         need_gui = execute_command(app, argv)
+        print(f"📋 execute_command returned: {need_gui}")
         if not need_gui:
+            print("💤 No GUI needed, quitting GTK app")
             gtk_app.quit()
 
     gtk_app.connect("activate", on_activate)
-    gtk_app.run()
+    print("🔗 Connected activate handler")
 
+    print("🏁 Running Gtk Application loop")
+    gtk_app.run()
+    print("👋 Gtk Application loop exited")
 
 def start_non_gui(argv, options, args, cmd_exec):
     print("Starting in non-GUI mode...")
@@ -300,7 +308,9 @@ def execute_command(app, argv):
                 app.get_current_window().open_notebook(arg)
     else:
         print("DEBUG: Creating default window...")
-        win = app.new_window()
+        if len(app.get_windows()) == 0:
+            print("DEBUG: No windows, creating one...")
+            app.new_window()  # ✅ 添加这一行
 
         # if len(app.get_windows()) == 1 and options.default_notebook:
         #     default_notebooks = app.pref.get("default_notebooks", default=[])

@@ -97,7 +97,7 @@ class ThreePaneViewer(Viewer):
         self._hpaned.set_start_child(self._treeview_sw)
         self._hpaned.set_end_child(self._paned2)
 
-        self.widget = self._hpaned
+        # self.widget = self._hpaned
         self._ui_ready = True
 
     def set_notebook(self, notebook):
@@ -151,6 +151,8 @@ class ThreePaneViewer(Viewer):
             self.remove_ui(self._main_window)
             self.add_ui(self._main_window)
 
+    def get_widget(self):
+        return self._hpaned
     def save_preferences(self, app_pref):
         p = app_pref.get("viewers", "three_pane_viewer")
         p["view_mode"] = self._view_mode

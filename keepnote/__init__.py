@@ -1097,6 +1097,7 @@ class KeepNoteApplication(Gtk.Application):
     # 在 keepnote.py/__init__.py 的 KeepNoteApplication 类中
     def do_activate(self, *args):
         # Delay the import of `keepnote.gui` until it's needed
+        print("✅ Entering do_activate with args:")
         try:
             import keepnote.gui
             from keepnote.gui.main_window import KeepNoteWindow  # Ensure the class is imported correctly
@@ -1107,19 +1108,22 @@ class KeepNoteApplication(Gtk.Application):
         try:
             # 防止重复激活
             if self._activated:
-                log_message("⚠️ Application already activated, presenting existing window\n")
+                print("⚠️ Application already activated, presenting existing window")
                 if self._windows:
                     self._windows[0].present()
                     log_message(f"ℹ️ Window presented (id: {self._windows[0]})\n")
                 return
 
             self._activated = True
-
+            print("✅ Marked as activated")
             # 创建新窗口
+            print("🧱 Constructing KeepNoteWindow...")
             window = KeepNoteWindow(self._app)
+            print("✅ KeepNoteWindow created")
+            self.add_window(window)  # ✅ 保证 Gtk.Application 不会退出
             self._windows.append(window)
             window.set_application(self)
-
+            window.present()
             # 加载菜单
             builder = Gtk.Builder()
             menu_ui_path = os.path.join(keepnote.get_basedir(), "rc", "menu.ui")
@@ -1133,6 +1137,7 @@ class KeepNoteApplication(Gtk.Application):
                     menu_button = window.get_widget("menu_button") if hasattr(window, 'get_widget') else None
                     if menu_button:
                         menu_button.set_popover(popover)
+                        print("✅ Menu loaded and attached to menu_button")
                         log_message("✅ Menu loaded and set to menu_button\n")
                     else:
                         log_message("⚠️ menu_button not found in UI\n")
@@ -1182,6 +1187,7 @@ class KeepNoteApplication(Gtk.Application):
 
     def new_window(self):
         window = keepnote.gui.KeepNoteWindow(self._app)
+        self.add_window(window)  # 告诉 Gtk.Application 它需要保持这个窗口存在
         self._windows.append(window)
         window.set_application(self)
         window.present()

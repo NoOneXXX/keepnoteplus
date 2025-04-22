@@ -48,7 +48,9 @@ class TabbedViewer(Viewer):
 
         # Viewer registry
         self._viewer_lookup = TwoWayDict()
-        self._viewer_lookup.add(ThreePaneViewer(app, main_window).get_name(), ThreePaneViewer)
+        # self._viewer_lookup.add(ThreePaneViewer(app, main_window).get_name(), ThreePaneViewer)
+        self._viewer_lookup.add("three_pane_viewer", ThreePaneViewer)
+        self._viewer_pages = {}  # key: widget, value: viewer
 
         # Layout
         self._tabs = Gtk.Notebook()
@@ -64,7 +66,12 @@ class TabbedViewer(Viewer):
         click_controller.connect("pressed", self._on_button_press)
         self._tabs.add_controller(click_controller)
 
-        self.append(self._tabs)  # Changed from pack_start to append
+        # self.append(self._tabs)  # Changed from pack_start to append
+        if self._tabs.get_parent():
+            print("⚠️ self._tabs already has a parent, unparenting it")
+            self._tabs.unparent()
+        print("➕ Appending self._tabs to TabbedViewer")
+        self.append(self._tabs)
 
         # Initialize with a single tab
         self.new_tab()
@@ -83,14 +90,46 @@ class TabbedViewer(Viewer):
 
     def new_tab(self, viewer=None, init="current_node"):
         """Open a new tab with a viewer"""
+        self._current_viewer = viewer
         if viewer is None:
             viewer = self._default_viewer(self._app, self._main_window)
-        label = TabLabel(self, viewer, None, _("(Untitled)"))
-        label.connect("new-name", lambda w, text: self._on_new_tab_name(viewer, text))
-        self._tabs.append_page(viewer, label)
-        self._tabs.set_tab_reorderable(viewer, True)
-        self._tab_names[viewer] = None
+            self._current_viewer = viewer  # 修复 viewer 的引用丢失
+        widget = viewer.get_widget()
+        if widget.get_parent():
+            print("⚠️ new_tab(): viewer widget already has parent, unparenting")
+            widget.unparent()
 
+        import uuid
+        label_text = "Notebook %s" % str(uuid.uuid4())[:8]
+        print("🧪 [DEBUG] Generated label:", label_text)
+        label = Gtk.Label(label=label_text)
+        # label = TabLabel(self, viewer, None, label_text)  # 暂时禁用
+        # label = Gtk.Label(label=label_text)  # ✅ 用纯 label 测试结构是否稳定
+        # label.connect("new-name", lambda w, text: self._on_new_tab_name(viewer, text))
+        if hasattr(label, "connect") and "new-name" in GObject.signal_list_names(type(label)):
+            label.connect("new-name", lambda w, text: self._on_new_tab_name(viewer, text))
+
+        self._current_viewer = viewer  # ✅ 保存 viewer 引用
+
+        widget = viewer.get_widget()
+        if widget is None:
+            print("❌ ERROR: viewer.get_widget() is None!")
+            return
+        if widget.get_parent():
+            print("⚠️ new_tab(): viewer widget already has parent, unparenting")
+            widget.unparent()
+
+        if not hasattr(viewer, "get_widget"):
+            print("❌ Error: viewer is not a Viewer instance")
+            return
+
+        self._tabs.append_page(widget, label)
+        self._tabs.set_tab_reorderable(widget, True)  # ✅ 改为操作 widget 而不是 viewer
+        self._tab_names[viewer] = None
+        # self._tabs.append_page(widget, label)
+        # self._tabs.set_tab_reorderable(widget, True)
+        # self._tab_names[viewer] = None
+        self._viewer_pages[widget] = viewer  # ✅ 记录真实 viewer
         # Setup viewer signals
         self._callbacks[viewer] = [
             viewer.connect("error", lambda w, m, e: self.emit("error", m, e)),
@@ -101,12 +140,13 @@ class TabbedViewer(Viewer):
         ]
 
         # Load app preferences
-        viewer.load_preferences(self._app.pref, True)
+        if hasattr(viewer, "load_preferences"):
+            viewer.load_preferences(self._app.pref, True)
 
         # Set notebook and node, if requested
         if init == "current_node":
             old_viewer = self._current_viewer
-            if old_viewer is not None:
+            if old_viewer is not None and hasattr(old_viewer, "get_notebook"):
                 viewer.set_notebook(old_viewer.get_notebook())
                 node = old_viewer.get_current_node()
                 if node:
@@ -118,6 +158,9 @@ class TabbedViewer(Viewer):
 
         # Switch to the new tab
         self._tabs.set_current_page(self._tabs.get_n_pages() - 1)
+        print("🧪 [TAB] viewer id:", id(viewer))
+        print("🧪 [TAB] widget id:", id(widget), "widget type:", type(widget))
+        print("🧪 [TAB] label id:", id(label), "label text:", label.get_text() if hasattr(label, "get_text") else "")
 
     def close_viewer(self, viewer):
         self.close_tab(self._tabs.page_num(viewer))
@@ -257,7 +300,17 @@ class TabbedViewer(Viewer):
                 break
 
     def get_notebook(self):
-        return self._current_viewer.get_notebook()
+        page = self._tabs.get_nth_page(self._tabs.get_current_page())
+        viewer = self._viewer_pages.get(page)
+        if viewer is None:
+            print("⚠️ get_notebook(): viewer not found for page")
+            return None
+
+        if viewer is not None and hasattr(viewer, "get_notebook"):
+            return viewer.get_notebook()
+        else:
+            print("⚠️ get_notebook(): viewer not found or invalid")
+            return None
 
     def close_notebook(self, notebook):
         closed_tabs = []
@@ -271,8 +324,10 @@ class TabbedViewer(Viewer):
             self.close_tab(pos)
 
     def load_preferences(self, app_pref, first_open=False):
-        for viewer in self.iter_viewers():
-            viewer.load_preferences(app_pref, first_open)
+        for widget in self._viewer_pages:
+            viewer = self._viewer_pages[widget]
+            if hasattr(viewer, "load_preferences"):
+                viewer.load_preferences(app_pref, first_open)
 
     def save_preferences(self, app_pref):
         self._current_viewer.save_preferences(app_pref)
@@ -338,7 +393,13 @@ class TabbedViewer(Viewer):
         self._ui_ready = True
         # Note: Gtk.UIManager is deprecated in GTK 4, this needs reimplementation
         print("Warning: add_ui needs to be reimplemented for GTK 4 (Gtk.UIManager deprecated)")
-        self._current_viewer.add_ui(window)
+        page = self._tabs.get_nth_page(self._tabs.get_current_page())
+        viewer = self._viewer_pages.get(page)
+
+        if viewer is not None and hasattr(viewer, "add_ui"):
+            viewer.add_ui(window)
+        else:
+            print("⚠️ No valid viewer found for add_ui()")
 
     def remove_ui(self, window):
         assert window == self._main_window
@@ -361,6 +422,7 @@ class TabbedViewer(Viewer):
             ("Previous Tab", None, _("_Previous Tab"), "<control>Page_Up", _("Switch to previous tab"),
              lambda w: self.switch_tab(-1))
         ]]
+
 
 
 class TabLabel(Gtk.Box):
@@ -459,6 +521,8 @@ class TabLabel(Gtk.Box):
 
     def set_icon(self, pixbuf):
         self.icon.set_from_pixbuf(pixbuf)
+
+
 
 
 GObject.type_register(TabLabel)
