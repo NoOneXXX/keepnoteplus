@@ -939,14 +939,32 @@ class KeepNoteWindow(Gtk.Window):
             pass
 
         spacer = self._uimanager.get_widget("/main_tool_bar/Main Spacer Tool")
-        spacer.remove(spacer.get_child())
-        spacer.set_expand(True)
+
+        # 容错式删除已有子控件，确保只有一个
+        if spacer is not None and isinstance(spacer, Gtk.Container):
+            child = spacer.get_child()
+            if child:
+                spacer.remove(child)
+            spacer.set_expand(True)
+
+        # spacer.remove(spacer.get_child())
+        # spacer.set_expand(True)
 
         self.search_box = SearchBox(self)
         self.search_box.show()
         w = self._uimanager.get_widget("/main_tool_bar/Search Box Tool")
-        w.remove(w.get_child())
-        w.add(self.search_box)
+        if w is not None and isinstance(w, Gtk.Container):
+            child = w.get_child()
+            if child:
+                w.remove(child)
+            if w.get_child() is None:  # 保证不会 add 重复
+                w.add(self.search_box)
+
+        # w.remove(w.get_child())
+        # child = w.get_child()
+        # if child:
+        #     w.remove(child)
+        # w.add(self.search_box)
 
         return toolbar
 

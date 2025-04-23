@@ -349,7 +349,7 @@ class KeepNote(keepnote.KeepNote):
     def init_dialogs(self):
         from keepnote.gui import dialog_app_options
         from keepnote.gui import dialog_node_icon  # 假设存在
-
+        print('--------------------')
         self.app_options_dialog = (
             keepnote.gui.dialog_app_options.ApplicationOptionsDialog(self))
         self.node_icon_dialog = (
@@ -368,16 +368,22 @@ class KeepNote(keepnote.KeepNote):
         """Set language for application"""
         super().set_lang()
 
-    def parse_window_size(self,size_str):
+    def parse_window_size(self, size_str):
         """Parse window size string like '(1024, 600)' into a tuple of ints."""
         try:
             if not isinstance(size_str, str):
-                return (1024, 600)
-            size_str = size_str.strip("()")
-            width, height = map(int, size_str.split(","))
+                raise ValueError("Not a string")
+
+            # 去除括号和空格
+            size_str = size_str.strip("()").replace(" ", "")
+            width_str, height_str = size_str.split(",")
+
+            width = int(width_str)
+            height = int(height_str)
+
             return (width, height)
-        except (ValueError, AttributeError):
-            print("Failed to parse window_size, using default (1024, 600)")
+        except Exception as e:
+            print(f"Error parsing window_size '{size_str}': {e}. Using default (1024, 600)")
             return (1024, 600)
 
     def load_preferences(self):

@@ -62,6 +62,8 @@ class KeepNoteListView(basetreeview.KeepNoteBaseTreeView):
         self.set_model(Gtk.TreeModelSort(model=treemodel.KeepNoteTreeModel()))
 
         self.setup_columns()
+         # 添加这行代码
+        self.tree_model = self.get_model()
 
     def load_preferences(self, app_pref, first_open=False):
         """Load application preferences"""
@@ -178,9 +180,11 @@ class KeepNoteListView(basetreeview.KeepNoteBaseTreeView):
         self.set_expander_column(self.get_column(0))
 
         # set default sorting
-        self.model.set_sort_column_id(
-            self.rich_model.get_column_by_name("order").pos,
-            Gtk.SortType.ASCENDING)
+        order_col = self.rich_model.get_column_by_name("order")
+        if order_col and order_col.pos is not None and order_col.pos < self.model.get_n_columns():
+            self.model.set_sort_column_id(order_col.pos, Gtk.SortType.ASCENDING)
+        else:
+            print(f"[错误] 无法设置默认排序列 'order', pos={getattr(order_col, 'pos', '未知')}, 总列数={self.model.get_n_columns()}")
         self.set_reorder(basetreeview.REORDER_ALL)
 
         self._columns_set = True
@@ -215,8 +219,15 @@ class KeepNoteListView(basetreeview.KeepNoteBaseTreeView):
         # define column sorting
         attr_sort = attr + "_sort"
         col = self.rich_model.get_column_by_name(attr_sort)
-        if col:
+        if col and col.pos is not None and col.pos < self.tree_model.get_n_columns():
             column.set_sort_column_id(col.pos)
+        else:
+            # 回退到默认排序列（如 "order"）
+            default_col = self.rich_model.get_column_by_name("order")
+            if default_col and default_col.pos < self.tree_model.get_n_columns():
+                column.set_sort_column_id(default_col.pos)
+            else:
+                print(f"[警告] 无法设置排序列: {attr_sort}, col.pos={getattr(col, 'pos', '未知')}")
 
         # add cell renders
         if attr == self._attr_title:
@@ -253,16 +264,18 @@ class KeepNoteListView(basetreeview.KeepNoteBaseTreeView):
     def _update_reorder(self):
         col_id, sort_dir = self.model.get_sort_column_id()
 
-        if col_id is None or col_id < 0:
+        if col_id is None or col_id < 0 or col_id >= self.model.get_n_columns():
             col = None
         else:
             col = self.rich_model.get_column(col_id)
 
-        if col is None:
-            self.model.set_sort_column_id(
-                self.rich_model.get_column_by_name("order").pos,
-                Gtk.SortType.ASCENDING)
-            self.set_reorder(basetreeview.REORDER_ALL)
+        if col is None or col.pos is None or col.pos >= self.model.get_n_columns():
+            order_col = self.rich_model.get_column_by_name("order")
+            if order_col and order_col.pos is not None and order_col.pos < self.model.get_n_columns():
+                self.model.set_sort_column_id(order_col.pos, Gtk.SortType.ASCENDING)
+                self.set_reorder(basetreeview.REORDER_ALL)
+            else:
+                print(f"[错误] 无法回退到默认排序列 'order', pos={getattr(order_col, 'pos', '未知')}")
         else:
             self.set_reorder(basetreeview.REORDER_FOLDER)
 
@@ -421,8 +434,14 @@ class KeepNoteListView(basetreeview.KeepNoteBaseTreeView):
             info_sort = "order"
 
         for col in self.rich_model.get_columns():
-            if info_sort == col.attr and col.name.endswith("_sort"):
+            if col.pos is not None and col.pos < model.get_n_columns():
                 model.set_sort_column_id(col.pos, sort_dir)
+            else:
+                print(f"[警告] 排序列 {col.name} 越界 (pos={col.pos})，总列数为 {model.get_n_columns()}")
+                # 回退到默认排序
+                default_col = self.rich_model.get_column_by_name("order")
+                if default_col and default_col.pos < model.get_n_columns():
+                    model.set_sort_column_id(default_col.pos, sort_dir)
 
         self._update_reorder()
 
