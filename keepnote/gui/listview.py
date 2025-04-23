@@ -450,11 +450,13 @@ class KeepNoteListView(basetreeview.KeepNoteBaseTreeView):
             self.on_status(text, bar=bar)
 
     def _on_node_changed_end(self, model, nodes):
+        print("[DEBUG] _on_node_changed_end triggered")
         basetreeview.KeepNoteBaseTreeView._on_node_changed_end(self, model, nodes)
 
         if self.rich_model.get_nested():
             child = model.iter_children(None)
             while child is not None:
+                print(f"[DEBUG] expanding row: {model.get_path(child)}")
                 self.expand_row(model.get_path(child), False)
                 child = model.iter_next(child)
 

@@ -51,9 +51,12 @@ bin_path = os.path.dirname(sys.argv[0])
 
 # Try to infer keepnote lib path from program path
 pkgdir = dirname(dirname(realpath(sys.argv[0])))
+print("[LOG] Attempting to import keepnote from source: %s" % pkgdir)
 if os.path.exists(join(pkgdir, "keepnote", "__init__.py")):
     sys.path.insert(0, pkgdir)
     import keepnote
+
+    print("[LOG] Successfully imported keepnote module")
 
     # If this works, we know we are running from src_path (1)
     basedir = keepnote.get_basedir()
@@ -66,6 +69,7 @@ else:
 
     # Attempt to use basedir for (2)
     basedir = keepnote.get_basedir()
+    print("[LOG] keepnote base directory resolved to: %s" % basedir)
 
     if not isdir(join(basedir, "images")):
         # We must be running (3)

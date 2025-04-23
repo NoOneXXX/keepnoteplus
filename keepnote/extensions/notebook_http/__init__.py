@@ -69,10 +69,10 @@ class Extension (keepnote.gui.extension.Extension):
     # commands
 
     def start_http(self, app, args):
-
+        print(f"📦 notebook_http.start_http args = {args}")
         port = int(args[1])
         notebook_path = str(args[2])
-
+        print(f"🛠 connecting notebook at: {notebook_path}")
         # connect to notebook on disk
         conn = NoteBookConnectionFS()
         conn.connect(notebook_path)

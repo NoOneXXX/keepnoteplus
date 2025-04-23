@@ -396,7 +396,8 @@ class KeepNoteWindow(Gtk.Window):
     def on_open_notebook_url(self):
         dialog = Gtk.Dialog(title="Open Notebook from URL", parent=self,
                             flags=Gtk.DialogFlags.MODAL | Gtk.DialogFlags.DESTROY_WITH_PARENT)
-
+        print("[DEBUG] Creating Gtk.Dialog for URL input")
+        dialog.show_all()
         p = dialog.get_content_area()
         h = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL)
         h.show()
