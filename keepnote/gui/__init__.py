@@ -46,10 +46,15 @@ DEFAULT_FONT_SIZE = 10
 DEFAULT_FONT = f"{DEFAULT_FONT_FAMILY} {DEFAULT_FONT_SIZE}"
 
 from keepnote.util.platform import get_platform
-if get_platform() == "darwin":
+
+
+try:
+    # GTK3 的方式
     CLIPBOARD_NAME = Gdk.SELECTION_PRIMARY
-else:
-    CLIPBOARD_NAME = "CLIPBOARD"
+    clipboard = Gtk.Clipboard.get(CLIPBOARD_NAME)
+except AttributeError:
+    # GTK4 的方式
+    clipboard = Gdk.Display.get_default().get_clipboard()
 
 DEFAULT_COLORS_FLOAT = [
     # lights

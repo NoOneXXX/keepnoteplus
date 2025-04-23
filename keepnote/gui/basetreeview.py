@@ -17,7 +17,7 @@ from keepnote.gui.icons import get_node_icon
 from keepnote.gui.treemodel import (
     get_path_from_node, iter_children
 )
-from keepnote.gui import treemodel, CLIPBOARD_NAME
+from keepnote.gui import treemodel
 from keepnote.timestamp import get_str_timestamp
 
 _ = keepnote.translate

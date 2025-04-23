@@ -117,8 +117,18 @@ class ThreePaneViewer(Viewer):
         self.treeview.set_notebook(notebook)
 
         if self.treeview.get_popup_menu():
-            self.treeview.get_popup_menu().set_parent(self.treeview)
-            self.listview.get_popup_menu().set_parent(self.listview)
+            # self.treeview.get_popup_menu().set_parent(self.treeview)
+            popup = self.treeview.get_popup_menu()
+            if popup.get_parent() is not None:
+                popup.unparent()
+            popup.set_parent(self.treeview)
+
+            # self.listview.get_popup_menu().set_parent(self.listview)
+            popup = self.listview.get_popup_menu()
+            if popup.get_parent() is not None:
+                popup.unparent()
+            popup.set_parent(self.listview)
+
             colors = self._notebook.pref.get("colors", default=DEFAULT_COLORS) if self._notebook else DEFAULT_COLORS
             self.treeview.get_popup_menu().fgcolor_menu.set_colors(colors)
             self.treeview.get_popup_menu().bgcolor_menu.set_colors(colors)
@@ -534,6 +544,9 @@ class ThreePaneViewer(Viewer):
         menu_box.append(color_bg_menu)
 
         menu.set_child(menu_box)
+        # menu.set_parent(self._main_window)  # Set parent for proper positioning
+        if menu.get_parent() is not None:
+            menu.unparent()
         menu.set_parent(self._main_window)  # Set parent for proper positioning
         # ✅ 添加这一行，把 fgcolor_menu 属性挂到 menu 上
         menu.fgcolor_menu = color_fg_menu
