@@ -9,7 +9,8 @@ import uuid
 from gi import require_version
 require_version('Gtk', '3.0')
 from gi.repository import Gtk, Gdk, GLib, GObject
-
+import logging
+logger = logging.getLogger(__name__)
 # KeepNote imports
 import keepnote
 from keepnote import \
@@ -44,6 +45,7 @@ class KeepNoteWindow(Gtk.Window):
     """Main window for KeepNote"""
 
     def __init__(self, app, winid=None):
+        logger.debug("Initializing KeepNoteWindow")
         super().__init__(type=Gtk.WindowType.TOPLEVEL)
 
         self._app = app  # application object
@@ -396,7 +398,8 @@ class KeepNoteWindow(Gtk.Window):
     def on_open_notebook_url(self):
         dialog = Gtk.Dialog(title="Open Notebook from URL", parent=self,
                             flags=Gtk.DialogFlags.MODAL | Gtk.DialogFlags.DESTROY_WITH_PARENT)
-        print("[DEBUG] Creating Gtk.Dialog for URL input")
+        print("[LOG] Created Gtk.Dialog at main_window.py:397")
+        print("[LOG] Initial dialog children:", dialog.get_children())
         dialog.show_all()
         p = dialog.get_content_area()
         h = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL)
@@ -921,13 +924,31 @@ class KeepNoteWindow(Gtk.Window):
 """]
 
     def make_menubar(self):
-        self._actiongroup = Gtk.ActionGroup(name='MainWindow')
-        self._uimanager.insert_action_group(self._actiongroup, 0)
+        existing_groups = [g.get_name() for g in self._uimanager.get_action_groups()]
+        logger.debug("Existing action groups before insertion: %s", existing_groups)
+        if 'MainWindow' not in existing_groups:
+            self._actiongroup = Gtk.ActionGroup(name='MainWindow')
+            self._uimanager.insert_action_group(self._actiongroup, 0)
+            logger.debug("Inserted MainWindow action group")
+        else:
+            logger.debug("MainWindow action group already exists, reusing")
+            self._actiongroup = next(g for g in self._uimanager.get_action_groups() if g.get_name() == 'MainWindow')
         add_actions(self._actiongroup, self.get_actions())
         for s in self.get_ui():
-            self._uimanager.add_ui_from_string(s)
+            try:
+                self._uimanager.add_ui_from_string(s)
+                logger.debug("Added UI string: %s", s[:50])
+            except Exception as e:
+                logger.error("Failed to add UI string: %s", e)
         self.setup_menus(self._uimanager)
-        return self._uimanager.get_widget('/main_menu_bar')
+        menubar = self._uimanager.get_widget('/main_menu_bar')
+        logger.debug("make_menubar: menubar=%s, type=%s", menubar, type(menubar))
+        if menubar:
+            parent = menubar.get_parent()
+            logger.debug("menubar parent: %s, type=%s", parent, type(parent) if parent else None)
+            children = menubar.get_children()
+            logger.debug("menubar children: %s", [child.get_label() for child in children if child.get_label()])
+        return menubar
 
     def make_toolbar(self):
         toolbar = self._uimanager.get_widget('/main_tool_bar')

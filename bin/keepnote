@@ -8,6 +8,8 @@ import time
 import optparse
 import threading
 import traceback
+import logging
+logging.basicConfig(level=logging.DEBUG)
 
 # =============================================================================
 # KeepNote import
@@ -186,6 +188,7 @@ def setup_threading():
         GLib.timeout_add(400, sleeper)
     else:
         Gdk.threads_init()
+        print("[LOG] Initialized Gdk threading")
 
 
 def gui_exec(function, *args, **kwargs):
@@ -214,6 +217,18 @@ def start_gui(argv, options, args, cmd_exec):
     try:
         import keepnote.gui
         from gi.repository import Gtk
+        # [HOOK] 行号：X+1
+        import traceback
+
+        _original_add = Gtk.Container.add
+
+        def _patched_add(self, widget):
+            if isinstance(self, Gtk.Dialog):
+                print("[HOOK] Gtk.Dialog.add 被调用，widget 类型:", type(widget))
+                traceback.print_stack()
+            return _original_add(self, widget)
+
+        Gtk.Container.add = _patched_add  # 行号：X+8
     except ImportError as e:
         print(f"Failed to import GUI modules: {e}")
         raise

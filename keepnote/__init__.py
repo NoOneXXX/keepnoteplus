@@ -436,7 +436,7 @@ class KeepNotePreferences(Pref):
             print(f"File exists, size: {os.path.getsize(pref_file)} bytes")
             with open(pref_file, "r", encoding="utf-8") as f:
                 content = f.read()
-                print(f"File content before parsing: {repr(content)}")
+                # print(f"File content before parsing: {repr(content)}")
         try:
             tree = ET.ElementTree(file=pref_file)
             root = tree.getroot()

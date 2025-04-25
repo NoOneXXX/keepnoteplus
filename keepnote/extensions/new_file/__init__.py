@@ -23,7 +23,11 @@ from keepnote import tasklib
 from keepnote import tarfile
 from keepnote.gui import extension
 from keepnote.gui import dialog_app_options
-
+# 日志
+import logging
+logging.basicConfig(level=logging.DEBUG)
+logger = logging.getLogger(__name__)
+# 日志结束
 # PyGObject imports for GTK 3
 import gi
 gi.require_version('Gtk', '3.0')
@@ -42,8 +46,9 @@ class Extension(extension.Extension):
             FileType("Spreadsheet (xls)", "untitled.xls", "spreadsheet.xls"),
             FileType("Word Document (doc)", "untitled.doc", "document.doc")
         ]
-
+        self._action_groups = {}
         self.enabled.add(self.on_enabled)
+
 
     def get_filetypes(self):
         return self._file_types
@@ -130,49 +135,134 @@ class Extension(extension.Extension):
 
     def on_add_ui(self, window):
         """Initialize extension for a particular window"""
-        self.add_action(window, "NewFile", "New _File",
-                        lambda w: None)
+        logger.debug("Starting add_ui for new_file extension")
+        uimanager = window.get_uimanager()
+        if uimanager is None:
+            logger.error("UIManager is missing in KeepNoteWindow")
+            self.app.error("Cannot access main_menu_bar; extension UI setup failed")
+            return
+        logger.debug("UIManager: %s", uimanager)
 
-        # Access the menu bar via Gtk.Builder
+        # Log available actions
+        action_groups = uimanager.get_action_groups()
+        for group in action_groups:
+            logger.debug("Action group %s: %s", group.get_name(), [a.get_name() for a in group.list_actions()])
+
+        # Create action group for this window
+        action_group = Gtk.ActionGroup(name=f"NewFile_{id(window)}")
+        self._action_groups[window] = action_group
+        uimanager.insert_action_group(action_group, 0)
+        logger.debug("Inserted action group: NewFile_%s", id(window))
+
+        # Add a single test action
+        action = Gtk.Action(
+            name="TestNewFile",
+            label="Test New File",
+            tooltip="Test new file action",
+            stock_id=None
+        )
+        action.connect("activate", lambda w: logger.debug("Test New File clicked"))
+        action_group.add_action(action)
+
+        # Minimal UI XML
+        ui_xml = """
+        <ui>
+          <menubar name="main_menu_bar">
+            <menu action="File">
+              <menuitem action="TestNewFile"/>
+            </menu>
+          </menubar>
+        </ui>
+        """
         try:
-            menu_bar = window.builder.get_object("main_menu_bar")
-            if menu_bar is None:
-                raise AttributeError("Could not find 'main_menu_bar' in Glade file")
-        except AttributeError:
-            # Fallback if builder is not directly accessible
-            # self.app.error("Cannot access main_menu_bar; extension UI setup failed")
-            print("Cannot access main_menu_bar; extension UI setup failed")
+            uimanager.add_ui_from_string(ui_xml)
+            logger.debug("Added TestNewFile menu item to File menu")
+        except Exception as e:
+            logger.error("Failed to add TestNewFile UI: %s", e)
+            self.app.error("Cannot access main_menu_bar; extension UI setup failed")
             return
 
-        file_menu = None
-        for item in menu_bar.get_children():
-            if item.get_label() == "_File":
-                file_menu = item
-                break
 
-        if file_menu:
-            new_menu = None
-            for item in file_menu.get_submenu().get_children():
-                if item.get_label() == "New":
-                    new_menu = item.get_submenu()
-                    break
-            if not new_menu:
-                new_menu = Gtk.Menu()
-                new_item = Gtk.MenuItem(label="New")
-                new_item.set_submenu(new_menu)
-                file_menu.get_submenu().append(new_item)
+    def set_new_file_menu(self, window):
+        """Set the new file submenu using UIManager"""
+        uimanager = window.get_uimanager()
+        if uimanager is None:
+            logger.error("UIManager is missing in KeepNoteWindow")
+            self.app.error("Cannot access main_menu_bar; menu update failed")
+            return
 
-            new_file_item = Gtk.MenuItem(label="New _File")
-            new_file_item.show()
-            new_menu.append(new_file_item)
-            self.set_new_file_menu(window, new_file_item)
+        action_group = self._action_groups.get(window)
+        if action_group is None:
+            logger.error("Action group missing for window")
+            self.app.error("Cannot access main_menu_bar; menu update failed")
+            return
 
+        # Clear existing actions (except the menu action)
+        for action in action_group.list_actions():
+            if action.get_name() != "NewFileMenu":
+                action_group.remove_action(action)
+
+        # Add actions for each file type
+        for i, file_type in enumerate(self._file_types):
+            action_name = f"NewFileType_{i}"
+            action = Gtk.Action(
+                name=action_name,
+                label=f"New {file_type.name}",
+                tooltip=f"Create a new {file_type.name}",
+                stock_id=None
+            )
+            action.connect("activate", lambda w, ft=file_type: self.on_new_file(window, ft))
+            action_group.add_action(action)
+
+        # Add action for "Add New File Type"
+        action = Gtk.Action(
+            name="AddNewFileType",
+            label="Add New File Type",
+            tooltip="Add a new file type",
+            stock_id=None
+        )
+        action.connect("activate", lambda w: self.on_new_file_type(window))
+        action_group.add_action(action)
+
+        # Add UI for file types and separator
+        ui_xml = """
+        <ui>
+          <menubar name="main_menu_bar">
+            <menu action="File">
+              <menu action="New">
+                <menu action="NewFileMenu">
+        """
+        for i in range(len(self._file_types)):
+            ui_xml += f'        <menuitem action="NewFileType_{i}"/>'
+        ui_xml += """
+                  <separator/>
+                  <menuitem action="AddNewFileType"/>
+                </menu>
+              </menu>
+            </menu>
+          </menubar>
+        </ui>
+        """
+        try:
+            uimanager.add_ui_from_string(ui_xml)
+            logger.debug("Updated NewFileMenu with file types")
+        except Exception as e:
+            logger.error("Failed to update NewFileMenu UI: %s", e)
+            self.app.error("Cannot access main_menu_bar; menu update failed")
     #=================================
     # Options UI setup
 
     def on_add_options_ui(self, dialog):
         dialog.add_section(NewFileSection("new_file", dialog, self._app, self), "extensions")
 
+    def on_remove_ui(self, window):
+        """Clean up UI when window is closed"""
+        if window in self._action_groups:
+            uimanager = window.get_uimanager()
+            if uimanager:
+                uimanager.remove_action_group(self._action_groups[window])
+                logger.debug("Removed action group for window: %s", id(window))
+            del self._action_groups[window]
     def on_remove_options_ui(self, dialog):
         dialog.remove_section("new_file")
 

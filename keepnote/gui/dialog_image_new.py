@@ -28,7 +28,8 @@ class NewImageDialog:
                 Gtk.STOCK_OK, Gtk.ResponseType.ACCEPT
             )
         )
-
+        print("[LOG] Created Gtk.Dialog at dialog_image_new.py:22")
+        print("[LOG] Initial dialog children:", dialog.get_children())
         # Create a grid (replacing gtk.Table)
         grid = Gtk.Grid()
         grid.set_row_spacing(6)

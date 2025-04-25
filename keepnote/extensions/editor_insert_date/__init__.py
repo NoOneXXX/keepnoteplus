@@ -165,6 +165,8 @@ class EditorInsertDateSection(Section):
             buttons=Gtk.ButtonsType.OK,
             text="Date Format Examples"
         )
+        print("[LOG] Created Gtk.Dialog at editor_insert_date/__init__.py:163")
+        print("[LOG] Initial dialog children:", dialog.get_children())
         dialog.format_secondary_text(
             "Use the following codes in the date format:\n"
             "%Y - Year (e.g., 2025)\n"

@@ -69,7 +69,9 @@ class PythonDialog:
 
         # Vertical paned layout
         self.vpaned = Gtk.Paned(orientation=Gtk.Orientation.VERTICAL)
+        print("[DEBUG] Dialog children before add:", self.dialog.get_children())
         self.dialog.add(self.vpaned)
+        print("[DEBUG] Dialog children after add:", self.dialog.get_children())
         self.vpaned.set_position(200)
 
         # Editor buffer

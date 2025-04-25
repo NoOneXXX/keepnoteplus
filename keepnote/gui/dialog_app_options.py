@@ -231,6 +231,13 @@ class LanguageSection(Section):
         w = self.get_default_widget()
         v = Gtk.VBox(spacing=5)
         v.show()
+        # BEFORE line 234
+        print(f"[DEBUG]234 Adding widget to: {w}, type: {type(w)}, parent: {w.get_parent()}, children: {[child.__class__.__name__ for child in w.get_children()]}")
+
+
+        # line 234
+        w.add(v)
+
         w.add(v)
 
         h = Gtk.HBox(spacing=5)
@@ -271,6 +278,12 @@ class HelperAppsSection(Section):
         w = self.get_default_widget()
         self.table = Gtk.Grid()
         self.table.show()
+        # BEFORE line 274
+        print(
+            f"[DEBUG]274 Adding widget to: {w}, type: {type(w)}, parent: {w.get_parent()}, children: {[child.__class__.__name__ for child in w.get_children()]}")
+
+
+        # line 274
         w.add(self.table)
 
         try:
@@ -352,6 +365,11 @@ class EditorSection(Section):
         w = self.get_default_widget()
         v = Gtk.VBox(spacing=5)
         v.show()
+        # BEFORE line 355
+        print(f"[DEBUG]355 Adding widget to: {w}, type: {type(w)}, parent: {w.get_parent()}, children: {[child.__class__.__name__ for child in w.get_children()]}")
+
+
+        # line 355
         w.add(v)
 
         h = Gtk.HBox(spacing=5)
@@ -384,7 +402,13 @@ class AllNoteBooksSection(Section):
         w = self.get_default_widget()
         l = Gtk.Label(label=_("This section contains options that are saved on a per notebook basis (e.g. notebook-specific font). A subsection will appear for each notebook that is currently opened."))
         l.set_line_wrap(True)
+        # BEFORE line 387
+        print(f"[DEBUG]387 Adding widget to: {w}, type: {type(w)}, parent: {w.get_parent()}, children: {[child.__class__.__name__ for child in w.get_children()]}")
+
+
+        # line 387
         w.add(l)
+
         w.show_all()
 
 class NoteBookSection(Section):
@@ -550,7 +574,13 @@ class ExtensionWidget(Gtk.EventBox):
         frame = Gtk.Frame()
         frame.set_shadow_type(Gtk.ShadowType.OUT)
         frame.show()
-        self.add(frame)
+        # BEFORE line 553
+        print("[LOG] Before pack_start: content_area children =",
+              [type(c).__name__ for c in self.get_content_area().get_children()])
+        # line 553 (已修改后应该是)
+        self.get_content_area().pack_start(frame, True, True, 0)
+        print("[LOG] After pack_start: content_area children =",
+              [type(c).__name__ for c in self.get_content_area().get_children()])
 
         frame2 = Gtk.Frame(label=f"<b>{ext.name}</b> ({ext.type}/{ext.key})")
         frame2.get_label_widget().set_use_markup(True)
@@ -669,14 +699,23 @@ class ApplicationOptionsDialog:
         column.add_attribute(cell_text, "text", 0)
 
         self.add_default_sections()
-        print("Dialog children after sections:", [child.get_name() for child in self.dialog.get_children()])
+
+        print("Dialog content_area children after sections:", [type(child).__name__ for child in self.dialog.get_content_area().get_children()])
+
 
     def add_section(self, section, parent=None):
+        """Add a section widget to the dialog."""
+        import traceback
+        print("[LOG] Called add_section()")
+        traceback.print_stack(limit=4)
+        print(f"[LOG] Parent type: {type(parent)}, Section type: {type(section)}")
         if section.frame is None:
-            print(f"Warning: Section '{section.key}' has no frame; skipping")
+            print(f"[DEBUG][add_section] section.frame: {section.frame}, parent: {section.frame.get_parent()}")
             return None
 
         size = (15, 15)
+        children = self.get_children()
+        print(f"[LOG] BEFORE add: Dialog children = {[type(c).__name__ for c in children]}")
         if parent:
             path = self.get_section_path(parent)
             it = self.overview_store.get_iter(path)
@@ -696,7 +735,9 @@ class ApplicationOptionsDialog:
         it = self.overview_store.append(it, [section.label, section, pixbuf])
         path = self.overview_store.get_path(it)
         self.overview.expand_to_path(path)
+        children = self.get_children()
 
+        print(f"[LOG] AFTER add: Dialog children = {[type(c).__name__ for c in children]}")
         return section
 
     def add_default_sections(self):
