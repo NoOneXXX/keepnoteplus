@@ -1,6 +1,8 @@
 # Python 3 and PyGObject imports
 import os
 import gi
+from gi.overrides import GLib
+
 gi.require_version('Gtk', '3.0')  # Specify GTK 3.0
 from gi.repository import Gtk, Gdk, GdkPixbuf
 import keepnote
@@ -248,8 +250,6 @@ class LanguageSection(Section):
 
 
         # line 234
-        w.add(v)
-
         w.add(v)
 
         h = Gtk.HBox(spacing=5)
@@ -731,7 +731,14 @@ class ApplicationOptionsDialog:
         self.add_default_sections()
 
         print("Dialog content_area children after sections:", [type(child).__name__ for child in self.dialog.get_content_area().get_children()])
+        # 加监测
+        GLib.timeout_add(500, self.monitor_dialog_content_area )
 
+    def monitor_dialog_content_area(self):
+        children = self.dialog.get_content_area().get_children()
+        if len(children) > 1:
+            print(f"[ERROR] Dialog content_area has {len(children)} children: {[type(c).__name__ for c in children]}")
+        return True
 
     def add_section(self, section, parent=None):
         print(
