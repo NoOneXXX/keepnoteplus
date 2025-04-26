@@ -73,6 +73,12 @@ class GeneralSection(Section):
         self.xml.add_from_file(get_resource("rc", "keepnote.glade"))
         self.xml.set_translation_domain(keepnote.GETTEXT_DOMAIN)
         self.frame = self.xml.get_object("general_frame")
+        if self.frame is not None:
+            parent = self.frame.get_parent()
+            if parent is not None:
+                print("[DEBUG] GeneralSection: Detaching frame from previous parent")
+                parent.remove(self.frame)
+
         # Manual signal connections
         default_notebook_button = self.xml.get_object("default_notebook_button")
         default_notebook_button.connect("clicked", self.on_default_notebook_button_clicked)
@@ -230,6 +236,12 @@ class LanguageSection(Section):
         super().__init__(key, dialog, app, label, icon)
         w = self.get_default_widget()
         v = Gtk.VBox(spacing=5)
+        if v is not None:
+            parent = v.get_parent()
+            if parent is not None:
+                print("[DEBUG] LanguageSection: Detaching frame from previous parent")
+                parent.remove(v)
+
         v.show()
         # BEFORE line 234
         print(f"[DEBUG]234 Adding widget to: {w}, type: {type(w)}, parent: {w.get_parent()}, children: {[child.__class__.__name__ for child in w.get_children()]}")
@@ -277,6 +289,12 @@ class HelperAppsSection(Section):
         self.entries = {}
         w = self.get_default_widget()
         self.table = Gtk.Grid()
+        if self.table is not None:
+            parent = self.table.get_parent()
+            if parent is not None:
+                print("[DEBUG] HelperAppsSection: Detaching frame from previous parent")
+                parent.remove(self.table)
+
         self.table.show()
         # BEFORE line 274
         print(
@@ -341,6 +359,11 @@ class DatesSection(Section):
             print(f"Failed to load GLADE file for DatesSection: {e}")
 
         self.frame = self.xml.get_object("dates_frame")
+        if self.frame is not None:
+            parent = self.frame.get_parent()
+            if parent is not None:
+                print("[DEBUG] DatesSection: Detaching frame from previous parent")
+                parent.remove(self.frame)
         if self.frame is None:
             print("Error: 'dates_frame' not found in GLADE file")
             self.frame = Gtk.Frame(label=f"<b>{label}</b>")  # Fallback
@@ -421,6 +444,12 @@ class NoteBookSection(Section):
         self.notebook_xml.add_from_file(get_resource("rc", "keepnote.glade"))
         self.notebook_xml.set_translation_domain(keepnote.GETTEXT_DOMAIN)
         self.frame = self.notebook_xml.get_object("notebook_frame")
+        if self.frame is not None:
+            parent = self.frame.get_parent()
+            if parent is not None:
+                print("[DEBUG] NoteBookSection: Detaching frame from previous parent")
+                parent.remove(self.frame)
+
         self.notebook_xml.connect_signals(self)
 
         notebook_font_spot = self.notebook_xml.get_object("notebook_font_spot")
@@ -654,6 +683,7 @@ class ApplicationOptionsDialog:
         self.xml.set_translation_domain(keepnote.GETTEXT_DOMAIN)
 
         self.dialog = self.xml.get_object("app_options_dialog")
+        print("[DEBUG] After loading dialog: children =", [c.get_name() for c in self.dialog.get_children()])
         if self.dialog is None:
             raise ValueError("Could not find 'app_options_dialog' in keepnote.glade")
         self.dialog.connect("delete-event", self._on_delete_event)
@@ -704,6 +734,8 @@ class ApplicationOptionsDialog:
 
 
     def add_section(self, section, parent=None):
+        print(
+            f"[DEBUG] add_section: BEFORE insert_page, content_area children = {[type(c).__name__ for c in self.dialog.get_content_area().get_children()]}")
         """Add a section widget to the dialog."""
         import traceback
         print("[LOG] Called add_section()")
@@ -725,6 +757,7 @@ class ApplicationOptionsDialog:
         self._sections.append(section)
         self.tabs.insert_page(section.frame, None, -1)
         section.frame.show()
+
         section.frame.queue_resize()
 
         icon = section.icon
@@ -741,6 +774,9 @@ class ApplicationOptionsDialog:
         return section
 
     def add_default_sections(self):
+        print("[DEBUG] Before add_default_sections: dialog content_area children =",
+              [type(c).__name__ for c in self.dialog.get_content_area().get_children()])
+
         self.add_section(GeneralSection("general", self.dialog, self.app, keepnote.PROGRAM_NAME))
         self.add_section(LookAndFeelSection("look_and_feel", self.dialog, self.app, _("Look and Feel")), "general")
         self.add_section(LanguageSection("language", self.dialog, self.app, _("Language")), "general")
@@ -750,7 +786,8 @@ class ApplicationOptionsDialog:
         self.add_section(AllNoteBooksSection("notebooks", self.dialog, self.app, _("Notebook Options"), "folder.png"))
         self.add_section(ExtensionsSection("extensions", self.dialog, self.app, _("Extensions")))
         # Debug: Check dialog children after adding sections
-        print("Dialog children after sections:", [child.get_name() for child in self.dialog.get_children()])
+        print("[DEBUG] After add_default_sections: dialog content_area children =", [type(c).__name__ for c in self.dialog.get_content_area().get_children()])
+
     def load_options(self, app):
         for section in self._sections:
             section.load_options(app)
@@ -776,6 +813,9 @@ class ApplicationOptionsDialog:
         # Corrected to use 3 arguments: child, tab_label, position
         self.tabs.insert_page(section.frame, None, -1)
         section.frame.show()
+        print(
+            f"[DEBUG] add_section: AFTER insert_page, content_area children = {[type(c).__name__ for c in self.dialog.get_content_area().get_children()]}")
+
         section.frame.queue_resize()
 
         icon = section.icon

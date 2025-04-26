@@ -9,7 +9,12 @@ import optparse
 import threading
 import traceback
 import logging
-logging.basicConfig(level=logging.DEBUG)
+
+logging.basicConfig(
+    level=logging.DEBUG,
+    format='%(asctime)s %(filename)s:%(lineno)d [%(levelname)s] %(message)s',
+)
+
 
 # =============================================================================
 # KeepNote import

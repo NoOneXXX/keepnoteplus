@@ -1,5 +1,5 @@
-<?xml version="1.0" encoding="UTF-8"?>
-<!-- Generated with Glade 3.22 or compatible -->
+<?xml version='1.0' encoding='utf-8'?>
+
 <interface>
   <requires lib="gtk+" version="3.0"/>
 
@@ -141,7 +141,10 @@
     <property name="title" translatable="yes">KeepNote Options</property>
     <property name="type-hint">dialog</property>
     <property name="transient-for">main_window</property>
-    <child>
+    <child><object class="GtkBox" id="app_options_dialog_box"><property name="orientation">vertical</property><property name="spacing">12</property><child>
+
+
+
       <object class="GtkBox" id="dialog_vbox">
         <property name="visible">True</property>
         <property name="can-focus">False</property>
@@ -291,7 +294,7 @@
         </child>
       </object>
     </child>
-  </object>
+  </object></child></object>
 
   <!-- General Section Frame -->
   <object class="GtkFrame" id="general_frame">
@@ -798,7 +801,7 @@
     <property name="title" translatable="yes">Please Wait</property>
     <property name="type-hint">dialog</property>
     <property name="transient-for">main_window</property>
-    <child>
+    <child><object class="GtkBox" id="wait_dialog_box"><property name="orientation">vertical</property><property name="spacing">12</property><child>
       <object class="GtkBox" id="wait_vbox">
         <property name="visible">True</property>
         <property name="can-focus">False</property>
@@ -866,5 +869,5 @@
         </child>
       </object>
     </child>
-  </object>
+  </object></child></object>
 </interface>

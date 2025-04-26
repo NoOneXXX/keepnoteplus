@@ -387,7 +387,14 @@ class NewFileSection(dialog_app_options.Section):
 
         # Setup UI
         w = self.get_default_widget()
+        logger.debug("[390] NewFileSection: default widget: %s, parent: %s", w, w.get_parent())
+        # 防止已有子控件导致崩溃
+        if w.get_children():
+            logger.debug("[393] NewFileSection: clearing existing children from default widget")
+            for child in w.get_children():
+                w.remove(child)
         h = Gtk.HBox(spacing=5)
+        logger.debug("[397] NewFileSection: created main HBox: %s", h)
         w.add(h)
 
         # Left column (file type list)

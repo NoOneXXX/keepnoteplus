@@ -45,6 +45,7 @@ class KeepNoteFindDialog:
         self.find_xml.add_from_file(get_resource("rc", "keepnote.glade"))
         self.find_xml.set_translation_domain(keepnote.GETTEXT_DOMAIN)
         self.find_dialog = self.find_xml.get_object("find_dialog")
+        print("[DEBUG] find_dialog content_area children:", self.find_dialog.get_children())
         self.find_dialog.connect("delete-event", lambda w, e: self.on_find_response("close"))
 
         # Connect signals
@@ -70,6 +71,7 @@ class KeepNoteFindDialog:
         self.find_xml.get_object("replace_all_button").set_sensitive(replace)
 
         self.find_dialog.show()
+        print("[DEBUG] find_dialog shown, children after show:", self.find_dialog.get_children())
         # Position the dialog relative to the editor's top-level window
         parent_pos = self.editor.get_toplevel().get_position()
         self.find_dialog.move(parent_pos[0], parent_pos[1])

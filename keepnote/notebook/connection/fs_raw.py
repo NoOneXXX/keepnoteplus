@@ -6,27 +6,11 @@
 
 """
 
-#
-#  KeepNote
-#  Copyright (c) 2008-2011 Matt Rasmussen
-#  Author: Matt Rasmussen <rasmus@alum.mit.edu>
-#
-# This program is free software; you can redistribute it and/or modify
-# it under the terms of the GNU General Public License as published by
-# the Free Software Foundation; version 2 of the License.
-#
-# This program is distributed in the hope that it will be useful,
-# but WITHOUT ANY WARRANTY; without even the implied warranty of
-# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-# GNU General Public License for more details.
-#
-# You should have received a copy of the GNU General Public License
-# along with this program; if not, write to the Free Software
-# Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301, USA.
-#
 
 # python imports
 import logging
+logging.basicConfig(level=logging.INFO)
+
 import os
 import shutil
 import re
@@ -230,10 +214,32 @@ class NodeFS(NodeFSStandard):
                  alt_tablename='alt_nodes'):
         super(NodeFS, self).__init__(rootpath, others=others)
         self._indexfile = os.path.join(self._rootpath, index)
-        self._index = sqlitedict.open(self._indexfile, tablename,
-                                      flag='c', autocommit=True)
-        self._index_alt = sqlitedict.open(self._indexfile, alt_tablename,
-                                          flag='c')
+        if not os.path.exists(self._indexfile):
+            logging.error(f"Index file does not exist: {self._indexfile}")
+        else:
+            logging.info(f"Index file exists: {self._indexfile}")
+        logging.info(f"Opening main index file: {self._indexfile}, tablename: {tablename}")
+        import traceback
+        import traceback
+
+        logging.info(f"Opening main index file: {self._indexfile}, tablename: {tablename}")
+        logging.info(f"Checking if index file exists: {os.path.exists(self._indexfile)}")
+        try:
+            self._index = sqlitedict.open(self._indexfile, tablename,
+                                          flag='c', autocommit=True)
+        except Exception as e:
+            logging.error(f"Failed opening main index file: {self._indexfile}, Error: {e}")
+            traceback.print_exc()
+            raise
+
+        logging.info(f"Opening alternate index file: {self._indexfile}, tablename: {alt_tablename}")
+        try:
+            self._index_alt = sqlitedict.open(self._indexfile, alt_tablename,
+                                              flag='c')
+        except Exception as e:
+            logging.error(f"Failed opening alternate index file: {self._indexfile}, Error: {e}")
+            traceback.print_exc()
+            raise
 
     def _is_nonstandard(self, nodeid):
         """Return True if nodeid requires special indexing."""
@@ -347,7 +353,9 @@ class NoteBookConnectionFSRaw (NoteBookConnection):
         self._rootpath = url
         if not os.path.exists(url):
             self._create_rootdir(url)
+
         self._nodefs = NodeFS(self._rootpath)
+        logging.info(f"Connected to notebook root path: {self._rootpath}")
 
     def close(self):
         """Close connection."""
